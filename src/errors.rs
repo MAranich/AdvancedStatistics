@@ -1,11 +1,9 @@
-use thiserror::Error; 
+use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum AdvStatError { 
+pub enum AdvStatError {
     #[error("Unknown error")]
-    Unknown, 
+    Unknown,
     #[error("A function was evaluated outside it's domain. ")]
-    DomainErr, 
-
+    DomainErr,
 }
-
