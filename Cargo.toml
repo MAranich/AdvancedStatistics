@@ -1,7 +1,27 @@
 [package]
 name = "AdvancedStatistics"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+
+# Versions of most rust libraries use [SemVer](https://semver.org/): {major}.{minor}.{patch}
+# We also DO follow SemVer
+
+# https://crates.io/crates/rand     https://docs.rs/rand/0.8.5/rand/
+# We need rand to generate random numbers
+rand = "^0.8"
+
+# https://crates.io/crates/bon      https://docs.rs/bon/3.0.0/bon/
+# We need bon to automatically generate builders for functions (and maybe structs)
+bon = "^3"
+
+# https://crates.io/crates/thiserror        https://docs.rs/thiserror/latest/thiserror/
+# We need thiserror for better error handling
+thiserror = "^2.0"
+
+# https://crates.io/crates/serde        https://docs.rs/serde/1.0.215/serde/
+# We need serde for compatability
+serde = "^1.0"
+
 
