@@ -83,7 +83,7 @@ pub enum MixedDomain {
     /// The points contained in **all** of the domains
     Disjunction(Box<Vec<Domain>>),
     /// The points that do **not** belong to the domain
-    Not(Box<Domain>),
+    Not(Box<DomainType>),
 }
 /// Todo implement Debug for MixedDomain, Domain and DomainType
 
@@ -188,7 +188,7 @@ impl Domain {
 
     /// Joins the 2 given domains into a new one.
     pub fn join_domains(mut self, mut other: Self) -> Self {
-        // If some of the 2 domains is already a mixed domain of the join variant,
+        // If some of the 2 domains is already a mixed domain of the Union variant,
         // we can simplify things
 
         let mut self_is_union: bool = false;
@@ -196,46 +196,52 @@ impl Domain {
 
         match (&self.domain, &other.domain) {
             (DomainType::Mixed(mixed_domain_1), DomainType::Mixed(mixed_domain_2)) => {
-                match mixed_domain_1 {
-                    MixedDomain::Union(_) => {
-                        self_is_union = true;
-                        //vec.push(other);
-                        //return other;
-                    }
-                    _ => {}
+                if let MixedDomain::Union(_) = mixed_domain_1 {
+                    self_is_union = true;
                 }
 
-                match mixed_domain_2 {
-                    MixedDomain::Union(_) => {
-                        other_is_union = true;
-                        // vec.push(self);
-                        // return self;
-                    }
-                    _ => {}
+                if let MixedDomain::Union(_) = mixed_domain_2 {
+                    other_is_union = true;
                 }
             }
-            (_, DomainType::Mixed(mixed_domain)) => match mixed_domain {
-                MixedDomain::Union(_) => {
+            (_, DomainType::Mixed(mixed_domain)) => {
+                if let MixedDomain::Union(_) = mixed_domain {
                     other_is_union = true;
-                    //vec.push(self);
-                    //return other;
                 }
-                _ => {}
-            },
-            (DomainType::Mixed(mixed_domain), _) => match mixed_domain {
-                MixedDomain::Union(_) => {
+            }
+            (DomainType::Mixed(mixed_domain), _) => {
+                if let MixedDomain::Union(_) = mixed_domain {
                     self_is_union = true;
-                    // vec.push(other);
-                    // return self;
                 }
-                _ => {}
-            },
+            }
 
             _ => {}
         }
 
         match (self_is_union, other_is_union) {
-            (true, true) => todo!("Add code to join tha unions into 1"),
+            (true, true) => {
+                if let DomainType::Mixed(mixed_domain) = &mut self.domain {
+                    if let MixedDomain::Union(vec) = mixed_domain {
+                        if let DomainType::Mixed(other_mixed_domain) = &mut other.domain {
+                            if let MixedDomain::Union(other_vec) = other_mixed_domain {
+                                vec.append(other_vec);
+                            } else {
+                                unreachable!(
+                                    "if other_is_union is true, this should be unreachable"
+                                )
+                            }
+                        } else {
+                            unreachable!("if other_is_union is true, this should be unreachable")
+                        }
+                    } else {
+                        unreachable!("If self_is_union is true, this should be unreachable")
+                    }
+                } else {
+                    unreachable!("If self_is_union is true, this should be unreachable")
+                }
+
+                return self;
+            }
             (true, false) => {
                 if let DomainType::Mixed(mixed_domain) = &mut self.domain {
                     if let MixedDomain::Union(vec) = mixed_domain {
@@ -254,10 +260,10 @@ impl Domain {
                     if let MixedDomain::Union(vec) = mixed_domain {
                         vec.push(self);
                     } else {
-                        unreachable!("if self_is_union is true, this should be unreachable")
+                        unreachable!("if other_is_union is true, this should be unreachable")
                     }
                 } else {
-                    unreachable!("if self_is_union is true, this should be unreachable")
+                    unreachable!("if other_is_union is true, this should be unreachable")
                 }
 
                 return other;
@@ -279,14 +285,104 @@ impl Domain {
     ///
     /// The counterpart of [Domain::join_domains]
     pub fn intersection_of_domains(mut self, mut other: Self) -> Self {
-        todo!("Implement")
+        // If some of the 2 domains is already a mixed domain of the Disjunction variant,
+        // we can simplify things
+
+        let mut self_is_intersection: bool = false;
+        let mut other_is_intersection: bool = false;
+
+        match (&self.domain, &other.domain) {
+            (DomainType::Mixed(mixed_domain_1), DomainType::Mixed(mixed_domain_2)) => {
+                if let MixedDomain::Disjunction(_) = mixed_domain_1 {
+                    self_is_intersection = true;
+                }
+
+                if let MixedDomain::Disjunction(_) = mixed_domain_2 {
+                    other_is_intersection = true;
+                }
+            }
+            (_, DomainType::Mixed(mixed_domain)) => {
+                if let MixedDomain::Disjunction(_) = mixed_domain {
+                    other_is_intersection = true;
+                }
+            }
+            (DomainType::Mixed(mixed_domain), _) => {
+                if let MixedDomain::Disjunction(_) = mixed_domain {
+                    self_is_intersection = true;
+                }
+            }
+            _ => {}
+        }
+
+        match (self_is_intersection, other_is_intersection) {
+            (true, true) => {
+                if let DomainType::Mixed(mixed_domain) = &mut self.domain {
+                    if let MixedDomain::Disjunction(vec) = mixed_domain {
+                        if let DomainType::Mixed(other_mixed_domain) = &mut other.domain {
+                            if let MixedDomain::Disjunction(other_vec) = other_mixed_domain {
+                                vec.append(other_vec);
+                            } else {
+                                unreachable!(
+                                    "if other_is_intersection is true, this should be unreachable"
+                                )
+                            }
+                        } else {
+                            unreachable!("if other_is_intersection is true, this should be unreachable")
+                        }
+                    } else {
+                        unreachable!("If self_is_intersection is true, this should be unreachable")
+                    }
+                } else {
+                    unreachable!("If self_is_intersection is true, this should be unreachable")
+                }
+
+                return self;
+            }
+            (true, false) => {
+                if let DomainType::Mixed(mixed_domain) = &mut self.domain {
+                    if let MixedDomain::Disjunction(vec) = mixed_domain {
+                        vec.push(other);
+                    } else {
+                        unreachable!("if self_is_intersection is true, this should be unreachable")
+                    }
+                } else {
+                    unreachable!("if self_is_intersection is true, this should be unreachable")
+                }
+
+                return self;
+            }
+            (false, true) => {
+                if let DomainType::Mixed(mixed_domain) = &mut other.domain {
+                    if let MixedDomain::Disjunction(vec) = mixed_domain {
+                        vec.push(self);
+                    } else {
+                        unreachable!("if other_is_intersection is true, this should be unreachable")
+                    }
+                } else {
+                    unreachable!("if other_is_intersection is true, this should be unreachable")
+                }
+
+                return other;
+            }
+            (false, false) => {}
+        }
+
+        // If neither of the 2 domains is a mixed domain of the Disjunction variant,
+        // just create a new muxed union domain.
+
+        let domain_type: DomainType =
+            DomainType::Mixed(MixedDomain::Disjunction(Box::new(vec![self, other])));
+        Domain {
+            domain: domain_type,
+        }
     }
 
     /// Transforms the [Domain] to it's complement. All previously accepted
     /// values are now rejected and all previously rejected values are now
     /// accepted.
     pub fn inverse_domain(self) -> Self {
-        let double_negation = if let DomainType::Mixed(mixed_domain) = &self.domain {
+        // First we will check if it is a double negation
+        let double_negation: bool = if let DomainType::Mixed(mixed_domain) = &self.domain {
             if let MixedDomain::Not(_) = mixed_domain {
                 true
             } else {
@@ -296,8 +392,111 @@ impl Domain {
             false
         };
 
-        if double_negation {}
+        if double_negation {
+            //Here we do it again but taking the value
+            if let DomainType::Mixed(mixed_domain) = self.domain {
+                if let MixedDomain::Not(inner_domain) = mixed_domain {
+                    return Domain {
+                        domain: *inner_domain,
+                    };
+                } else {
+                    unreachable!();
+                }
+            } else {
+                unreachable!();
+            }
+        }
 
-        todo!()
+        // not double negation
+
+        let negated_domain: DomainType = DomainType::Mixed(MixedDomain::Not(Box::new(self.domain)));
+
+        return Domain {
+            domain: negated_domain,
+        };
+    }
+
+    /// Determines if a [Domain] contains a value or not.
+    pub fn contains(&self, x: f64) -> bool {
+        if x.is_infinite() || x.is_nan() {
+            return false;
+        }
+
+        match &self.domain {
+            DomainType::Discrete(discrete_domain) => match discrete_domain {
+                DiscreteDomain::Integers => x.fract() == 0.0,
+                DiscreteDomain::Positive(include_zero) => {
+                    x.fract() == 0.0 && ((0.0 < x && !*include_zero) || (0.0 <= x && *include_zero))
+                }
+                DiscreteDomain::Negative(include_zero) => {
+                    x.fract() == 0.0 && ((x < 0.0 && !*include_zero) || (x <= 0.0 && *include_zero))
+                }
+                DiscreteDomain::Range(min, max) => {
+                    x.fract() == 0.0 && *min as f64 <= x && x <= *max as f64
+                }
+                DiscreteDomain::From(min) => x.fract() == 0.0 && *min as f64 <= x,
+                DiscreteDomain::To(max) => x.fract() == 0.0 && x <= *max as f64,
+                DiscreteDomain::Custom(vec) => vec.iter().find(|&y| x == *y).is_some(),
+            },
+            DomainType::Continuous(continuous_domain) => match continuous_domain {
+                ContinuousDomain::Reals => true,
+                ContinuousDomain::Positive(include_zero) => {
+                    (*include_zero && 0.0 <= x) || (!*include_zero && 0.0 < x)
+                }
+                ContinuousDomain::Negative(include_zero) => {
+                    (*include_zero && x <= 0.0) || (!*include_zero && x < 0.0)
+                }
+                ContinuousDomain::Range(min, max) => *min <= x && x <= *max,
+            },
+            DomainType::Mixed(mixed_domain) => match mixed_domain {
+                MixedDomain::Union(vec) => vec.iter().any(|domain| domain.contains(x)),
+                MixedDomain::Disjunction(vec) => vec.iter().all(|domain| domain.contains(x)),
+                MixedDomain::Not(domain_type) => {
+                    let wrapper: Domain = Domain {
+                        domain: *domain_type.clone(),
+                    };
+                    !wrapper.contains(x)
+                }
+            },
+        }
+    }
+
+    /// Determines if a point is contained inside the [Domain] in a continuous region.
+    ///
+    /// The reason to use this instead of [Domain::contains] is that if you are integrating
+    /// in a domain you do not want to count any discrete point the [Domain] may have.
+    pub fn contains_continuous(&self, x: f64) -> bool {
+        if x.is_infinite() || x.is_nan() {
+            return false;
+        }
+
+        match &self.domain {
+            DomainType::Discrete(discrete_domain) => match discrete_domain {
+                DiscreteDomain::Integers => x.fract() == 0.0,
+                DiscreteDomain::Positive(include_zero) => {
+                    x.fract() == 0.0 && ((0.0 < x && !*include_zero) || (0.0 <= x && *include_zero))
+                }
+                DiscreteDomain::Negative(include_zero) => {
+                    x.fract() == 0.0 && ((x < 0.0 && !*include_zero) || (x <= 0.0 && *include_zero))
+                }
+                DiscreteDomain::Range(min, max) => {
+                    x.fract() == 0.0 && *min as f64 <= x && x <= *max as f64
+                }
+                DiscreteDomain::From(min) => x.fract() == 0.0 && *min as f64 <= x,
+                DiscreteDomain::To(max) => x.fract() == 0.0 && x <= *max as f64,
+                DiscreteDomain::Custom(vec) => vec.iter().find(|&y| x == *y).is_some(),
+            },
+            DomainType::Continuous(_) => false,
+            DomainType::Mixed(mixed_domain) => match mixed_domain {
+                MixedDomain::Union(vec) => vec.iter().any(|domain| domain.contains(x)),
+                MixedDomain::Disjunction(vec) => vec.iter().all(|domain| domain.contains(x)),
+                MixedDomain::Not(domain_type) => {
+                    let wrapper: Domain = Domain {
+                        domain: *domain_type.clone(),
+                    };
+                    !wrapper.contains(x)
+                }
+            },
+        }
     }
 }
