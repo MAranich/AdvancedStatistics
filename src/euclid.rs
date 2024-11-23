@@ -66,6 +66,8 @@ pub enum ContinuousDomain {
     /// All real numbers
     #[default]
     Reals,
+    /// All values in `[0, 1]`
+    ZeroOne, 
     /// Only the positive numbers. The bool determines if 0 is included or not.
     Positive(bool),
     /// Only the negative numbers. The bool determines if 0 is included or not.
@@ -129,10 +131,6 @@ impl Domain {
         Domain {
             domain: DomainType::Continuous(ContinuousDomain::Negative(include_zero)),
         }
-    }
-
-    pub const fn is_in_domain(x: f64) -> bool {
-        false
     }
 
     pub const fn new_discrete_integers() -> Self {
@@ -440,6 +438,7 @@ impl Domain {
             },
             DomainType::Continuous(continuous_domain) => match continuous_domain {
                 ContinuousDomain::Reals => true,
+                ContinuousDomain::ZeroOne => 0.0 <= x && x <= 1.0,
                 ContinuousDomain::Positive(include_zero) => {
                     (*include_zero && 0.0 <= x) || (!*include_zero && 0.0 < x)
                 }
