@@ -10,3 +10,5 @@ pub mod euclid;
 
 /// The deafult integration precision is `1/8`.
 pub const DEFAULT_INTEGRATION_PRECISION: f64 = 0.125;
+/// The maximum number of subdivisions of the domains to numerically integrate functions. 1 << 20 = 1 048 576
+pub const DEFAULT_INTEGRATION_MAXIMUM_STEPS: usize = 1 << 20;

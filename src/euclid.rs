@@ -118,24 +118,28 @@ impl Domain {
         }
     }
 
+    /// A [Domain] containing a continuous range of all the values in `[min_inclusive, max_inclusive]`. 
     pub const fn new_real() -> Self {
         Domain {
             domain: DomainType::Continuous(ContinuousDomain::Reals),
         }
     }
 
+    /// A [Domain] containing a continuous range of all the values in `[0, inf)`. 
     pub const fn new_continuous_positives(include_zero: bool) -> Self {
         Domain {
             domain: DomainType::Continuous(ContinuousDomain::Positive(include_zero)),
         }
     }
 
+    /// A [Domain] containing a continuous range of all the values in `(-inf, 0]`. 
     pub const fn new_continuous_negatives(include_zero: bool) -> Self {
         Domain {
             domain: DomainType::Continuous(ContinuousDomain::Negative(include_zero)),
         }
     }
 
+    /// A [Domain] containing a discrete range of all the values in `[-inf, inf]`. 
     pub const fn new_discrete_integers() -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::Integers);
         Domain {
@@ -143,6 +147,7 @@ impl Domain {
         }
     }
 
+    /// A [Domain] containing a discrete range of all the values in `[0, inf)`. 
     pub const fn new_discrete_positives(include_zero: bool) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::Positive(include_zero));
         Domain {
@@ -150,6 +155,7 @@ impl Domain {
         }
     }
 
+    /// A [Domain] containing a discrete range of all the values in `(-inf, 0]`. 
     pub const fn new_discrete_negatives(include_zero: bool) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::Negative(include_zero));
         Domain {
@@ -157,6 +163,7 @@ impl Domain {
         }
     }
 
+    /// A [Domain] containing a discrete range of all the values in `[from_inclusive, inf)`. 
     pub const fn new_discrete_from(from_inclusive: i64) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::From(from_inclusive));
         Domain {
@@ -164,6 +171,7 @@ impl Domain {
         }
     }
 
+    /// A [Domain] containing a discrete range of all the values in `(-inf, to_inclusive]`. 
     pub const fn new_discrete_to(to_inclusive: i64) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::To(to_inclusive));
         Domain {
@@ -171,9 +179,18 @@ impl Domain {
         }
     }
 
+    /// A [Domain] containing a discrete range of all the values in `[min_inclusive, max_inclusive]`. 
     pub const fn new_discrete_range(min_inclusive: i64, max_inclusive: i64) -> Self {
         let domain_type: DomainType =
             DomainType::Discrete(DiscreteDomain::Range(min_inclusive, max_inclusive));
+        Domain {
+            domain: domain_type,
+        }
+    }
+
+    /// A [Domain] containing a continuous range of all the values in `[0, 1]`. 
+    pub const fn new_zero_one() -> Self {
+        let domain_type: DomainType = DomainType::Continuous(ContinuousDomain::ZeroOne);
         Domain {
             domain: domain_type,
         }

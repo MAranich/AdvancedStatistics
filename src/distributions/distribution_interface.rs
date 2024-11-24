@@ -1,6 +1,9 @@
+use std::usize;
+
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::errors::*;
 use crate::euclid::*;
+use crate::{DEFAULT_INTEGRATION_PRECISION, DEFAULT_INTEGRATION_MAXIMUM_STEPS}; 
 
 /// The trait for any continuous distribution.
 pub trait Distribution {
@@ -31,6 +34,50 @@ pub trait Distribution {
         let mut cumulative_probability: f64 = 0.0;
         let treshold: f64 = 0.00001;
         let domain: &Domain = self.get_pdf_domain();
+        let bounds: (f64, f64) = domain.get_bounds(); 
+
+        if x < bounds.0 {
+            return 0.0; 
+        }
+
+        if bounds.1 < x {
+            return 1.0; 
+        }
+
+        match (bounds.0.is_finite(), bounds.1.is_finite()) {
+            (true, true) => {
+                
+                let step_length: f64 = {
+                    let alternative_step_length: f64 = (bounds.1 - bounds.0) / DEFAULT_INTEGRATION_MAXIMUM_STEPS as f64; 
+                    if DEFAULT_INTEGRATION_PRECISION < alternative_step_length {
+                        alternative_step_length
+                    } else {
+                        DEFAULT_INTEGRATION_PRECISION
+                    }
+                }; 
+
+                // We will use [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule) for integration. 
+
+                let double_step_length: f64 = 2.0 * step_length; 
+                let mut even_acc: f64 = 0.0; 
+                let mut odd_acc: f64 = 0.0; 
+
+                let mut u: f64 = bounds.0 + step_length; 
+                let mut num_step: u32 = 1; 
+
+                while u <= bounds.1 - step_length * 1.1 {
+
+                    todo!(); 
+
+                } 
+
+            },
+            (true, false) => todo!(),
+            (false, true) => todo!(),
+            (false, false) => todo!(),
+        }
+        
+
 
         todo!("Implement deafult implementation. ");
     }
