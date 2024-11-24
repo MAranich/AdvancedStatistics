@@ -56,7 +56,8 @@ pub enum DiscreteDomain {
     From(i64),
     /// All the numbers until the given value. The value **is** included.
     To(i64),
-    /// Detemine manually at wich points can this function be evaluated
+    /// Detemine manually at wich points can this function be evaluated. Has an invariant of
+    /// being finite values and **sorted** (needs to be sorted in order to work properly).
     Custom(Vec<f64>),
 }
 
@@ -67,7 +68,7 @@ pub enum ContinuousDomain {
     #[default]
     Reals,
     /// All values in `[0, 1]`
-    ZeroOne, 
+    ZeroOne,
     /// Only the positive numbers. The bool determines if 0 is included or not.
     Positive(bool),
     /// Only the negative numbers. The bool determines if 0 is included or not.
@@ -96,6 +97,8 @@ pub fn determine_normalitzation_constant_continuous(
 ) -> f64 {
     todo!();
 }
+
+pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);
 
 impl Domain {
     /// A [Domain] composed of all the real numbers in the given range. Note both of the
@@ -176,9 +179,18 @@ impl Domain {
         }
     }
 
+    /// Create a domain composed only by the given `valid_points`.
+    ///
+    /// All invalid values will be ingored (+-inf, NaNs)
     pub fn new_discrete_custom(valid_values: &[f64]) -> Self {
-        let domain_type: DomainType =
-            DomainType::Discrete(DiscreteDomain::Custom(Vec::from(valid_values)));
+        let mut points: Vec<f64> = valid_values
+            .iter()
+            .map(|x| *x)
+            .filter(|&x| x.is_finite())
+            .collect::<Vec<f64>>();
+        points.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::Custom(points));
         Domain {
             domain: domain_type,
         }
@@ -325,7 +337,9 @@ impl Domain {
                                 )
                             }
                         } else {
-                            unreachable!("if other_is_intersection is true, this should be unreachable")
+                            unreachable!(
+                                "if other_is_intersection is true, this should be unreachable"
+                            )
                         }
                     } else {
                         unreachable!("If self_is_intersection is true, this should be unreachable")
@@ -424,27 +438,25 @@ impl Domain {
             DomainType::Discrete(discrete_domain) => match discrete_domain {
                 DiscreteDomain::Integers => x.fract() == 0.0,
                 DiscreteDomain::Positive(include_zero) => {
-                    x.fract() == 0.0 && ((0.0 < x && !*include_zero) || (0.0 <= x && *include_zero))
+                    x.fract() == 0.0 && (0.0 < x || (*include_zero && 0.0 <= x))
                 }
                 DiscreteDomain::Negative(include_zero) => {
-                    x.fract() == 0.0 && ((x < 0.0 && !*include_zero) || (x <= 0.0 && *include_zero))
+                    x.fract() == 0.0 && (x < 0.0 || (x <= 0.0 && *include_zero))
                 }
                 DiscreteDomain::Range(min, max) => {
                     x.fract() == 0.0 && *min as f64 <= x && x <= *max as f64
                 }
                 DiscreteDomain::From(min) => x.fract() == 0.0 && *min as f64 <= x,
                 DiscreteDomain::To(max) => x.fract() == 0.0 && x <= *max as f64,
-                DiscreteDomain::Custom(vec) => vec.iter().find(|&y| x == *y).is_some(),
+                DiscreteDomain::Custom(vec) => {
+                    vec.binary_search_by(|a| a.partial_cmp(&x).unwrap()).is_ok()
+                }
             },
             DomainType::Continuous(continuous_domain) => match continuous_domain {
                 ContinuousDomain::Reals => true,
                 ContinuousDomain::ZeroOne => 0.0 <= x && x <= 1.0,
-                ContinuousDomain::Positive(include_zero) => {
-                    (*include_zero && 0.0 <= x) || (!*include_zero && 0.0 < x)
-                }
-                ContinuousDomain::Negative(include_zero) => {
-                    (*include_zero && x <= 0.0) || (!*include_zero && x < 0.0)
-                }
+                ContinuousDomain::Positive(include_zero) => 0.0 < x || (*include_zero && 0.0 <= x),
+                ContinuousDomain::Negative(include_zero) => x < 0.0 || (*include_zero && x <= 0.0),
                 ContinuousDomain::Range(min, max) => *min <= x && x <= *max,
             },
             DomainType::Mixed(mixed_domain) => match mixed_domain {
@@ -470,32 +482,181 @@ impl Domain {
         }
 
         match &self.domain {
-            DomainType::Discrete(discrete_domain) => match discrete_domain {
-                DiscreteDomain::Integers => x.fract() == 0.0,
-                DiscreteDomain::Positive(include_zero) => {
-                    x.fract() == 0.0 && ((0.0 < x && !*include_zero) || (0.0 <= x && *include_zero))
-                }
-                DiscreteDomain::Negative(include_zero) => {
-                    x.fract() == 0.0 && ((x < 0.0 && !*include_zero) || (x <= 0.0 && *include_zero))
-                }
-                DiscreteDomain::Range(min, max) => {
-                    x.fract() == 0.0 && *min as f64 <= x && x <= *max as f64
-                }
-                DiscreteDomain::From(min) => x.fract() == 0.0 && *min as f64 <= x,
-                DiscreteDomain::To(max) => x.fract() == 0.0 && x <= *max as f64,
-                DiscreteDomain::Custom(vec) => vec.iter().find(|&y| x == *y).is_some(),
+            DomainType::Discrete(_) => false,
+            DomainType::Continuous(continuous_domain) => match continuous_domain {
+                ContinuousDomain::Reals => true,
+                ContinuousDomain::ZeroOne => 0.0 <= x && x <= 1.0,
+                ContinuousDomain::Positive(include_zero) => 0.0 < x || (*include_zero && 0.0 <= x),
+                ContinuousDomain::Negative(include_zero) => x < 0.0 || (*include_zero && x <= 0.0),
+                ContinuousDomain::Range(min, max) => *min <= x && x <= *max,
             },
-            DomainType::Continuous(_) => false,
             DomainType::Mixed(mixed_domain) => match mixed_domain {
                 MixedDomain::Union(vec) => vec.iter().any(|domain| domain.contains(x)),
                 MixedDomain::Disjunction(vec) => vec.iter().all(|domain| domain.contains(x)),
+                MixedDomain::Not(domain_type) => !domain_type.clone().to_domain().contains(x),
+            },
+        }
+    }
+
+    /// Returns true if x is stricly lower than any point inside the domain.
+    ///
+    /// **Warning**: implementation for [DomainType::Mixed] not correct, may provide incorrect results.
+    pub fn is_before_domain(&self, x: f64) -> bool {
+        match &self.domain {
+            DomainType::Discrete(discrete_domain) => match discrete_domain {
+                DiscreteDomain::Integers => false,
+                DiscreteDomain::Positive(include_zero) => x < 0.0 || (*include_zero && x <= 0.0),
+                DiscreteDomain::Negative(_) => false,
+                DiscreteDomain::Range(min, _) => x < *min as f64,
+                DiscreteDomain::From(min) => x < *min as f64,
+                DiscreteDomain::To(_) => false,
+                DiscreteDomain::Custom(vec) => vec
+                    .iter()
+                    .reduce(|a, b| if *a < *b { a } else { b })
+                    .is_some_and(|min| x < *min),
+            },
+            DomainType::Continuous(continuous_domain) => match continuous_domain {
+                ContinuousDomain::Reals => false,
+                ContinuousDomain::ZeroOne => x < 0.0,
+                ContinuousDomain::Positive(inclue_zero) => x < 0.0 || (*inclue_zero && x <= 0.0),
+                ContinuousDomain::Negative(_) => false,
+                ContinuousDomain::Range(min, _) => x < *min as f64,
+            },
+            DomainType::Mixed(mixed_domain) => match mixed_domain {
+                MixedDomain::Union(vec) => vec.iter().all(|domain| domain.is_before_domain(x)),
+                // Very rough upper bound but correct
+                MixedDomain::Disjunction(vec) => {
+                    vec.iter().all(|domain| domain.is_before_domain(x))
+                }
                 MixedDomain::Not(domain_type) => {
-                    let wrapper: Domain = Domain {
-                        domain: *domain_type.clone(),
-                    };
-                    !wrapper.contains(x)
+                    //todo!("Not correct, fix");
+                    !domain_type.clone().to_domain().is_before_domain(x)
                 }
             },
         }
+    }
+
+    /// Returns true if x is stricly higher than any point inside the domain.
+    ///
+    /// **Warning**: implementation for [DomainType::Mixed] not correct, may provide incorrect results.
+    pub fn is_after_domain(&self, x: f64) -> bool {
+        match &self.domain {
+            DomainType::Discrete(discrete_domain) => match discrete_domain {
+                DiscreteDomain::Integers => false,
+                DiscreteDomain::Positive(_) => false,
+                DiscreteDomain::Negative(include_zero) => 0.0 < x || (*include_zero && 0.0 <= x),
+                DiscreteDomain::Range(_, max) => (*max as f64) < x,
+                DiscreteDomain::From(_) => false,
+                DiscreteDomain::To(max) => (*max as f64) < x,
+                DiscreteDomain::Custom(vec) => vec
+                    .iter()
+                    .reduce(|a, b| if *b < *a { a } else { b })
+                    .is_some_and(|max| *max < x),
+            },
+            DomainType::Continuous(continuous_domain) => match continuous_domain {
+                ContinuousDomain::Reals => false,
+                ContinuousDomain::ZeroOne => 1.0 < x,
+                ContinuousDomain::Positive(_) => false,
+                ContinuousDomain::Negative(inclue_zero) => 0.0 < x || (*inclue_zero && 0.0 <= x),
+                ContinuousDomain::Range(_, max) => (*max as f64) < x,
+            },
+            DomainType::Mixed(mixed_domain) => match mixed_domain {
+                MixedDomain::Union(vec) => vec.iter().all(|domain| domain.is_after_domain(x)),
+                // Very rough upper bound but correct
+                MixedDomain::Disjunction(vec) => vec.iter().all(|domain| domain.is_after_domain(x)),
+                MixedDomain::Not(domain_type) => {
+                    //todo!("Not correct, fix");
+                    !domain_type.clone().to_domain().is_after_domain(x)
+                }
+            },
+        }
+    }
+
+    /// Returns the upper and lower bounds of the domain.
+    ///
+    /// Take into account that the values can also include positive and negative infinity.
+    /// It is guaranteed that return.0 <= return.1. If the domain is empty,
+    /// [DEFAULT_EMPTY_DOMAIN_BOUNDS] `(-0.0, 0.0)` is returned.
+    pub fn get_bounds(&self) -> (f64, f64) {
+        match &self.domain {
+            DomainType::Discrete(discrete_domain) => match discrete_domain {
+                DiscreteDomain::Integers => (f64::NEG_INFINITY, f64::INFINITY),
+                DiscreteDomain::Positive(include_zero) => {
+                    let low: f64 = if *include_zero { 0.0 } else { 1.0 };
+                    (low, f64::INFINITY)
+                }
+                DiscreteDomain::Negative(include_zero) => {
+                    let high: f64 = if *include_zero { 0.0 } else { -1.0 };
+                    (f64::NEG_INFINITY, high)
+                }
+                DiscreteDomain::Range(min, max) => (*min as f64, *max as f64),
+                DiscreteDomain::From(min) => (*min as f64, f64::INFINITY),
+                DiscreteDomain::To(max) => (f64::NEG_INFINITY, *max as f64),
+                DiscreteDomain::Custom(vec) => {
+                    if vec.is_empty() {
+                        DEFAULT_EMPTY_DOMAIN_BOUNDS
+                    } else {
+                        (*vec.first().unwrap(), *vec.last().unwrap())
+                    }
+                }
+            },
+            DomainType::Continuous(continuous_domain) => match continuous_domain {
+                ContinuousDomain::Reals => (f64::NEG_INFINITY, f64::INFINITY),
+                ContinuousDomain::ZeroOne => (0.0, 1.0),
+                ContinuousDomain::Positive(include_zero) => (
+                    if *include_zero {
+                        0.0
+                    } else {
+                        0.0 + f64::EPSILON
+                    },
+                    f64::INFINITY,
+                ),
+                ContinuousDomain::Negative(include_zero) => (
+                    f64::NEG_INFINITY,
+                    if *include_zero {
+                        0.0
+                    } else {
+                        0.0 - f64::EPSILON
+                    },
+                ),
+                ContinuousDomain::Range(min, max) => (*min, *max),
+            },
+            DomainType::Mixed(mixed_domain) => match mixed_domain {
+                MixedDomain::Union(vec) => vec
+                    .iter()
+                    .map(|domain| domain.get_bounds())
+                    .reduce(|acc, d| {
+                        let low: f64 = if acc.0 < d.0 { acc.0 } else { d.0 };
+                        let high: f64 = if d.0 < acc.0 { acc.0 } else { d.0 };
+                        (low, high)
+                    })
+                    .unwrap_or(DEFAULT_EMPTY_DOMAIN_BOUNDS),
+                MixedDomain::Disjunction(vec) => vec
+                    .iter()
+                    .map(|domain| domain.get_bounds())
+                    .reduce(|acc, d| {
+                        let low: f64 = if d.0 < acc.0 { acc.0 } else { d.0 };
+                        let high: f64 = if acc.0 < d.0 { acc.0 } else { d.0 };
+                        (low, high)
+                    })
+                    .unwrap_or(DEFAULT_EMPTY_DOMAIN_BOUNDS),
+                MixedDomain::Not(domain_type) => {
+                    let reverse_bounds: (f64, f64) = domain_type.clone().to_domain().get_bounds();
+
+                    match (reverse_bounds.0.is_finite(), reverse_bounds.1.is_finite()) {
+                        (true, true) => (f64::NEG_INFINITY, f64::INFINITY),
+                        (true, false) => (reverse_bounds.1, f64::INFINITY),
+                        (false, true) => (f64::NEG_INFINITY, reverse_bounds.0),
+                        (false, false) => DEFAULT_EMPTY_DOMAIN_BOUNDS,
+                    }
+                }
+            },
+        }
+    }
+}
+
+impl DomainType {
+    fn to_domain(self) -> Domain {
+        Domain { domain: self }
     }
 }

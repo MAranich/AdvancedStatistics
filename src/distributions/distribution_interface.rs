@@ -29,8 +29,8 @@ pub trait Distribution {
         #![allow(unused_variables)]
 
         let mut cumulative_probability: f64 = 0.0;
-
-        let domain = self.get_pdf_domain();
+        let treshold: f64 = 0.00001;
+        let domain: &Domain = self.get_pdf_domain();
 
         todo!("Implement deafult implementation. ");
     }

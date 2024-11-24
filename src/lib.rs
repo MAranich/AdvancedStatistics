@@ -9,4 +9,4 @@ pub mod distributions;
 pub mod euclid;
 
 /// The deafult integration precision is `1/8`.
-pub const DEAFULT_INTEGRATION_PRECISION: f64 = 0.125;
+pub const DEFAULT_INTEGRATION_PRECISION: f64 = 0.125;
