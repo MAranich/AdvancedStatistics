@@ -592,8 +592,10 @@ impl Domain {
     /// Returns the upper and lower bounds of the domain.
     ///
     /// Take into account that the values can also include positive and negative infinity.
-    /// It is guaranteed that return.0 <= return.1. If the domain is empty,
-    /// [DEFAULT_EMPTY_DOMAIN_BOUNDS] `(-0.0, 0.0)` is returned.
+    /// It is guaranteed that return.0 <= return.1. If the bounds are finite, the values 
+    /// themselves are included. 
+    /// 
+    /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] `(-0.0, 0.0)` is returned.
     pub fn get_bounds(&self) -> (f64, f64) {
         match &self.domain {
             DomainType::Discrete(discrete_domain) => match discrete_domain {
