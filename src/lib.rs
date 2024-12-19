@@ -21,6 +21,7 @@ pub const DEFAULT_INTEGRATION_PRECISION: f64 = 0.125;
 /// The maximum number of subdivisions of the domains to numerically integrate functions. 
 /// `1 << 20 = 1 048 576`
 pub const DEFAULT_INTEGRATION_MAXIMUM_STEPS: usize = 1 << 20;
+pub const DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64: f64 = DEFAULT_INTEGRATION_MAXIMUM_STEPS as f64;
 
 /// The number of steps used to integrate among a small interval 
 /// (such as `[0, 1]` or `[-1, 1]`). The value is relatively large because we want 
@@ -34,7 +35,9 @@ pub const SMALL_INTEGRATION_NUM_STEPS: u32 = 32768;
 /// Equal to `1/32768` 
 pub const SMALL_INTEGRATION_PRECISION: f64 = 1.0 / (SMALL_INTEGRATION_NUM_STEPS as f64); 
 
-
+/// Determines if a Newton's method iteration is used in the (deafult) 
+/// quantile function, mainly for testing. 
+pub const QUANTILE_USE_NEWTONS_ITER: bool = true; 
 
 
 

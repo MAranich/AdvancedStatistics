@@ -6,4 +6,6 @@ pub enum AdvStatError {
     Unknown,
     #[error("A function was evaluated outside it's domain. ")]
     DomainErr,
+    #[error("A NaN (Not a Number) was found in the input. ")]
+    NanErr,
 }
