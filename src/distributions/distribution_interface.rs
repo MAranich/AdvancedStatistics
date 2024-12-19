@@ -204,14 +204,15 @@ pub trait Distribution {
     /// The deafult method is [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling)
     /// unless the deadult method is overriden. Inverse transform sampling simply
     /// generates a random uniform number and evaluates the inverse cdf function
-    /// (the [Distribution::quantile] function) and returns the result. Note that
-    /// the deafult implemetation requieres numerical integration and may be expensive.
+    /// (the [Distribution::quantile] function) and returns the result. 
+    /// 
+    /// Note that the deafult implemetation requieres numerical integration and 
+    /// may be expensive. The method [Distribution::sample_multiple] is more 
+    /// effitient for multiple sampling. 
     fn sample(&self) -> f64 {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let x: f64 = rng.gen::<f64>();
 
-        // we know it is not err since we are sure that x is in [0, 1]
-        return self.quantile(x).unwrap();
+        let aux: Vec<f64> = self.sample_multiple(1); 
+        return aux[0];
     }
 
     /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function).
@@ -379,6 +380,8 @@ pub trait Distribution {
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
+
+
         let mut ret: Vec<f64> = Vec::with_capacity(points.len());
 
         todo!("Implement deafult implementation. ");
