@@ -1,5 +1,7 @@
 use std::default;
 
+use rand::Rng;
+
 ///! Euclid contains uscefull math functions
 use crate::distributions::distribution_interface::Distribution;
 
@@ -96,6 +98,28 @@ pub fn determine_normalitzation_constant_continuous(
     domain: &Domain,
 ) -> f64 {
     todo!();
+}
+
+/// Randomly permute a slice. 
+/// 
+/// This is an implementation of [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle), 
+/// an efficient algorithm to randomly permute a list in `O(n)`. 
+pub fn random_permutation<T>(arr: &mut [T]) {
+    // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+
+    let len: usize = arr.len(); 
+    let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+
+    for i in (1..=(len-1)).rev() {
+        let mut j: f64 = rng.gen(); 
+        j = j * ((i + 1) as f64); 
+        let j: usize = j as usize; 
+        // k belongs to  [0, i - 1]
+
+        arr.swap(i, j); 
+
+    }
+
 }
 
 pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);

@@ -322,6 +322,56 @@ pub trait Distribution {
         */
     }
 
+    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling) 
+    /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
+    /// 
+    /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
+    /// a valid domain in [Distribution::get_pdf_domain]. Also the **domain must be finite**. 
+    /// If it is not, better use [Distribution::rejection_sample_range] or implement 
+    /// [Distribution::sample] yourself. 
+    /// 
+    /// It is more effitient because it does **not** requiere the evaluation of the 
+    /// [Distribution::quantile] function, wich involves numerical integration. In exchange, 
+    /// it is needed to know `pdf_max`, the maximum value that the pdf achives. 
+    /// 
+    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs 
+    /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
+    /// a performance penalty. 
+    fn rejection_sample(&self, pdf_max: f64, n: usize) -> Vec<f64> {
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng(); 
+        let domain: &Domain = self.get_pdf_domain(); 
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        }; 
+
+        let bounds: (f64, f64) = domain.get_bounds(); 
+        let bound_range: f64 = bounds.1 - bounds.0; 
+
+        let mut ret: Vec<f64> = Vec::with_capacity(n); 
+        for _i in 0..n {
+            let sample = loop {
+                let mut x: f64 = rng.gen(); 
+                x = bounds.0 + x * bound_range; 
+                let y: f64 = rng.gen(); 
+                if y * pdf_max < pdf_checked(x) {
+                    break x; 
+                }
+            }; 
+            ret.push(sample);
+        }
+
+        return ret; 
+
+    }
+
+    fn rejection_sample_range(&self, pdf_max: f64, n: usize, range: (f64, f64)) -> Vec<f64> {
+        todo!("Complete default implementation. "); 
+    }
+
     // Multiple variants.
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
@@ -336,14 +386,19 @@ pub trait Distribution {
         return ret;
     }
 
-    /// sample_multiple allows to evaluate the [Distribution::sample] at multiple points.
-    /// It may provide a computational advantage.
+    /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample] 
+    /// at multiple points. It may provide a computational advantage in comparasion to [Distribution::sample]. 
+    /// 
+    /// The deafult implementation uses the [Distribution::quantile_multiple] function, 
+    /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible. 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
 
-        for _i in 0..n {
-            ret.push(self.sample());
-        }
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng(); 
+        let mut rand_quantiles: Vec<f64> = vec![0.0; n];
+        rng.fill(rand_quantiles.as_mut_slice()); 
+
+        let ret: Vec<f64> = self.quantile_multiple(&rand_quantiles).unwrap(); 
+        // we can unwrap because there is no NaN
 
         return ret;
     }
