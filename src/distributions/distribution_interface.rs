@@ -43,160 +43,11 @@ pub trait Distribution {
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            return 0.0;
-        }
 
-        let domain: &Domain = self.get_pdf_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
-        let pdf_checked = |x: f64, domain: &Domain| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
+        let aux: [f64; 1] = [x]; 
+        let aux_2: Vec<f64> = self.cdf_multiple(&aux); 
+        return aux_2[0]; 
 
-        // easy cases
-        if x <= bounds.0 {
-            return 0.0;
-        }
-
-        if bounds.1 <= x {
-            return 1.0;
-        }
-
-        let cumulative_probability: f64;
-
-        // time to integrate. Note how we only care if the lower bound is finite or not.
-        // If the upper bound is infinite, it does not matter because `x` is always a
-        // smaller number and we can perform numerical integration.
-        // However, if the lower bound is -infinite, we need to perform special
-        // numerical integration.
-
-        if bounds.0.is_finite() {
-            // We will use [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule) for integration.
-
-            let (step_length, total_num_steps): (f64, usize) = {
-                let integration_range: f64 = x - bounds.0;
-                let alternative_step_length: f64 =
-                    integration_range / DEFAULT_INTEGRATION_MAXIMUM_STEPS as f64;
-                if DEFAULT_INTEGRATION_PRECISION < alternative_step_length {
-                    (alternative_step_length, DEFAULT_INTEGRATION_MAXIMUM_STEPS)
-                    // DEFAULT_INTEGRATION_MAXIMUM_STEPS is even
-                } else {
-                    let number_steps: usize =
-                        ((integration_range / DEFAULT_INTEGRATION_PRECISION) as usize) | 1;
-                    // x | 1 makes sure number_steps is even
-                    let corrected_step_length: f64 = integration_range / (number_steps as f64);
-                    (corrected_step_length, number_steps)
-                }
-            };
-
-            let mut odd_acc: f64 = 0.0;
-            let mut even_acc: f64 = 0.0;
-            let mut num_step: usize = 1;
-
-            while num_step < total_num_steps {
-                // do the remaining even terms.
-                let current_positon: f64 = bounds.0 + step_length * num_step as f64;
-                let pdf_value: f64 = pdf_checked(current_positon, &domain);
-                if (num_step & 1) == 0 {
-                    //even
-                    even_acc += pdf_value;
-                } else {
-                    // odd
-                    odd_acc += pdf_value;
-                }
-                num_step += 1;
-            }
-            /*
-
-            // separate loops version: todo: check wich is faster or better, paralelize execution
-            let mut num_step: usize = 1;
-            while num_step < total_num_steps {
-                // do all the odd terms
-                let current_positon: f64 = bounds.0 + step_length * num_step as f64;
-                let pdf_value: f64 = pdf_checked(current_positon, &domain);
-                odd_acc += pdf_value;
-                num_step += 2;
-            }
-
-            let mut even_acc: f64 = 0.0;
-            num_step = 2;
-            while num_step < total_num_steps {
-                // do the remaining even terms.
-                let current_positon: f64 = bounds.0 + step_length * num_step as f64;
-                let pdf_value: f64 = pdf_checked(current_positon, &domain);
-                even_acc += pdf_value;
-                num_step += 2;
-            }
-            */
-
-            // Get the final bound values that have not been included
-            let bound_values: f64 = pdf_checked(bounds.0, &domain) + pdf_checked(x, &domain);
-            // final result
-            cumulative_probability =
-                step_length / 3.0 * (4.0 * odd_acc + 2.0 * even_acc + bound_values);
-        } else {
-            // the range is infinite therefore we will perform a special
-            // [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-            // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t) / t) / t^2 dt
-
-            // We will use [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule) for integration.
-            // to integrate this second integral.
-
-            let mut odd_acc: f64 = 0.0;
-            let mut even_acc: f64 = 0.0;
-
-            // we do not include 0 because it createa a singularity and
-            // 0 and SMALL_INTEGRATION_NUM_STEPS are the boundary values
-            for num_step in 2..SMALL_INTEGRATION_NUM_STEPS {
-                let current_positon: f64 = SMALL_INTEGRATION_PRECISION * num_step as f64;
-                // current_position is `t`
-                let input: f64 = x - (1.0 - current_positon) / current_positon;
-                let pdf_value: f64 = pdf_checked(input, &domain);
-                let integrand_value: f64 = pdf_value / (current_positon * current_positon);
-                if (num_step & 1) == 0 {
-                    //even
-                    even_acc += integrand_value;
-                } else {
-                    // odd
-                    odd_acc += integrand_value;
-                }
-            }
-
-            let first_value: f64 = {
-                let current_positon: f64 = SMALL_INTEGRATION_PRECISION;
-                let input: f64 = x - (1.0 - current_positon) / current_positon;
-                let pdf_value: f64 = pdf_checked(input, &domain);
-                pdf_value / (current_positon * current_positon)
-            };
-
-            let last_value: f64 = {
-                // this last computation simplifies a lot
-                /*
-                let current_positon: f64 = SMALL_INTEGRATION_PRECISION * SMALL_INTEGRATION_NUM_STEPS;
-                    => current_positon = 1.0
-                let input: f64 = x - (1.0 - current_positon) / current_positon;
-                    => input = x - (1.0 - 1.0) / 1.0;
-                    => input = x;
-                let pdf_value: f64 = pdf_checked(input, &domain);
-                    => pdf_value = pdf_checked(x, &domain);
-                let integrand_value: f64 = pdf_value / (current_positon * current_positon);
-                    => integrand_value = pdf_value / (1.0 * 1.0);
-                    => integrand_value = pdf_value;
-                 */
-                let pdf_value: f64 = pdf_checked(x, &domain);
-                pdf_value
-            };
-
-            cumulative_probability = SMALL_INTEGRATION_PRECISION / 3.0
-                * (4.0 * odd_acc + 2.0 * even_acc + first_value + last_value);
-        }
-
-        return cumulative_probability;
     }
 
     /// Samples the distribution at random.
@@ -204,14 +55,13 @@ pub trait Distribution {
     /// The deafult method is [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling)
     /// unless the deadult method is overriden. Inverse transform sampling simply
     /// generates a random uniform number and evaluates the inverse cdf function
-    /// (the [Distribution::quantile] function) and returns the result. 
-    /// 
-    /// Note that the deafult implemetation requieres numerical integration and 
-    /// may be expensive. The method [Distribution::sample_multiple] is more 
-    /// effitient for multiple sampling. 
+    /// (the [Distribution::quantile] function) and returns the result.
+    ///
+    /// Note that the deafult implemetation requieres numerical integration and
+    /// may be expensive. The method [Distribution::sample_multiple] is more
+    /// effitient for multiple sampling.
     fn sample(&self) -> f64 {
-
-        let aux: Vec<f64> = self.sample_multiple(1); 
+        let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
     }
 
@@ -323,61 +173,60 @@ pub trait Distribution {
         */
     }
 
-    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling) 
+    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
     /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
-    /// 
+    ///
     /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
-    /// a valid domain in [Distribution::get_pdf_domain]. Also the **domain must be finite**. 
-    /// If it is not, better use [Distribution::rejection_sample_range] or implement 
-    /// [Distribution::sample] yourself. 
-    /// 
-    /// It is more effitient because it does **not** requiere the evaluation of the 
-    /// [Distribution::quantile] function, wich involves numerical integration. In exchange, 
-    /// it is needed to know `pdf_max`, the maximum value that the pdf achives. 
-    /// 
-    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs 
+    /// a valid domain in [Distribution::get_pdf_domain]. Also the **domain must be finite**.
+    /// If it is not, better use [Distribution::rejection_sample_range] or implement
+    /// [Distribution::sample] yourself.
+    ///
+    /// It is more effitient because it does **not** requiere the evaluation of the
+    /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
+    /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
+    ///
+    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs
     /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
-    /// a performance penalty. 
+    /// a performance penalty.
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng(); 
-        let domain: &Domain = self.get_pdf_domain(); 
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let domain: &Domain = self.get_pdf_domain();
         let pdf_checked = |x: f64| {
             if domain.contains(x) {
                 self.pdf(x)
             } else {
                 0.0
             }
-        }; 
+        };
 
-        let bounds: (f64, f64) = domain.get_bounds(); 
-        let bound_range: f64 = bounds.1 - bounds.0; 
+        let bounds: (f64, f64) = domain.get_bounds();
+        let bound_range: f64 = bounds.1 - bounds.0;
 
-        let mut ret: Vec<f64> = Vec::with_capacity(n); 
+        let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _i in 0..n {
             let sample = loop {
-                let mut x: f64 = rng.gen(); 
-                x = bounds.0 + x * bound_range; 
-                let y: f64 = rng.gen(); 
+                let mut x: f64 = rng.gen();
+                x = bounds.0 + x * bound_range;
+                let y: f64 = rng.gen();
                 if y * pdf_max < pdf_checked(x) {
-                    break x; 
+                    break x;
                 }
-            }; 
+            };
             ret.push(sample);
         }
 
-        return ret; 
-
+        return ret;
     }
 
-    /// Same as [Distribution::rejection_sample] but only in the selected range. 
-    /// 
-    /// This can be uscefull for distributions with a stricly infinite domain but that 
-    /// virtually all their mass is concentrated in a smaller region. 
-    /// 
-    /// For example, we could sample from the normal distribution with only the range 
-    /// `(-8.0, 8.0)` since the density left out of this range is negligible. 
+    /// Same as [Distribution::rejection_sample] but only in the selected range.
+    ///
+    /// This can be uscefull for distributions with a stricly infinite domain but that
+    /// virtually all their mass is concentrated in a smaller region.
+    ///
+    /// For example, we could sample from the normal distribution with only the range
+    /// `(-8.0, 8.0)` since the density left out of this range is negligible.
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        todo!("Complete default implementation. "); 
+        todo!("Complete default implementation. ");
     }
 
     // Multiple variants.
@@ -387,27 +236,204 @@ pub trait Distribution {
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
+        /*
+            Plan: (sery similar to [Distribution::quantile_multiple])
+
+            For cdf_multiple we will first return an error if we find a NaN.
+            Otherwise we will need to sort them and integrate until we have
+            integrated to the given number (and store the value).
+            By sorting, we only need to integrate once through the pdf.
+
+            However, this *cool* strategy has a problem and is that we will not
+            return the values in the order we were asked. To account for this we will
+            keep track of the indicies of the origianl position and at the end re-sort
+            the final array using them.
+
+            Also, if we find any values smaller or greater than the bounds of the
+            domain, the awnser will always be 0.0 or 1.0 (simplifying computations,
+            although this case should not generally happen).
+
+            We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
+            for integration.
+
+            Note how we only care if the lower bound is finite or not.
+            If the upper bound is inf, it does not matter because `x` is always a
+            smaller number and we can perform numerical integration.
+            However, if the lower bound is -inf, we need to perform special
+            numerical integration.
+
+            To compute integrals over an infinite range, we will perform a special
+            [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
+            (change of variable)
+
+                For -infinite to const:
+            integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
+
+            And "just" compute the new integral (taking care of the singularities at t = 0).
+
+        */
+
+        // return error if NAN is found
+        for point in points {
+            if point.is_nan() {
+                panic!("Found NaN in `cdf_multiple`. \n");
+                // return Err(AdvStatError::NanErr);
+            }
+        }
+
+        let mut sorted_points: Vec<(usize, f64)> = points.iter().map(|x| *x).enumerate().collect();
+
+        sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
+        let domain: &Domain = self.get_pdf_domain();
+        let bounds: (f64, f64) = domain.get_bounds();
+
+        // if points[i] <= bounds.0  |||| Awnser is always 0
+        let mut small_trivial_points: usize = 0;
+        // if bounds.1 <= points[i]  |||| Awnser is always 1
+        let mut big_trivial_points: usize = 0;
+        // The points that we actually need to process
+        let mut non_trivial_points: Vec<(usize, f64)> = Vec::with_capacity(points.len());
+
+        for point in sorted_points {
+            if point.1 <= bounds.0 {
+                small_trivial_points += 1;
+            } else if bounds.1 <= point.1 {
+                big_trivial_points += 1;
+            } else {
+                // move
+                non_trivial_points.push(point);
+            }
+        }
+        let non_trivial_points_len: usize = non_trivial_points.len();
+
+        for i in 0..small_trivial_points {
+            // quickly add all cases smaller than bounds.0
+            ret.push((i, 0.0));
+        }
+
+        if non_trivial_points.is_empty() {
+            let idx_offset: usize = small_trivial_points;
+            for i in 0..big_trivial_points {
+                ret.push((idx_offset + i, 1.0));
+            }
+            ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+            // ^this could be optimized by generating a vec and putting the values
+            // according to indexes.  ( O(n) ) Also do below
+            return ret.iter().map(|x| x.1).collect();
+        }
+
+        // Integration time!
+
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        };
+
+        let infinite_range: bool = bounds.0.is_infinite();
+
+        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
+
+        let mut points_iter: std::vec::IntoIter<(usize, f64)> = non_trivial_points.into_iter();
+
+        let (mut current_index, mut current_cdf_point): (usize, f64) = points_iter.next().unwrap(); // safe
+
+        let double_step_length: f64 = 2.0 * step_length;
+        let step_len_over_3: f64 = step_length / 3.0;
+
+        let mut accumulator: f64 = 0.0;
+        // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
+        let mut last_pdf_evaluation: f64 = if infinite_range {
+            // t = 0, it would be a singularity. Skip point
+            0.0
+        } else {
+            pdf_checked(bounds.0)
+        };
+
+        let mut num_step: f64 = 0.0;
+        'integration_loop: loop {
+            let current_position: f64 = bounds.0 + double_step_length * num_step;
+            //let middle: f64 = pdf_checked(current_position + step_length);
+            //let end: f64 = pdf_checked(current_position + double_step_length);
+
+            let (middle, end): (f64, f64) = if infinite_range {
+                // In order to avoid the singularity at 0 we will split this into 2 parts: [-1, 0) and (0, 1]
+                //      For -infinite to const:
+                // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
+
+                let middle_: f64 = {
+                    let t: f64 = current_position + step_length;
+                    if t.abs() < f64::EPSILON {
+                        // too near singularity, skip
+                        0.0
+                    } else {
+                        pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
+                    }
+                };
+                let end_: f64 = {
+                    let t: f64 = current_position + double_step_length;
+                    if t.abs() < f64::EPSILON {
+                        // too near singularity, skip
+                        0.0
+                    } else {
+                        pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
+                    }
+                };
+                (middle_, end_)
+            } else {
+                let middle_: f64 = pdf_checked(current_position + step_length);
+                let end_: f64 = pdf_checked(current_position + double_step_length);
+                (middle_, end_)
+            };
+
+            accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
+
+            while current_cdf_point <= current_position {
+
+                let cdf_point: f64 = bounds.0 + double_step_length * (num_step + 1.0);
+                ret.push((current_index, cdf_point));
+
+                // update `current_cdf_point` to the next value or exit if we are done
+                match points_iter.next() {
+                    Some(p) => (current_index, current_cdf_point) = p,
+                    None => break 'integration_loop,
+                }
+            }
+
+            last_pdf_evaluation = end;
+            num_step += 1.0; 
+            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
+        }
+
+        for i in 0..big_trivial_points {
+            let idx_offset = small_trivial_points + non_trivial_points_len;
+            ret.push((idx_offset + i, 1.0));
+        }
 
 
-        let mut ret: Vec<f64> = Vec::with_capacity(points.len());
+        // put back to original order and return
+        ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        // ^thic could be optimixed by generating a veg and putting the values
+        // according to indexes.  ( O(n) ) Also do above
+        return ret.iter().map(|x| x.1).collect();
 
-        todo!("Implement deafult implementation. ");
-
-        return ret;
     }
 
-    /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample] 
-    /// at multiple points. It may provide a computational advantage in comparasion to [Distribution::sample]. 
-    /// 
-    /// The deafult implementation uses the [Distribution::quantile_multiple] function, 
-    /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible. 
+    /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample]
+    /// at multiple points. It may provide a computational advantage in comparasion to [Distribution::sample].
+    ///
+    /// The deafult implementation uses the [Distribution::quantile_multiple] function,
+    /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible.
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng(); 
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let mut rand_quantiles: Vec<f64> = vec![0.0; n];
-        rng.fill(rand_quantiles.as_mut_slice()); 
+        rng.fill(rand_quantiles.as_mut_slice());
 
-        let ret: Vec<f64> = self.quantile_multiple(&rand_quantiles).unwrap(); 
+        let ret: Vec<f64> = self.quantile_multiple(&rand_quantiles).unwrap();
         // we can unwrap because there is no NaN
 
         return ret;
@@ -503,8 +529,8 @@ pub trait Distribution {
                 ret.push((idx_offset + i, bounds.1));
             }
             ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-            // ^thic could be optimixed by generating a veg and putting the values
-            // according to indexes.  ( O(n) ) Also do bellow
+            // ^this could be optimized by generating a vec and putting the values
+            // according to indexes.  ( O(n) ) Also do below
             return Ok(ret.iter().map(|x| x.1).collect());
         }
 
@@ -537,54 +563,7 @@ pub trait Distribution {
             (false, false) => IntegrationType::FullInfinite,
         };
 
-        let (step_length, total_num_steps): (f64, usize) = {
-            /*
-               To select the appropiate step_length (and total_num_steps, indirecly),
-               we need to adapt between the possible cases.
-                - For standard integration: Use DEFAULT_INTEGRATION_PRECISION unless it's
-                   too small (if we would do more than DEFAULT_INTEGRATION_MAXIMUM_STEPS)
-
-            */
-
-            match integration_type {
-                IntegrationType::Finite => {
-                    // standard integration
-                    let integration_range: f64 = bounds.1 - bounds.0;
-                    if DEFAULT_INTEGRATION_PRECISION * DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64
-                        < integration_range
-                    {
-                        let alternative_step_length: f64 =
-                            integration_range / DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64;
-                        (alternative_step_length, DEFAULT_INTEGRATION_MAXIMUM_STEPS)
-                        // DEFAULT_INTEGRATION_MAXIMUM_STEPS is even
-                    } else {
-                        let number_steps: usize =
-                            ((integration_range / DEFAULT_INTEGRATION_PRECISION) as usize) | 1;
-                        // ` x | 1 ` makes sure number_steps is even
-                        let corrected_step_length: f64 = integration_range / (number_steps as f64);
-                        (corrected_step_length, number_steps)
-                    }
-                }
-                IntegrationType::FullInfinite => {
-                    // if the interval [0, 1] uses SMALL_INTEGRATION_NUM_STEPS,
-                    // then [-1, 1] will use the doule. Ajust precision accordingly.
-                    (
-                        SMALL_INTEGRATION_PRECISION * 0.5,
-                        (SMALL_INTEGRATION_NUM_STEPS * 2) as usize,
-                    )
-                }
-                _ => {
-                    // IntegrationType::InfiniteToPositive
-                    // IntegrationType::InfiniteToNegative
-
-                    // just use the following deafult values since the interval is [0, 1]
-                    (
-                        SMALL_INTEGRATION_PRECISION,
-                        SMALL_INTEGRATION_NUM_STEPS as usize,
-                    )
-                }
-            }
-        };
+        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
 
         let mut points_iter: std::vec::IntoIter<(usize, f64)> = non_trivial_points.into_iter();
 
@@ -726,7 +705,8 @@ pub trait Distribution {
             }
 
             last_pdf_evaluation = end;
-            num_step += 2.0; // we do 2 steps each iteration
+            num_step += 1.0; 
+            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
         }
 
         for i in 0..big_trivial_points {

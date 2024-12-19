@@ -3,7 +3,11 @@ use std::default;
 use rand::Rng;
 
 ///! Euclid contains uscefull math functions
-use crate::distributions::distribution_interface::Distribution;
+use crate::{
+    distributions::distribution_interface::Distribution, DEFAULT_INTEGRATION_MAXIMUM_STEPS,
+    DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION,
+    SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,
+};
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
 /// are some values that provide information about the shape of the function.
@@ -100,26 +104,93 @@ pub fn determine_normalitzation_constant_continuous(
     todo!();
 }
 
-/// Randomly permute a slice. 
-/// 
-/// This is an implementation of [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle), 
-/// an efficient algorithm to randomly permute a list in `O(n)`. 
+/// Randomly permute a slice.
+///
+/// This is an implementation of [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle),
+/// an efficient algorithm to randomly permute a list in `O(n)`.
 pub fn random_permutation<T>(arr: &mut [T]) {
     // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
 
-    let len: usize = arr.len(); 
+    let len: usize = arr.len();
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
 
-    for i in (1..=(len-1)).rev() {
-        let mut j: f64 = rng.gen(); 
-        j = j * ((i + 1) as f64); 
-        let j: usize = j as usize; 
+    for i in (1..=(len - 1)).rev() {
+        let mut j: f64 = rng.gen();
+        j = j * ((i + 1) as f64);
+        let j: usize = j as usize;
         // k belongs to  [0, i - 1]
 
-        arr.swap(i, j); 
-
+        arr.swap(i, j);
     }
+}
 
+/// Returns (step_length, num_steps) depending on the bounds of integration.
+///
+/// This function is internal to the library and wraps up everything
+/// needed to choose the appropiate step_length (precision), and by consequence
+/// the number of steps.
+///
+/// If the bounds are non-finite a change of variables for the integration is assumed.
+///
+/// bounds.0 < bounds.1
+pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize) {
+    /*
+        To select the appropiate step_length (and total_num_steps, indirecly),
+        we need to adapt between the possible cases.
+        - For standard integration: Use DEFAULT_INTEGRATION_PRECISION unless it's
+            too small (if we would do more than DEFAULT_INTEGRATION_MAXIMUM_STEPS)
+
+
+        num_steps needs to be odd
+    */
+
+    match (bounds.0.is_finite(), bounds.0.is_finite()) {
+        (true, true) => {
+            let range: f64 = bounds.1 - bounds.0;
+            let step_length: f64;
+            let num_steps: usize;
+
+            if range <= 1.0 {
+                // small range (less than an unit)
+                num_steps = SMALL_INTEGRATION_NUM_STEPS;
+                // ^already odd
+                step_length = range / num_steps as f64;
+            } else if DEFAULT_INTEGRATION_PRECISION * DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 < range
+            {
+                // interval is very big, we will increase the step_lenght.
+
+                step_length = range / DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64;
+                num_steps = DEFAULT_INTEGRATION_MAXIMUM_STEPS;
+                // ^already odd
+            } else {
+                // *normal* interval
+
+                let first_num = range / DEFAULT_INTEGRATION_PRECISION;
+                num_steps = (first_num as usize) | 1;
+                step_length = range / (num_steps as f64);
+            }
+
+            (step_length, num_steps)
+        }
+        (false, false) => {
+            // if the interval [0, 1] uses SMALL_INTEGRATION_NUM_STEPS,
+            // then [-1, 1] will use the doule. Ajust precision accordingly.
+            (
+                SMALL_INTEGRATION_PRECISION * 0.5,
+                (SMALL_INTEGRATION_NUM_STEPS * 2) as usize,
+            )
+        }
+        _ => {
+            /* Cases:
+                (true, false) => {},
+                (false, true) => {},
+            */
+
+            // The range in this case is [0, 1], so we can return the same values.
+
+            (SMALL_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS)
+        }
+    }
 }
 
 pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);
@@ -142,28 +213,28 @@ impl Domain {
         }
     }
 
-    /// A [Domain] containing a continuous range of all the values in `[min_inclusive, max_inclusive]`. 
+    /// A [Domain] containing a continuous range of all the values in `[min_inclusive, max_inclusive]`.
     pub const fn new_real() -> Self {
         Domain {
             domain: DomainType::Continuous(ContinuousDomain::Reals),
         }
     }
 
-    /// A [Domain] containing a continuous range of all the values in `[0, inf)`. 
+    /// A [Domain] containing a continuous range of all the values in `[0, inf)`.
     pub const fn new_continuous_positives(include_zero: bool) -> Self {
         Domain {
             domain: DomainType::Continuous(ContinuousDomain::Positive(include_zero)),
         }
     }
 
-    /// A [Domain] containing a continuous range of all the values in `(-inf, 0]`. 
+    /// A [Domain] containing a continuous range of all the values in `(-inf, 0]`.
     pub const fn new_continuous_negatives(include_zero: bool) -> Self {
         Domain {
             domain: DomainType::Continuous(ContinuousDomain::Negative(include_zero)),
         }
     }
 
-    /// A [Domain] containing a discrete range of all the values in `[-inf, inf]`. 
+    /// A [Domain] containing a discrete range of all the values in `[-inf, inf]`.
     pub const fn new_discrete_integers() -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::Integers);
         Domain {
@@ -171,7 +242,7 @@ impl Domain {
         }
     }
 
-    /// A [Domain] containing a discrete range of all the values in `[0, inf)`. 
+    /// A [Domain] containing a discrete range of all the values in `[0, inf)`.
     pub const fn new_discrete_positives(include_zero: bool) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::Positive(include_zero));
         Domain {
@@ -179,7 +250,7 @@ impl Domain {
         }
     }
 
-    /// A [Domain] containing a discrete range of all the values in `(-inf, 0]`. 
+    /// A [Domain] containing a discrete range of all the values in `(-inf, 0]`.
     pub const fn new_discrete_negatives(include_zero: bool) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::Negative(include_zero));
         Domain {
@@ -187,7 +258,7 @@ impl Domain {
         }
     }
 
-    /// A [Domain] containing a discrete range of all the values in `[from_inclusive, inf)`. 
+    /// A [Domain] containing a discrete range of all the values in `[from_inclusive, inf)`.
     pub const fn new_discrete_from(from_inclusive: i64) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::From(from_inclusive));
         Domain {
@@ -195,7 +266,7 @@ impl Domain {
         }
     }
 
-    /// A [Domain] containing a discrete range of all the values in `(-inf, to_inclusive]`. 
+    /// A [Domain] containing a discrete range of all the values in `(-inf, to_inclusive]`.
     pub const fn new_discrete_to(to_inclusive: i64) -> Self {
         let domain_type: DomainType = DomainType::Discrete(DiscreteDomain::To(to_inclusive));
         Domain {
@@ -203,7 +274,7 @@ impl Domain {
         }
     }
 
-    /// A [Domain] containing a discrete range of all the values in `[min_inclusive, max_inclusive]`. 
+    /// A [Domain] containing a discrete range of all the values in `[min_inclusive, max_inclusive]`.
     pub const fn new_discrete_range(min_inclusive: i64, max_inclusive: i64) -> Self {
         let domain_type: DomainType =
             DomainType::Discrete(DiscreteDomain::Range(min_inclusive, max_inclusive));
@@ -212,7 +283,7 @@ impl Domain {
         }
     }
 
-    /// A [Domain] containing a continuous range of all the values in `[0, 1]`. 
+    /// A [Domain] containing a continuous range of all the values in `[0, 1]`.
     pub const fn new_zero_one() -> Self {
         let domain_type: DomainType = DomainType::Continuous(ContinuousDomain::ZeroOne);
         Domain {
@@ -616,9 +687,9 @@ impl Domain {
     /// Returns the upper and lower bounds of the domain.
     ///
     /// Take into account that the values can also include positive and negative infinity.
-    /// It is guaranteed that return.0 <= return.1. If the bounds are finite, the values 
-    /// themselves are included. 
-    /// 
+    /// It is guaranteed that return.0 <= return.1. If the bounds are finite, the values
+    /// themselves are included.
+    ///
     /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] `(-0.0, 0.0)` is returned.
     pub fn get_bounds(&self) -> (f64, f64) {
         match &self.domain {
