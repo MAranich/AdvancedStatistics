@@ -338,7 +338,7 @@ pub trait Distribution {
     /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs 
     /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
     /// a performance penalty. 
-    fn rejection_sample(&self, pdf_max: f64, n: usize) -> Vec<f64> {
+    fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng(); 
         let domain: &Domain = self.get_pdf_domain(); 
         let pdf_checked = |x: f64| {
@@ -369,7 +369,14 @@ pub trait Distribution {
 
     }
 
-    fn rejection_sample_range(&self, pdf_max: f64, n: usize, range: (f64, f64)) -> Vec<f64> {
+    /// Same as [Distribution::rejection_sample] but only in the selected range. 
+    /// 
+    /// This can be uscefull for distributions with a stricly infinite domain but that 
+    /// virtually all their mass is concentrated in a smaller region. 
+    /// 
+    /// For example, we could sample from the normal distribution with only the range 
+    /// `(-8.0, 8.0)` since the density left out of this range is negligible. 
+    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         todo!("Complete default implementation. "); 
     }
 
