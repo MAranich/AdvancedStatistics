@@ -1,3 +1,4 @@
+use std::os::raw;
 use std::usize;
 
 use rand::Rng;
@@ -6,13 +7,6 @@ use rand::Rng;
 use crate::errors::*;
 use crate::euclid::*;
 use crate::QUANTILE_USE_NEWTONS_ITER;
-use crate::RNG;
-use crate::SMALL_INTEGRATION_NUM_STEPS;
-use crate::SMALL_INTEGRATION_PRECISION;
-use crate::{
-    DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64,
-    DEFAULT_INTEGRATION_PRECISION,
-};
 
 /// The trait for any continuous distribution.
 pub trait Distribution {
@@ -38,16 +32,14 @@ pub trait Distribution {
     /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
     /// (Cumulative distribution function).
     /// If the function is evaluated outside the domain of the pdf, it will either
-    /// return either `0.0` or  `1.0`.
+    /// return either `0.0` or `1.0`. **Paniks** is `x` is a NaN.
     ///
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
     fn cdf(&self, x: f64) -> f64 {
-
-        let aux: [f64; 1] = [x]; 
-        let aux_2: Vec<f64> = self.cdf_multiple(&aux); 
-        return aux_2[0]; 
-
+        let aux: [f64; 1] = [x];
+        let aux_2: Vec<f64> = self.cdf_multiple(&aux);
+        return aux_2[0];
     }
 
     /// Samples the distribution at random.
@@ -173,6 +165,10 @@ pub trait Distribution {
         */
     }
 
+    // Multiple variants.
+    // They are the same as the normal functions, but if they are overriden they may
+    // provide a computational advantage.
+
     /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
     /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
     ///
@@ -228,10 +224,6 @@ pub trait Distribution {
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         todo!("Complete default implementation. ");
     }
-
-    // Multiple variants.
-    // They are the same as the normal functions, but if they are overriden they may
-    // provide a computational advantage.
 
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
@@ -393,9 +385,7 @@ pub trait Distribution {
             accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
 
             while current_cdf_point <= current_position {
-
-                let cdf_point: f64 = bounds.0 + double_step_length * (num_step + 1.0);
-                ret.push((current_index, cdf_point));
+                ret.push((current_index, accumulator));
 
                 // update `current_cdf_point` to the next value or exit if we are done
                 match points_iter.next() {
@@ -405,7 +395,7 @@ pub trait Distribution {
             }
 
             last_pdf_evaluation = end;
-            num_step += 1.0; 
+            num_step += 1.0;
             // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
         }
 
@@ -414,13 +404,11 @@ pub trait Distribution {
             ret.push((idx_offset + i, 1.0));
         }
 
-
         // put back to original order and return
         ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
         // ^thic could be optimixed by generating a veg and putting the values
         // according to indexes.  ( O(n) ) Also do above
         return ret.iter().map(|x| x.1).collect();
-
     }
 
     /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample]
@@ -666,7 +654,7 @@ pub trait Distribution {
                             // too near singularity, skip
                             0.0
                         } else {
-                            pdf_checked(t / u) * (1.0 + t * t) / u
+                            pdf_checked(t / u) * (1.0 + t * t) / (u * u)
                         }
                     };
                     let end_: f64 = {
@@ -676,7 +664,7 @@ pub trait Distribution {
                             // too near singularity, skip
                             0.0
                         } else {
-                            pdf_checked(t / u) * (1.0 + t * t) / u
+                            pdf_checked(t / u) * (1.0 + t * t) / (u * u)
                         }
                     };
                     (middle_, end_)
@@ -705,7 +693,7 @@ pub trait Distribution {
             }
 
             last_pdf_evaluation = end;
-            num_step += 1.0; 
+            num_step += 1.0;
             // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
         }
 
@@ -726,13 +714,13 @@ pub trait Distribution {
     /// Returns the [expected value](https://en.wikipedia.org/wiki/Expected_value)
     /// of the distribution if it exists.
     fn expected_value(&self) -> Option<f64> {
-        todo!("Implement deafult implementation. ");
+        return Some(self.moments(1, Moments::Raw));
     }
 
     /// Returns the [variance](https://en.wikipedia.org/wiki/Variance) of
     /// the distribution if it exists.
     fn variance(&self) -> Option<f64> {
-        todo!("Implement deafult implementation. ");
+        return Some(self.moments(2, Moments::Central));
     }
 
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
@@ -743,30 +731,267 @@ pub trait Distribution {
 
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
     /// of the distribution.
-    fn skewness(&self) -> f64 {
-        todo!("Implement deafult implementation. ");
+    fn skewness(&self) -> Option<f64> {
+        return Some(self.moments(3, Moments::Standarized));
     }
 
     /// Returns the [kurtosis](https://en.wikipedia.org/wiki/Kurtosis)
     /// of the distribution.
-    fn kurtosis(&self) -> f64 {
-        todo!("Implement deafult implementation. ");
+    fn kurtosis(&self) -> Option<f64> {
+        return Some(self.moments(4, Moments::Standarized));
     }
 
     /// Returns the [excess kurtosis](https://en.wikipedia.org/wiki/Kurtosis#Excess_kurtosis)
     /// of the distribution.
     ///
     /// The excess kurtosis is defined as `kurtosis - 3`.
-    fn excess_kurtosis(&self) -> f64 {
-        return self.kurtosis() - 3.0;
+    fn excess_kurtosis(&self) -> Option<f64> {
+        return self.kurtosis().map(|x| x - 3.0);
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
     /// of the distribution and the given order. Mode determines if the moment will be
     /// [Moments::Raw], [Moments::Central] or [Moments::Standarized].
-    fn moments(&self, order: u8, mode: Moments) {
-        #![allow(unused_variables)]
-        todo!("Implement deafult implementation. ");
+    fn moments(&self, order: u8, mode: Moments) -> f64 {
+        /*
+
+               Plan:
+
+            Just to the integral. The integral that gives us the moments of order `k` is: 
+
+            ```
+            integral {a -> b} ( (x - mu) / std )^k * f(x) dx
+            ```
+             - `k` is the order of the moment
+             - `f(x)` is the pdf of the distribution. 
+             - `a` and `b` are the values that bound the domain of `f(x)` 
+                    (they can be `a = -inf` and `b = -inf`). 
+             - `mu` is the mean of the distribution (or `0` if we selected the `Raw` moment)
+             - `std` is the standard deviation of the distribution 
+                    (or `1` if we did not select the `Standarized` moment)
+
+
+           Distiguish between cases depending on the domain.
+
+           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
+           for integration.
+
+           To compute integrals over an infinite range, we will perform a special
+           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
+
+            let g(x) = ( (x - mu) / std )^k * f(x)
+                For -infinite to const:
+            integral {-inf -> a} g(x) dx = integral {0 -> 1} g(a - (1 - t)/t)  /  t^2  dt
+            integral {-inf -> a} g(x) dx = integral {0 -> 1} ( (a - (1 - t)/t - mu) / std )^k * f(a - (1 - t)/t)  /  t^2  dt
+                
+                For const to infinite:
+            integral {a -> inf} g(x) dx  = integral {0 -> 1} g(a + t/(t - 1))  /  (1 - t)^2  dt
+            integral {a -> inf} g(x) dx  = integral {0 -> 1} ( (a + t/(t - 1) - mu) / std )^k * f(a + t/(t - 1))  /  (1 - t)^2  dt
+
+                For -infinite to infinite:
+            let inp = t/(1 - t^2)
+            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} g(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
+            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} ( (t/(1 - t^2) - mu) / std )^k * f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
+
+
+        */
+
+        let domain: &Domain = self.get_pdf_domain();
+        let bounds: (f64, f64) = domain.get_bounds();
+
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        };
+
+        // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
+        let (mean, std_dev): (f64, f64) = match mode {
+            Moments::Raw => (0.0, 1.0),
+            Moments::Central => (self.moments(1, Moments::Raw), 1.0),
+            Moments::Standarized => (
+                self.moments(1, Moments::Raw),
+                self.moments(2, Moments::Central),
+            ),
+        };
+
+        let order_exp: i32 = order as i32; 
+        let (minus_mean, inv_std_dev) = (-mean, std_dev.sqrt()); 
+
+        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
+
+        // To simpligy things + readability
+        enum IntegrationType {
+            // closed interval [a, b]
+            Finite,
+            // [-inf, a]
+            InfiniteToPositive,
+            // [b, inf]
+            InfiniteToNegative,
+            // [-inf, inf]
+            FullInfinite,
+        }
+
+        let integration_type: IntegrationType = match (bounds.0.is_finite(), bounds.1.is_finite()) {
+            (true, true) => IntegrationType::Finite,
+            (true, false) => IntegrationType::InfiniteToPositive,
+            (false, true) => IntegrationType::InfiniteToNegative,
+            (false, false) => IntegrationType::FullInfinite,
+        };
+
+        let double_step_length: f64 = 2.0 * step_length;
+        let step_len_over_3: f64 = step_length / 3.0;
+
+        // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
+        let mut last_pdf_evaluation: f64 = match integration_type {
+            IntegrationType::Finite => pdf_checked(bounds.0),
+            IntegrationType::InfiniteToPositive => {
+                // t = 0, it would be a singularity. Skip point
+                0.0
+            }
+            IntegrationType::InfiniteToNegative => {
+                // t = 0;     f(a + t/(t - 1))  /  (1 - t)^2
+                pdf_checked(bounds.0)
+            }
+            IntegrationType::FullInfinite => {
+                // t = -1;    f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2
+                // would be singularity, skip
+                0.0
+            }
+        };
+
+        let mut accumulator: f64 = 0.0;
+        let mut num_step: f64 = 0.0;
+
+        //'integration_loop: loop {
+        loop {
+            let current_position: f64 = bounds.0 + double_step_length * num_step;
+
+            let (middle, end): (f64, f64) = match integration_type {
+                IntegrationType::Finite => { 
+                    let fn_input: f64 = current_position + step_length; 
+                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                    let middle_: f64 = std_inp.powi(order_exp) * pdf_checked(fn_input);
+
+                    let fn_input: f64 = current_position + double_step_length; 
+                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                    let end_: f64 = std_inp.powi(order_exp) * pdf_checked(fn_input);
+
+                    (middle_, end_)
+                }
+                IntegrationType::InfiniteToPositive => {
+                    //      For -infinite to const:
+                    // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
+
+                    let middle_: f64 = {
+                        let t: f64 = current_position + step_length;
+                        if t.abs() < f64::EPSILON {
+                            // too near singularity, skip
+                            0.0
+                        } else {
+                            let fn_input: f64 = bounds.1 - (1.0 - t) / t;
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t * t)
+                        }
+                    };
+                    let end_: f64 = {
+                        let t: f64 = current_position + double_step_length;
+                        if t.abs() < f64::EPSILON {
+                            // too near singularity, skip
+                            0.0
+                        } else {
+                            let fn_input: f64 = bounds.1 - (1.0 - t) / t;
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t * t)
+                        }
+                    };
+                    (middle_, end_)
+                }
+                IntegrationType::InfiniteToNegative => {
+                    //For const to infinite:
+                    // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
+
+                    let middle_: f64 = {
+                        let t: f64 = current_position + step_length;
+                        let t_minus: f64 = t - 1.0;
+                        if t_minus.abs() < f64::EPSILON {
+                            // too near singularity, skip
+                            0.0
+                        } else {
+                            let fn_input: f64 = bounds.0 + t / t_minus; 
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t_minus * t_minus)
+                        }
+                    };
+                    let end_: f64 = {
+                        let t: f64 = current_position + double_step_length;
+                        let t_minus: f64 = t - 1.0;
+                        if t_minus.abs() < f64::EPSILON {
+                            // too near singularity, skip
+                            0.0
+                        } else {
+                            let fn_input: f64 = bounds.0 + t / t_minus; 
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t_minus * t_minus)
+                        }
+                    };
+                    (middle_, end_)
+                }
+                IntegrationType::FullInfinite => {
+                    // For -infinite to infinite:
+                    // integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
+
+                    let middle_: f64 = {
+                        let t: f64 = current_position + step_length;
+                        let u: f64 = 1.0 - t * t;
+                        if u.abs() < f64::EPSILON {
+                            // too near singularity, skip
+                            0.0
+                        } else {
+                            let fn_input: f64 = t / u; 
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t) / (u * u)
+                        }
+                    };
+                    let end_: f64 = {
+                        let t: f64 = current_position + double_step_length;
+                        let u: f64 = 1.0 - t * t;
+                        if u.abs() < f64::EPSILON {
+                            // too near singularity, skip
+                            0.0
+                        } else {
+                            let fn_input: f64 = t / u; 
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t) / (u * u)
+                        }
+                    };
+                    (middle_, end_)
+                }
+            };
+
+            accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
+
+            match integration_type {
+                IntegrationType::Finite => {
+                    if bounds.1 <= current_position {
+                        break;
+                    }
+                }
+                _ => {
+                    if 1.0 <= current_position {
+                        break;
+                    }
+                }
+            }
+
+            last_pdf_evaluation = end;
+            num_step += 1.0;
+            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
+        }
+
+        return accumulator;
     }
 
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
