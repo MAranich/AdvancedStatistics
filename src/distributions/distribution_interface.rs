@@ -231,13 +231,7 @@ pub trait Distribution {
     /// 
     /// ```
     /// fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
-    ///     points
-    ///         .iter()
-    ///         .map(|x| match self.quantile(*x) {
-    ///             Ok(v) => v,
-    ///             Err(_) => panic!("There has been an error! "),
-    ///         })
-    ///         .collect::<Vec<f64>>()
+    ///     points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     /// }
     /// ```
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {

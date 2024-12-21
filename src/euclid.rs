@@ -4,9 +4,7 @@ use rand::Rng;
 
 ///! Euclid contains uscefull math functions
 use crate::{
-    distributions::distribution_interface::Distribution, DEFAULT_INTEGRATION_MAXIMUM_STEPS,
-    DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION,
-    SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,
+    distributions::distribution_interface::Distribution, DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_MINIMUM_STEPS, DEFAULT_INTEGRATION_MINIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION
 };
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
@@ -165,8 +163,13 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
             } else {
                 // *normal* interval
 
-                let first_num = range / DEFAULT_INTEGRATION_PRECISION;
-                num_steps = (first_num as usize) | 1;
+                let first_num: f64 = range / DEFAULT_INTEGRATION_PRECISION; 
+                if first_num < DEFAULT_INTEGRATION_MINIMUM_STEPS_F64 {
+                    // too litle steps
+                    num_steps = DEFAULT_INTEGRATION_MINIMUM_STEPS; 
+                } else {
+                    num_steps = (first_num as usize) | 1;
+                }
                 step_length = range / (num_steps as f64);
             }
 

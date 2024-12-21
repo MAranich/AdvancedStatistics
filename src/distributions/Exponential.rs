@@ -21,7 +21,7 @@ impl Exponential {
         }
 
         // for performance reasons, the domain will only include up to the quantile 99.99%
-        let max: f64 = -(0.0001_f64.ln()) / _lambda;
+        let max: f64 = -((1.0_f64 - 0.9999).ln()) / _lambda;
 
         let _domain: Domain = Domain::new_continuous_range(0.0, max);
         return Ok(Exponential {
@@ -31,7 +31,7 @@ impl Exponential {
     }
 
     pub fn get_lambda(&self) -> f64 {
-        return self.lambda; 
+        return self.lambda;
     }
 }
 
@@ -45,6 +45,13 @@ impl Distribution for Exponential {
     }
 
     fn cdf(&self, x: f64) -> f64 {
+        if x.is_nan() {
+            // x is not valid
+            panic!("Found NaN while attempting to compute the cdf of an Exponential. ");
+        }
+        if x <= 0.0 {
+            return 0.0;
+        }
         return 1.0 - (-self.lambda * x).exp();
     }
 
@@ -62,17 +69,19 @@ impl Distribution for Exponential {
             return Err(crate::errors::AdvStatError::DomainErr);
         }
 
+        if x <= 0.0 {
+            return Ok(0.0);
+        }
+
+        if 1.0 <= x {
+            return Ok(f64::INFINITY);
+        }
+
         return Ok(-(1.0 - x).ln() / self.lambda);
     }
 
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
-        points
-            .iter()
-            .map(|x| match self.quantile(*x) {
-                Ok(v) => v,
-                Err(_) => panic!("There has been an error! "),
-            })
-            .collect::<Vec<f64>>()
+        points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
@@ -91,11 +100,11 @@ impl Distribution for Exponential {
     }
 
     fn expected_value(&self) -> Option<f64> {
-        return Some(1.0/self.lambda);
+        return Some(1.0 / self.lambda);
     }
 
     fn variance(&self) -> Option<f64> {
-        return Some(1.0/(self.lambda * self.lambda));
+        return Some(1.0 / (self.lambda * self.lambda));
     }
 
     fn mode(&self) -> f64 {
@@ -115,6 +124,6 @@ impl Distribution for Exponential {
     }
 
     fn entropy(&self) -> f64 {
-        return 1.0 - self.lambda.ln(); 
+        return 1.0 - self.lambda.ln();
     }
 }
