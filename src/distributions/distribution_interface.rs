@@ -1,4 +1,3 @@
-use std::os::raw;
 use std::usize;
 
 use rand::Rng;
@@ -32,7 +31,7 @@ pub trait Distribution {
     /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
     /// (Cumulative distribution function).
     /// If the function is evaluated outside the domain of the pdf, it will either
-    /// return either `0.0` or `1.0`. **Paniks** is `x` is a NaN.
+    /// return either `0.0` or `1.0`. **Panicks** is `x` is a NaN.
     ///
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
@@ -227,6 +226,20 @@ pub trait Distribution {
 
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
+    /// 
+    /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for: 
+    /// 
+    /// ```
+    /// fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
+    ///     points
+    ///         .iter()
+    ///         .map(|x| match self.quantile(*x) {
+    ///             Ok(v) => v,
+    ///             Err(_) => panic!("There has been an error! "),
+    ///         })
+    ///         .collect::<Vec<f64>>()
+    /// }
+    /// ```
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             Plan: (sery similar to [Distribution::quantile_multiple])
@@ -416,6 +429,14 @@ pub trait Distribution {
     ///
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
     /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible.
+    ///
+    /// If an effitient [Distribution::sample] has been implemented, it can be replaced for: 
+    /// 
+    /// ```
+    /// fn sample_multiple(&self, n: usize) -> Vec<f64> {
+    ///     (0..n).map(|_| self.sample()).collect::<Vec<f64>>()
+    /// }
+    /// ```
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let mut rand_quantiles: Vec<f64> = vec![0.0; n];
@@ -435,6 +456,21 @@ pub trait Distribution {
     /// is less (or equal) to 0, the minimum value in the domain will be returned.
     /// If a value in points is greater (or equal) to 1, the maximum value in the
     /// domain will be returned.
+    /// 
+    /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for: 
+    /// 
+    /// ```
+    /// fn quantile_multiple(&self, points: &[f64]) -> Result<Vec<f64>, crate::errors::AdvStatError> {
+    ///     let list: Vec<f64> = points
+    ///         .iter()
+    ///         .map(|x| match self.quantile(*x) {
+    ///             Ok(v) => v,
+    ///             Err(_) => panic!("There has been an error! "),
+    ///         })
+    ///         .collect::<Vec<f64>>();
+    ///     Ok(list)
+    /// }
+    /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Result<Vec<f64>, AdvStatError> {
         /*
            Plan:
@@ -996,7 +1032,7 @@ pub trait Distribution {
 
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution
-    fn entropy(&self) {
+    fn entropy(&self) -> f64 {
         todo!("Implement deafult implementation. ");
     }
 
