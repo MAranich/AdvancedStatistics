@@ -1,4 +1,3 @@
-use std::{arch::x86_64::_mm256_loadu2_m128, usize};
 
 use rand::Rng;
 

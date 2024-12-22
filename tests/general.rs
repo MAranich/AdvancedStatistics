@@ -15,12 +15,12 @@ fn temporal() {
     //panic!(); 
 }
 
-struct my_exp {
+struct MyExp {
     lambda: f64,
     domain: Domain,
 }
 
-impl Distribution for my_exp {
+impl Distribution for MyExp {
     fn pdf(&self, x: f64) -> f64 {
         self.lambda * (-self.lambda * x).exp()
     }
@@ -37,7 +37,7 @@ fn comparing_exponential_distr() {
 
 
     let ground: Exponential = Exponential::new(lambda).unwrap(); 
-    let test: my_exp = my_exp {
+    let test: MyExp = MyExp {
         lambda: lambda, 
         domain: Domain::new_continuous_range(0.0, max)
     }; 
@@ -101,7 +101,7 @@ fn comparing_exponential_distr() {
 
     println!("\n\n================================\n\n"); 
 
-    panic!("Show me the results. "); 
+    // panic!("Show me the results. "); 
 
 }
 

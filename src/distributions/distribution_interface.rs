@@ -199,7 +199,7 @@ pub trait Distribution {
 
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _i in 0..n {
-            let sample = loop {
+            let sample: f64 = loop {
                 let mut x: f64 = rng.gen();
                 x = bounds.0 + x * bound_range;
                 let y: f64 = rng.gen();
@@ -215,20 +215,46 @@ pub trait Distribution {
 
     /// Same as [Distribution::rejection_sample] but only in the selected range.
     ///
-    /// This can be uscefull for distributions with a stricly infinite domain but that
-    /// virtually all their mass is concentrated in a smaller region.
+    /// This can be usefull for distributions with a stricly infinite domain but that
+    /// virtually all their mass is concentrated in a smaller region (`range`).
     ///
-    /// For example, we could sample from the normal distribution with only the range
-    /// `(-8.0, 8.0)` since the density left out of this range is negligible.
+    /// For example, we could sample from the standard normal distribution with only
+    /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        todo!("Complete default implementation. ");
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let domain: &Domain = self.get_pdf_domain();
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        };
+
+        let bounds: (f64, f64) = range;
+        let bound_range: f64 = bounds.1 - bounds.0;
+
+        let mut ret: Vec<f64> = Vec::with_capacity(n);
+        for _i in 0..n {
+            let sample: f64 = loop {
+                let mut x: f64 = rng.gen();
+                x = bounds.0 + x * bound_range;
+                let y: f64 = rng.gen();
+                if y * pdf_max < pdf_checked(x) {
+                    break x;
+                }
+            };
+            ret.push(sample);
+        }
+
+        return ret;
     }
 
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
-    /// 
-    /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for: 
-    /// 
+    ///
+    /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for:
+    ///
     /// ```
     /// fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
     ///     points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
@@ -424,8 +450,8 @@ pub trait Distribution {
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
     /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible.
     ///
-    /// If an effitient [Distribution::sample] has been implemented, it can be replaced for: 
-    /// 
+    /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
+    ///
     /// ```
     /// fn sample_multiple(&self, n: usize) -> Vec<f64> {
     ///     (0..n).map(|_| self.sample()).collect::<Vec<f64>>()
@@ -450,9 +476,9 @@ pub trait Distribution {
     /// is less (or equal) to 0, the minimum value in the domain will be returned.
     /// If a value in points is greater (or equal) to 1, the maximum value in the
     /// domain will be returned.
-    /// 
-    /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for: 
-    /// 
+    ///
+    /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
+    ///
     /// ```
     /// fn quantile_multiple(&self, points: &[f64]) -> Result<Vec<f64>, crate::errors::AdvStatError> {
     ///     let list: Vec<f64> = points
@@ -787,17 +813,17 @@ pub trait Distribution {
 
                Plan:
 
-            Just to the integral. The integral that gives us the moments of order `k` is: 
+            Just to the integral. The integral that gives us the moments of order `k` is:
 
             ```
             integral {a -> b} ( (x - mu) / std )^k * f(x) dx
             ```
              - `k` is the order of the moment
-             - `f(x)` is the pdf of the distribution. 
-             - `a` and `b` are the values that bound the domain of `f(x)` 
-                    (they can be `a = -inf` and `b = -inf`). 
+             - `f(x)` is the pdf of the distribution.
+             - `a` and `b` are the values that bound the domain of `f(x)`
+                    (they can be `a = -inf` and `b = -inf`).
              - `mu` is the mean of the distribution (or `0` if we selected the `Raw` moment)
-             - `std` is the standard deviation of the distribution 
+             - `std` is the standard deviation of the distribution
                     (or `1` if we did not select the `Standarized` moment)
 
 
@@ -813,7 +839,7 @@ pub trait Distribution {
                 For -infinite to const:
             integral {-inf -> a} g(x) dx = integral {0 -> 1} g(a - (1 - t)/t)  /  t^2  dt
             integral {-inf -> a} g(x) dx = integral {0 -> 1} ( (a - (1 - t)/t - mu) / std )^k * f(a - (1 - t)/t)  /  t^2  dt
-                
+
                 For const to infinite:
             integral {a -> inf} g(x) dx  = integral {0 -> 1} g(a + t/(t - 1))  /  (1 - t)^2  dt
             integral {a -> inf} g(x) dx  = integral {0 -> 1} ( (a + t/(t - 1) - mu) / std )^k * f(a + t/(t - 1))  /  (1 - t)^2  dt
@@ -847,8 +873,8 @@ pub trait Distribution {
             ),
         };
 
-        let order_exp: i32 = order as i32; 
-        let (minus_mean, inv_std_dev) = (-mean, std_dev.sqrt()); 
+        let order_exp: i32 = order as i32;
+        let (minus_mean, inv_std_dev) = (-mean, 1.0/std_dev.sqrt());
 
         let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
 
@@ -900,13 +926,13 @@ pub trait Distribution {
             let current_position: f64 = bounds.0 + double_step_length * num_step;
 
             let (middle, end): (f64, f64) = match integration_type {
-                IntegrationType::Finite => { 
-                    let fn_input: f64 = current_position + step_length; 
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                IntegrationType::Finite => {
+                    let fn_input: f64 = current_position + step_length;
+                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                     let middle_: f64 = std_inp.powi(order_exp) * pdf_checked(fn_input);
 
-                    let fn_input: f64 = current_position + double_step_length; 
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                    let fn_input: f64 = current_position + double_step_length;
+                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                     let end_: f64 = std_inp.powi(order_exp) * pdf_checked(fn_input);
 
                     (middle_, end_)
@@ -922,7 +948,7 @@ pub trait Distribution {
                             0.0
                         } else {
                             let fn_input: f64 = bounds.1 - (1.0 - t) / t;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                             std_inp.powi(order_exp) * pdf_checked(fn_input) / (t * t)
                         }
                     };
@@ -933,7 +959,7 @@ pub trait Distribution {
                             0.0
                         } else {
                             let fn_input: f64 = bounds.1 - (1.0 - t) / t;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                             std_inp.powi(order_exp) * pdf_checked(fn_input) / (t * t)
                         }
                     };
@@ -950,8 +976,8 @@ pub trait Distribution {
                             // too near singularity, skip
                             0.0
                         } else {
-                            let fn_input: f64 = bounds.0 + t / t_minus; 
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            let fn_input: f64 = bounds.0 + t / t_minus;
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                             std_inp.powi(order_exp) * pdf_checked(fn_input) / (t_minus * t_minus)
                         }
                     };
@@ -962,8 +988,8 @@ pub trait Distribution {
                             // too near singularity, skip
                             0.0
                         } else {
-                            let fn_input: f64 = bounds.0 + t / t_minus; 
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
+                            let fn_input: f64 = bounds.0 + t / t_minus;
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                             std_inp.powi(order_exp) * pdf_checked(fn_input) / (t_minus * t_minus)
                         }
                     };
@@ -980,9 +1006,10 @@ pub trait Distribution {
                             // too near singularity, skip
                             0.0
                         } else {
-                            let fn_input: f64 = t / u; 
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t) / (u * u)
+                            let fn_input: f64 = t / u;
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t)
+                                / (u * u)
                         }
                     };
                     let end_: f64 = {
@@ -992,9 +1019,10 @@ pub trait Distribution {
                             // too near singularity, skip
                             0.0
                         } else {
-                            let fn_input: f64 = t / u; 
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev; 
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t) / (u * u)
+                            let fn_input: f64 = t / u;
+                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
+                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t)
+                                / (u * u)
                         }
                     };
                     (middle_, end_)

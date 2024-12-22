@@ -1,5 +1,3 @@
-use std::default;
-
 use rand::Rng;
 
 ///! Euclid contains uscefull math functions
