@@ -28,6 +28,20 @@ impl Distribution for MyExp {
     fn get_pdf_domain(&self) -> &AdvancedStatistics::euclid::Domain {
         &self.domain
     }
+
+    /*
+    
+    fn expected_value(&self) -> Option<f64> {
+        return Some(1.0 / self.lambda);
+    }
+
+    
+    fn variance(&self) -> Option<f64> {
+        return Some(1.0 / (self.lambda * self.lambda));
+    }
+     */
+
+
 }
 
 #[test]

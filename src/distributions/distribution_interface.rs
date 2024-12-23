@@ -866,12 +866,15 @@ pub trait Distribution {
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
         let (mean, std_dev): (f64, f64) = match mode {
             Moments::Raw => (0.0, 1.0),
-            Moments::Central => (self.moments(1, Moments::Raw), 1.0),
+            Moments::Central => (self.expected_value().expect("We need expected value to continue"), 1.0),
             Moments::Standarized => (
-                self.moments(1, Moments::Raw),
-                self.moments(2, Moments::Central),
+                self.expected_value().expect("We need expected value to continue"),
+                self.variance().expect("We need variance value to continue"),
             ),
         };
+
+        // Todo: give better error handling to the above. ^
+        println!("(mean, std_dev): {:?}", (mean, std_dev)); 
 
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0/std_dev.sqrt());

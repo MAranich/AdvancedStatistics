@@ -30,7 +30,7 @@ pub const DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64: f64 = DEFAULT_INTEGRATION_MAXIM
 /// `(1 << 10) + 1 = 1 025`
 /// 
 /// The `+ 1` is because odd numbers are better for Simpson's integration. 
-pub const DEFAULT_INTEGRATION_MINIMUM_STEPS: usize = (1 << 10) + 1;
+pub const DEFAULT_INTEGRATION_MINIMUM_STEPS: usize = (1 << 12) + 1;
 /// [DEFAULT_INTEGRATION_MINIMUM_STEPS]
 pub const DEFAULT_INTEGRATION_MINIMUM_STEPS_F64: f64 = DEFAULT_INTEGRATION_MINIMUM_STEPS as f64;
 
