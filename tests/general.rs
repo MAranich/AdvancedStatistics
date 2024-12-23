@@ -44,6 +44,15 @@ fn comparing_exponential_distr() {
 
 
     // ***
+    println!("\nIntegral of the area of the pdf: \n\n"); 
+
+    let area_ground: f64 = euclid::determine_normalitzation_constant_continuous(|x| Distribution::pdf(&ground, x), &test.domain); 
+    let area_test: f64 = euclid::determine_normalitzation_constant_continuous(|x| Distribution::pdf(&test, x), &test.domain);  
+
+    println!("Area || \tground: {}\ttest: {} ", area_ground, area_test); 
+
+
+    // ***
 
     println!("\nTesting cdf: \n\n"); 
 
@@ -54,7 +63,7 @@ fn comparing_exponential_distr() {
 
     for (i, x) in points.iter().enumerate() {
         let diff: f64 = r1[i] - r2[i];  
-        println!("cdf({}) || \tground: {}\ttest: {} \tdiff: {}", x, r1[i], r2[i], diff); 
+        println!("\tcdf({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n", x, r1[i], r2[i], diff); 
     }
 
     // ***
@@ -68,7 +77,7 @@ fn comparing_exponential_distr() {
 
     for (i, x) in points.iter().enumerate() {
         let diff: f64 = r1[i] - r2[i];  
-        println!("quantile({}) || \tground: {}\ttest: {} \tdiff: {}", x, r1[i], r2[i], diff); 
+        println!("\tquantile({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n", x, r1[i], r2[i], diff); 
     }
 
     /*
@@ -101,7 +110,7 @@ fn comparing_exponential_distr() {
 
     println!("\n\n================================\n\n"); 
 
-    // panic!("Show me the results. "); 
+    panic!("Show me the results. "); 
 
 }
 

@@ -2,11 +2,14 @@ use rand::Rng;
 
 ///! Euclid contains uscefull math functions
 use crate::{
-    distributions::distribution_interface::Distribution, DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_MINIMUM_STEPS, DEFAULT_INTEGRATION_MINIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION
+    DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_MINIMUM_STEPS, DEFAULT_INTEGRATION_MINIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION
 };
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
-/// are some values that provide information about the shape of the function.
+/// are some values that provide information about the shape of the function. 
+/// If the function is a valid pdf, the mean, variance, skewness and other values 
+/// of interest can be expressed as moments. 
+/// 
 /// The moments can have be of any of the 3 variants in this enum:
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum Moments {

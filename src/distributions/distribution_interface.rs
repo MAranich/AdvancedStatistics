@@ -382,8 +382,16 @@ pub trait Distribution {
         let mut num_step: f64 = 0.0;
         'integration_loop: loop {
             let current_position: f64 = bounds.0 + double_step_length * num_step;
-            //let middle: f64 = pdf_checked(current_position + step_length);
-            //let end: f64 = pdf_checked(current_position + double_step_length);
+
+            while current_cdf_point <= current_position {
+                ret.push((current_index, accumulator));
+
+                // update `current_cdf_point` to the next value or exit if we are done
+                match points_iter.next() {
+                    Some(p) => (current_index, current_cdf_point) = p,
+                    None => break 'integration_loop,
+                }
+            }
 
             let (middle, end): (f64, f64) = if infinite_range {
                 // In order to avoid the singularity at 0 we will split this into 2 parts: [-1, 0) and (0, 1]
@@ -417,15 +425,7 @@ pub trait Distribution {
 
             accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
 
-            while current_cdf_point <= current_position {
-                ret.push((current_index, accumulator));
 
-                // update `current_cdf_point` to the next value or exit if we are done
-                match points_iter.next() {
-                    Some(p) => (current_index, current_cdf_point) = p,
-                    None => break 'integration_loop,
-                }
-            }
 
             last_pdf_evaluation = end;
             num_step += 1.0;
