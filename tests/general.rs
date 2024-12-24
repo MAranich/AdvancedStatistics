@@ -1,12 +1,9 @@
+///! General testing section
 
-
-use distributions::{distribution_interface::Distribution, Exponential::Exponential};
+use distributions::{distribution_trait::Distribution, Exponential::Exponential};
 use euclid::Domain;
 use AdvancedStatistics::*; 
 
-
-#[test]
-fn dummy() {}
 
 #[test]
 fn temporal() {
@@ -25,7 +22,7 @@ impl Distribution for MyExp {
         self.lambda * (-self.lambda * x).exp()
     }
 
-    fn get_pdf_domain(&self) -> &AdvancedStatistics::euclid::Domain {
+    fn get_domain(&self) -> &AdvancedStatistics::euclid::Domain {
         &self.domain
     }
 

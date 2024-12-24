@@ -23,7 +23,7 @@ pub trait Distribution {
 
     /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
     /// be evaluated.
-    fn get_pdf_domain(&self) -> &Domain;
+    fn get_domain(&self) -> &Domain;
 
     // Provided methods:
     // Manual implementation for a specific distribution is recommended.
@@ -185,7 +185,7 @@ pub trait Distribution {
     /// a performance penalty.
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &Domain = self.get_pdf_domain();
+        let domain: &Domain = self.get_domain();
         let pdf_checked = |x: f64| {
             if domain.contains(x) {
                 self.pdf(x)
@@ -222,7 +222,7 @@ pub trait Distribution {
     /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &Domain = self.get_pdf_domain();
+        let domain: &Domain = self.get_domain();
         let pdf_checked = |x: f64| {
             if domain.contains(x) {
                 self.pdf(x)
@@ -311,7 +311,7 @@ pub trait Distribution {
         sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-        let domain: &Domain = self.get_pdf_domain();
+        let domain: &Domain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         // if points[i] <= bounds.0  |||| Awnser is always 0
@@ -424,8 +424,6 @@ pub trait Distribution {
             };
 
             accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
-
-
 
             last_pdf_evaluation = end;
             num_step += 1.0;
@@ -540,7 +538,7 @@ pub trait Distribution {
         sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-        let domain: &Domain = self.get_pdf_domain();
+        let domain: &Domain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         // if points[i] <= 0  |||| Awnser is always bounds.0 (start of domain)
@@ -852,7 +850,7 @@ pub trait Distribution {
 
         */
 
-        let domain: &Domain = self.get_pdf_domain();
+        let domain: &Domain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         let pdf_checked = |x: f64| {
@@ -866,18 +864,23 @@ pub trait Distribution {
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
         let (mean, std_dev): (f64, f64) = match mode {
             Moments::Raw => (0.0, 1.0),
-            Moments::Central => (self.expected_value().expect("We need expected value to continue"), 1.0),
+            Moments::Central => (
+                self.expected_value()
+                    .expect("We need expected value to continue"),
+                1.0,
+            ),
             Moments::Standarized => (
-                self.expected_value().expect("We need expected value to continue"),
+                self.expected_value()
+                    .expect("We need expected value to continue"),
                 self.variance().expect("We need variance value to continue"),
             ),
         };
 
         // Todo: give better error handling to the above. ^
-        println!("(mean, std_dev): {:?}", (mean, std_dev)); 
+        // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
         let order_exp: i32 = order as i32;
-        let (minus_mean, inv_std_dev) = (-mean, 1.0/std_dev.sqrt());
+        let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
 
         let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
 
@@ -1062,4 +1065,8 @@ pub trait Distribution {
     }
 
     // Other
+}
+
+pub trait DiscreteDistribution {
+    // to be done
 }

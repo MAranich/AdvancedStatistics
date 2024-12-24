@@ -1,15 +1,18 @@
+//! Euclid contains uscefull math functions
+
 use rand::Rng;
 
-///! Euclid contains uscefull math functions
 use crate::{
-    DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_MINIMUM_STEPS, DEFAULT_INTEGRATION_MINIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION
+    DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64,
+    DEFAULT_INTEGRATION_MINIMUM_STEPS, DEFAULT_INTEGRATION_MINIMUM_STEPS_F64,
+    DEFAULT_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,
 };
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
-/// are some values that provide information about the shape of the function. 
-/// If the function is a valid pdf, the mean, variance, skewness and other values 
-/// of interest can be expressed as moments. 
-/// 
+/// are some values that provide information about the shape of the function.
+/// If the function is a valid pdf, the mean, variance, skewness and other values
+/// of interest can be expressed as moments.
+///
 /// The moments can have be of any of the 3 variants in this enum:
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum Moments {
@@ -22,12 +25,12 @@ pub enum Moments {
 /// Domain represents a [domain](https://en.wikipedia.org/wiki/Domain_of_a_function)
 /// of a function (the points where it can be evaluated). The Domain struct provides
 /// enough functionality to easly create most of the most common domains.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Domain {
     domain: DomainType,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DomainType {
     Discrete(DiscreteDomain),
     Continuous(ContinuousDomain),
@@ -84,7 +87,7 @@ pub enum ContinuousDomain {
 
 /// Mixed Domain allows the creation of more comlpex domains by mixing multiple
 /// of the basic types.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MixedDomain {
     /// The points contained in **any** of the domains.
     Union(Box<Vec<Domain>>),
@@ -95,17 +98,16 @@ pub enum MixedDomain {
 }
 /// Todo implement Debug for MixedDomain, Domain and DomainType
 
-/// Determine the normalitzation constant of a pdf. 
-/// 
-/// You need to divide the value given by `pdf` by the returned value in order to have 
-/// a valid probability distribution. 
-/// 
-/// This function assumes that `pdf` contains a finite area in it's `domain`. 
+/// Determine the normalitzation constant of a pdf.
+///
+/// You need to divide the value given by `pdf` by the returned value in order to have
+/// a valid probability distribution.
+///
+/// This function assumes that `pdf` contains a finite area in it's `domain`.
 pub fn determine_normalitzation_constant_continuous(
     pdf: impl Fn(f64) -> f64,
     domain: &Domain,
 ) -> f64 {
-
     let bounds: (f64, f64) = domain.get_bounds();
 
     let pdf_checked = |x: f64| {
@@ -343,10 +345,10 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
             } else {
                 // *normal* interval
 
-                let first_num: f64 = range / DEFAULT_INTEGRATION_PRECISION; 
+                let first_num: f64 = range / DEFAULT_INTEGRATION_PRECISION;
                 if first_num < DEFAULT_INTEGRATION_MINIMUM_STEPS_F64 {
                     // too litle steps
-                    num_steps = DEFAULT_INTEGRATION_MINIMUM_STEPS; 
+                    num_steps = DEFAULT_INTEGRATION_MINIMUM_STEPS;
                 } else {
                     num_steps = (first_num as usize) | 1;
                 }

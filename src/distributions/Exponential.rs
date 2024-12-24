@@ -3,9 +3,10 @@ use rand::Rng;
 
 use crate::euclid::Domain;
 
-use super::distribution_interface::Distribution;
+use super::distribution_trait::Distribution;
 
 /// An [Exponential distribution](https://en.wikipedia.org/wiki/Exponential_distribution).
+#[derive(Debug, Clone, PartialEq)]
 pub struct Exponential {
     lambda: f64,
     domain: Domain,
@@ -39,7 +40,7 @@ impl Distribution for Exponential {
         self.lambda * (-self.lambda * x).exp()
     }
 
-    fn get_pdf_domain(&self) -> &crate::euclid::Domain {
+    fn get_domain(&self) -> &crate::euclid::Domain {
         &self.domain
     }
 
