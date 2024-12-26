@@ -82,8 +82,8 @@ fn comparing_exponential_distr() {
     println!("\nTesting quantile: \n\n"); 
 
     let points: Vec<f64> = vec![-1.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0]; 
-    let r1: Vec<f64> = ground.quantile_multiple(&points).unwrap(); 
-    let r2: Vec<f64> = test.quantile_multiple(&points).unwrap(); 
+    let r1: Vec<f64> = ground.quantile_multiple(&points); 
+    let r2: Vec<f64> = test.quantile_multiple(&points); 
 
 
     for (i, x) in points.iter().enumerate() {

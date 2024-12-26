@@ -61,23 +61,23 @@ impl Distribution for Exponential {
         return -r.ln() / self.lambda;
     }
 
-    fn quantile(&self, x: f64) -> Result<f64, crate::errors::AdvStatError> {
+    fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
         if x.is_nan() {
             // x is not valid
-            return Err(crate::errors::AdvStatError::DomainErr);
+            panic!("Tried to evaluate the quantile function with a NaN value. \n"); 
         }
 
         if x <= 0.0 {
-            return Ok(0.0);
+            return 0.0;
         }
 
         if 1.0 <= x {
-            return Ok(f64::INFINITY);
+            return f64::INFINITY;
         }
 
-        return Ok(-(1.0 - x).ln() / self.lambda);
+        return -(1.0 - x).ln() / self.lambda;
     }
 
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
@@ -88,15 +88,12 @@ impl Distribution for Exponential {
         (0..n).map(|_| self.sample()).collect::<Vec<f64>>()
     }
 
-    fn quantile_multiple(&self, points: &[f64]) -> Result<Vec<f64>, crate::errors::AdvStatError> {
+    fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         let list: Vec<f64> = points
             .iter()
-            .map(|x| match self.quantile(*x) {
-                Ok(v) => v,
-                Err(_) => panic!("There has been an error! "),
-            })
+            .map(|x| self.quantile(*x))
             .collect::<Vec<f64>>();
-        Ok(list)
+        return list; 
     }
 
     fn expected_value(&self) -> Option<f64> {

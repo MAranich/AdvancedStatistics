@@ -384,8 +384,9 @@ impl Domain {
     /// A [Domain] composed of all the real numbers in the given range. Note both of the
     /// bounds **are includive**.
     ///
-    /// If this domain is for the [Distribution::pdf], we recomend using this over the
-    /// real domain and just select the interval where the function is non-zero.
+    /// If this domain is for the [crate::distributions::distribution_trait::Distribution::pdf], 
+    /// we recomend using this over the real domain and just select the interval 
+    /// where the function is non-zero.
     ///
     /// For example, for the standard normal distribution, using a range from
     /// `-8.0` to `8.0` is more than enough because the area left out of that range is
