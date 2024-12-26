@@ -4,7 +4,7 @@ use rand::Rng;
 
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::*;
-use crate::QUANTILE_USE_NEWTONS_ITER;
+use crate::configuration::QUANTILE_USE_NEWTONS_ITER;
 
 /// The trait for any continuous distribution.
 pub trait Distribution {
