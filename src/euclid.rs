@@ -1,7 +1,6 @@
 //! Euclid contains uscefull math functions
 
 use std::usize;
-
 use rand::Rng;
 
 use crate::{
@@ -284,6 +283,17 @@ pub fn determine_normalitzation_constant_continuous(
     }
 
     return accumulator;
+}
+
+pub fn determine_normalitzation_constant_discrete(pdf: impl Fn(f64) -> f64,
+domain: &Domain, max_steps: Option<usize>) -> f64 {
+    let mut ret: f64 = 0.0; 
+
+    for point in domain.iter() {
+        ret += pdf(point); 
+    }
+
+    return ret; 
 }
 
 /// Randomly permute a slice.
@@ -899,7 +909,7 @@ impl Domain {
     ///
     /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
     pub fn get_bounds(&self) -> (f64, f64) {
-        let mut ret: (f64, f64) = match &self.domain {
+        let ret: (f64, f64) = match &self.domain {
             DomainType::Discrete(discrete_domain) => match discrete_domain {
                 DiscreteDomain::Integers => (f64::NEG_INFINITY, f64::INFINITY),
                 DiscreteDomain::Positive(include_zero) => {
@@ -981,6 +991,8 @@ impl Domain {
         return ret;
     }
 
+    /// Get an iterator that interetes through the **DISCRETE** values of the domain 
+    /// (ignoring continuous values). 
     pub fn iter(&self) -> DiscreteDomainIterator {
         let bounds_: (f64, f64) = self.get_bounds();
         DiscreteDomainIterator {
@@ -1000,7 +1012,9 @@ impl DomainType {
 }
 
 pub struct DiscreteDomainIterator<'a> {
+    // reference
     domain: &'a Domain,
+    // = domain.get_bounds()
     bounds: (f64, f64),
     // equivalent to (self.bounds.0.is_finite(), self.bounds.1.is_finite()) / (just to not recompute it every time)
     domain_dimensions: (bool, bool),
