@@ -1,5 +1,6 @@
 //! Euclid contains uscefull math functions
 
+use std::usize;
 use rand::Rng;
 
 use crate::configuration::integration::{
@@ -284,6 +285,17 @@ pub fn determine_normalitzation_constant_continuous(
     return accumulator;
 }
 
+pub fn determine_normalitzation_constant_discrete(pdf: impl Fn(f64) -> f64,
+domain: &Domain, max_steps: Option<usize>) -> f64 {
+    let mut ret: f64 = 0.0; 
+
+    for point in domain.iter() {
+        ret += pdf(point); 
+    }
+
+    return ret; 
+}
+
 /// Randomly permute a slice.
 ///
 /// This is an implementation of [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle),
@@ -378,22 +390,41 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
     }
 }
 
+/// Deafult return value if a domain is empty
 pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);
 
 impl Domain {
     /// A [Domain] composed of all the real numbers in the given range. Note both of the
     /// bounds **are includive**.
     ///
-    /// If this domain is for the [crate::distributions::distribution_trait::Distribution::pdf], 
-    /// we recomend using this over the real domain and just select the interval 
+    /// If this domain is for the [crate::distributions::distribution_trait::Distribution::pdf],
+    /// we recomend using this over the real domain and just select the interval
     /// where the function is non-zero.
     ///
     /// For example, for the standard normal distribution, using a range from
     /// `-8.0` to `8.0` is more than enough because the area left out of that range is
     /// `1 - erf(8/sqrt(2))` wich is less than `1.25 * 10^-15`.
+    ///
+    /// If `max_inclusive` < `min_inclusive` then the interval is created with
+    /// the same values as [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)`
+    ///
+    /// **Panics** is either `min_inclusive` or `max_inclusive` is Nan.
     pub const fn new_continuous_range(min_inclusive: f64, max_inclusive: f64) -> Self {
-        let domain_type: DomainType =
+        if min_inclusive.is_nan() || max_inclusive.is_nan() {
+            panic!("Error: attempted to create a continuous range and either min_inclusive or max_inclusive is NaN. ")
+        }
+
+        let mut domain_type: DomainType =
             DomainType::Continuous(ContinuousDomain::Range(min_inclusive, max_inclusive));
+
+        if max_inclusive < min_inclusive {
+            // reversed values: create empty domain
+            domain_type = DomainType::Continuous(ContinuousDomain::Range(
+                DEFAULT_EMPTY_DOMAIN_BOUNDS.0,
+                DEFAULT_EMPTY_DOMAIN_BOUNDS.1,
+            ));
+        }
+
         Domain {
             domain: domain_type,
         }
@@ -876,9 +907,9 @@ impl Domain {
     /// It is guaranteed that return.0 <= return.1. If the bounds are finite, the values
     /// themselves are included.
     ///
-    /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] `(-0.0, 0.0)` is returned.
+    /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
     pub fn get_bounds(&self) -> (f64, f64) {
-        match &self.domain {
+        let ret: (f64, f64) = match &self.domain {
             DomainType::Discrete(discrete_domain) => match discrete_domain {
                 DiscreteDomain::Integers => (f64::NEG_INFINITY, f64::INFINITY),
                 DiscreteDomain::Positive(include_zero) => {
@@ -926,8 +957,8 @@ impl Domain {
                     .iter()
                     .map(|domain| domain.get_bounds())
                     .reduce(|acc, d| {
-                        let low: f64 = if acc.0 < d.0 { acc.0 } else { d.0 };
-                        let high: f64 = if d.0 < acc.0 { acc.0 } else { d.0 };
+                        let low: f64 = acc.0.min(d.0);
+                        let high: f64 = acc.1.max(d.1);
                         (low, high)
                     })
                     .unwrap_or(DEFAULT_EMPTY_DOMAIN_BOUNDS),
@@ -935,8 +966,8 @@ impl Domain {
                     .iter()
                     .map(|domain| domain.get_bounds())
                     .reduce(|acc, d| {
-                        let low: f64 = if d.0 < acc.0 { acc.0 } else { d.0 };
-                        let high: f64 = if acc.0 < d.0 { acc.0 } else { d.0 };
+                        let low: f64 = acc.0.max(d.0);
+                        let high: f64 = acc.1.min(d.1);
                         (low, high)
                     })
                     .unwrap_or(DEFAULT_EMPTY_DOMAIN_BOUNDS),
@@ -951,6 +982,25 @@ impl Domain {
                     }
                 }
             },
+        };
+
+        if ret.1 < ret.0 {
+            //the domain is too restrictive => thw domain should be empty
+            return DEFAULT_EMPTY_DOMAIN_BOUNDS;
+        }
+        return ret;
+    }
+
+    /// Get an iterator that interetes through the **DISCRETE** values of the domain 
+    /// (ignoring continuous values). 
+    pub fn iter(&self) -> DiscreteDomainIterator {
+        let bounds_: (f64, f64) = self.get_bounds();
+        DiscreteDomainIterator {
+            domain: self,
+            bounds: bounds_,
+            domain_dimensions: (bounds_.0.is_finite(), bounds_.1.is_finite()),
+            current_value: f64::NAN,
+            current_val_aux: None,
         }
     }
 }
@@ -958,5 +1008,397 @@ impl Domain {
 impl DomainType {
     fn to_domain(self) -> Domain {
         Domain { domain: self }
+    }
+}
+
+pub struct DiscreteDomainIterator<'a> {
+    // reference
+    domain: &'a Domain,
+    // = domain.get_bounds()
+    bounds: (f64, f64),
+    // equivalent to (self.bounds.0.is_finite(), self.bounds.1.is_finite()) / (just to not recompute it every time)
+    domain_dimensions: (bool, bool),
+    // guaranteed that `current_value` is inside `bounds`
+    current_value: f64,
+    // auxiliar value if domain_dimensions = (false, false) / (infinite range on both ends)
+    current_val_aux: Option<f64>,
+}
+
+impl<'a> DiscreteDomainIterator<'a> {
+    /// create a new discrete_domain_iterator from another with a new domain.
+    ///
+    /// Uscefull when you want to transform a given discrete_domain_iterator into
+    /// a more restrictive version of itself
+    fn from<'b: 'a>(&'a self, other: &'b Domain) -> Self {
+        Self {
+            domain: &other,
+            bounds: self.bounds.clone(),
+            domain_dimensions: self.domain_dimensions.clone(),
+            current_value: self.current_value.clone(),
+            current_val_aux: self.current_val_aux.clone(),
+        }
+    }
+
+    fn get_next_value(&self, going_forward: bool) -> Option<f64> {
+        if going_forward {
+            self.get_next_smallest_value()
+        } else {
+            self.get_prev_smallest_value()
+        }
+    }
+
+    fn get_prev_smallest_value(&self) -> Option<f64> {
+        return match &self.domain.domain {
+            DomainType::Discrete(discrete_domain) => {
+                match discrete_domain {
+                    DiscreteDomain::Integers => {
+                        let ceil: f64 = (self.current_value - 1.0).ceil();
+                        Some(ceil)
+                    }
+                    DiscreteDomain::Positive(z) => match self.current_value.partial_cmp(&0.0) {
+                        Some(comp) => match comp {
+                            std::cmp::Ordering::Less | std::cmp::Ordering::Equal => None,
+                            std::cmp::Ordering::Greater => {
+                                let ceil: f64 = (self.current_value - 1.0).ceil();
+                                if ceil < 1.0 {
+                                    // ceil is 0.0
+                                    if *z {
+                                        Some(0.0)
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    Some(ceil)
+                                }
+                            }
+                        },
+                        None => None,
+                    },
+                    DiscreteDomain::Negative(z) => match self.current_value.partial_cmp(&1.0) {
+                        Some(comp) => match comp {
+                            std::cmp::Ordering::Less => {
+                                let ceil: f64 = (self.current_value - 1.0).ceil();
+                                Some(ceil)
+                            }
+                            std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
+                                if *z {
+                                    // include zero
+                                    Some(0.0)
+                                } else {
+                                    Some(-1.0)
+                                }
+                            }
+                        },
+                        None => None,
+                    },
+                    DiscreteDomain::Range(start, end) => {
+                        if self.current_value < *start as f64 {
+                            None
+                        } else if *end as f64 <= self.current_value {
+                            Some(*end as f64)
+                        } else {
+                            // start <= current_value < end
+                            let ceil: f64 = (self.current_value - 1.0).ceil();
+                            // we need to compute ceil in the case current_value is not an integer
+                            Some(ceil)
+                        }
+                    }
+                    DiscreteDomain::From(min) => {
+                        if self.current_value <= *min as f64 {
+                            None
+                        } else {
+                            let ceil: f64 = (self.current_value - 1.0).ceil();
+                            Some(ceil)
+                        }
+                    }
+                    DiscreteDomain::To(max) => {
+                        let max_f: f64 = *max as f64;
+                        if max_f < self.current_value {
+                            Some(max_f)
+                        } else {
+                            let ceil: f64 = (self.current_value - 1.0).ceil();
+                            Some(ceil)
+                        }
+                    }
+                    DiscreteDomain::Custom(vec) => {
+                        // use binary search. if the value is found, we get the next one or None if
+                        // out of bounds. Othw. we just use err index or None (if out of bounds).
+                        let index_bs_result: Result<usize, usize> =
+                            vec.binary_search_by(|a| a.partial_cmp(&self.current_value).unwrap());
+
+                        let index_bs: usize = match index_bs_result {
+                            Ok(idx) => idx,
+                            Err(idx) => idx,
+                        };
+
+                        if index_bs == 0 {
+                            None
+                        } else {
+                            // 0 <= index_bs - 1  // (result is valid)
+                            vec.get(index_bs - 1).copied()
+                        }
+                    }
+                }
+            }
+            DomainType::Continuous(_) => {
+                // Here we ignore continuous cases
+                None
+            }
+            DomainType::Mixed(mixed_domain) => match mixed_domain {
+                MixedDomain::Union(vec) => vec
+                    .iter()
+                    .map(|d| self.from(d))
+                    .map(|d| d.get_next_smallest_value())
+                    .reduce(|x, acc| match (x, acc) {
+                        (None, None) => None,
+                        (None, Some(v)) | (Some(v), None) => Some(v),
+                        (Some(v), Some(b)) => Some(v.min(b)),
+                    })
+                    .unwrap_or(None),
+                MixedDomain::Disjunction(vec) => {
+                    let mut ret = vec
+                        .iter()
+                        .map(|d| self.from(d))
+                        .map(|d| d.get_next_smallest_value())
+                        .reduce(|x, acc| match (x, acc) {
+                            (None, None) => None,
+                            (None, _) | (_, None) => None,
+                            (Some(v), Some(b)) => Some(v.max(b)),
+                        })
+                        .unwrap_or(None);
+
+                    if let Some(v) = ret {
+                        if vec.iter().any(|d| !d.contains(v)) {
+                            ret = None;
+                        }
+                    }
+
+                    ret
+
+                    // todo!("Here we chould check if there is a second option after the first one");
+                }
+                MixedDomain::Not(_domain_type) => todo!(),
+            },
+        };
+    }
+
+    fn get_next_smallest_value(&self) -> Option<f64> {
+        return match &self.domain.domain {
+            DomainType::Discrete(discrete_domain) => {
+                match discrete_domain {
+                    DiscreteDomain::Integers => Some(self.current_value.floor() + 1.0),
+                    DiscreteDomain::Positive(z) => match self.current_value.partial_cmp(&0.0) {
+                        Some(comp) => match comp {
+                            std::cmp::Ordering::Less => {
+                                if *z {
+                                    Some(0.0)
+                                } else {
+                                    Some(1.0)
+                                }
+                            }
+                            std::cmp::Ordering::Equal => Some(1.0),
+                            std::cmp::Ordering::Greater => Some(self.current_value.floor() + 1.0),
+                        },
+                        None => None,
+                    },
+                    DiscreteDomain::Negative(z) => match self.current_value.partial_cmp(&-1.0) {
+                        Some(comp) => match comp {
+                            std::cmp::Ordering::Less => Some(self.current_value.floor() + 1.0),
+                            std::cmp::Ordering::Equal => {
+                                if *z {
+                                    // include zero
+                                    Some(0.0)
+                                } else {
+                                    None
+                                }
+                            }
+                            std::cmp::Ordering::Greater => None,
+                        },
+                        None => None,
+                    },
+                    DiscreteDomain::Range(start, end) => {
+                        let start_f: f64 = *start as f64;
+                        let end_f: f64 = *end as f64;
+                        if self.current_value < start_f {
+                            Some(start_f)
+                        } else if end_f <= self.current_value {
+                            None
+                        } else {
+                            // start <= current_value < end
+                            let floor: f64 = self.current_value.floor();
+                            // we neet t compute floor in the case current_value is not an integer
+                            if end_f < floor + 1.0 {
+                                // adding + 1 surpassed the range. Return None.
+                                None
+                            } else {
+                                Some(floor + 1.0)
+                            }
+                        }
+                    }
+                    DiscreteDomain::From(min) => {
+                        if self.current_value < *min as f64 {
+                            Some(*min as f64)
+                        } else {
+                            let floor: f64 = self.current_value.floor();
+                            // we neet t compute floor in the case current_value is not an integer
+                            Some(floor + 1.0)
+                        }
+                    }
+                    DiscreteDomain::To(max) => {
+                        if *max as f64 <= self.current_value {
+                            None
+                        } else {
+                            let floor: f64 = self.current_value.floor();
+                            // we neet t compute floor in the case current_value is not an integer
+                            Some(floor + 1.0)
+                        }
+                    }
+                    DiscreteDomain::Custom(vec) => {
+                        // use binary search. if the value is found, we get the next one or None if
+                        // out of bounds. Othw. we just use err index or None (if out of bounds).
+                        let index_bs: Result<usize, usize> =
+                            vec.binary_search_by(|a| a.partial_cmp(&self.current_value).unwrap());
+                        match index_bs {
+                            Ok(idx) => vec.get(idx + 1).copied(),
+                            Err(idx) => vec.get(idx).copied(),
+                        }
+                    }
+                }
+            }
+            DomainType::Continuous(_) => {
+                // Here we ignore continuous cases
+                None
+            }
+            DomainType::Mixed(mixed_domain) => match mixed_domain {
+                MixedDomain::Union(vec) => vec
+                    .iter()
+                    .map(|d| self.from(d))
+                    .map(|d| d.get_next_smallest_value())
+                    .reduce(|x, acc| match (x, acc) {
+                        (None, None) => None,
+                        (None, Some(v)) | (Some(v), None) => Some(v),
+                        (Some(v), Some(b)) => Some(v.min(b)),
+                    })
+                    .unwrap_or(None),
+                MixedDomain::Disjunction(vec) => {
+                    let mut ret: Option<f64> = vec
+                        .iter()
+                        .map(|d| self.from(d))
+                        .map(|d| d.get_next_smallest_value())
+                        .reduce(|x, acc| match (x, acc) {
+                            (Some(v), Some(b)) => Some(v.max(b)),
+                            _ => None,
+                        })
+                        .unwrap_or(None);
+
+                    if let Some(v) = ret {
+                        if vec.iter().any(|d| !d.contains(v)) {
+                            ret = None;
+                        }
+                    }
+
+                    ret
+                    // todo!("Here we chould check if there is a second option after the first one");
+                }
+                MixedDomain::Not(_domain_type) => todo!(),
+            },
+        };
+    }
+}
+
+impl<'a> Iterator for DiscreteDomainIterator<'a> {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_value.is_nan() {
+            // iterator is uninitialized, return first value
+            return match self.domain_dimensions {
+                (true, _) => {
+                    self.current_value = self.bounds.0;
+                    Some(self.current_value)
+                }
+                (false, true) => {
+                    self.current_value = self.bounds.1;
+                    Some(self.current_value)
+                }
+                (false, false) => {
+                    self.current_value = 0.0;
+                    self.current_val_aux = Some(-0.0);
+                    if !self.domain.contains(self.current_value) {
+                        self.next()
+                    } else {
+                        Some(self.current_value)
+                    }
+                }
+            };
+        }
+
+        if self.current_value < self.bounds.0 || self.bounds.1 < self.current_value {
+            // condition = !(self.bounds.0 <= self.current_value <= self.bounds.1)
+            // early return to aviod unnecessary computations
+            return None;
+        }
+
+        let next_value: Option<f64> = match self.domain_dimensions {
+            (true, _) => {
+                let next_value_option: Option<f64> = self.get_next_value(true);
+                match &next_value_option {
+                    Some(v) => {
+                        self.current_value = *v;
+                    }
+                    None => {
+                        // we finished with all values, simplify next calls
+                        self.current_value = self.bounds.0 - 16.0;
+                        // 16 is an arbitrary value
+                    }
+                }
+                next_value_option
+            }
+            (false, true) => {
+                let next_value_option: Option<f64> = self.get_next_value(false);
+                match &next_value_option {
+                    Some(v) => {
+                        self.current_value = *v;
+                    }
+                    None => {
+                        // we finished with all values, simplify next calls
+                        self.current_value = self.bounds.1 + 16.0;
+                        // 16 is an arbitrary value
+                    }
+                }
+                next_value_option
+            }
+            (false, false) => {
+                let next_value_option: Option<f64> =
+                    self.get_next_value(self.current_value.is_sign_positive());
+
+                match (next_value_option, self.current_val_aux) {
+                    (None, None) => None,
+                    (None, Some(v)) => {
+                        // we just finished with the current side
+                        self.current_value = v;
+                        self.current_val_aux = None;
+                        Some(self.current_value)
+                    }
+                    (Some(v), None) => {
+                        self.current_value = v;
+                        Some(self.current_value)
+                    }
+                    (Some(v), Some(v_aux)) => {
+                        if v.abs() < v_aux.abs() {
+                            self.current_value = v;
+                            Some(self.current_value)
+                        } else {
+                            // current_value has advanced current_val_aux
+                            self.current_value = v_aux;
+                            self.current_val_aux = Some(v);
+                            Some(v)
+                        }
+                    }
+                }
+            }
+        };
+
+        return next_value;
     }
 }

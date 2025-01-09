@@ -1074,10 +1074,10 @@ pub trait DiscreteDistribution {
     /// Evaluates the [PMF](https://en.wikipedia.org/wiki/Probability_density_function)
     /// (Probability Mass Function) of the distribution at point x.
     /// The function should not be evaluated outside the domain (because it 
-    /// should return 0.0). 
+    /// should return 0.0 anyway). 
     ///
     /// The PMF is assumed to be a valid probability distribution. If you are not sure
-    /// if the PDF is normalized to have a 1 unit of area under the curve of the pdf, you
+    /// if the PMF is normalized to have a 1 unit of area under the curve of the pdf, you
     /// can use [crate::euclid::determine_normalitzation_constant_discrete].
     fn pdf(&self, x: f64) -> f64;
 
