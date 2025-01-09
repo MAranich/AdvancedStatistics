@@ -1,15 +1,12 @@
-
 use rand::Rng;
 
-use crate::euclid::Domain;
-
-use super::distribution_trait::Distribution;
+use crate::{distribution_trait::Distribution, domain::ContinuousDomain};
 
 /// An [Exponential distribution](https://en.wikipedia.org/wiki/Exponential_distribution).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Exponential {
     lambda: f64,
-    domain: Domain,
+    domain: ContinuousDomain,
 }
 
 impl Exponential {
@@ -23,10 +20,9 @@ impl Exponential {
         // for performance reasons, the domain will only include up to the quantile 99.99%
         let max: f64 = -((1.0_f64 - 0.9999).ln()) / _lambda;
 
-        let _domain: Domain = Domain::new_continuous_range(0.0, max);
         return Ok(Exponential {
             lambda: _lambda,
-            domain: _domain,
+            domain: ContinuousDomain::Range(0.0, max),
         });
     }
 
@@ -40,7 +36,7 @@ impl Distribution for Exponential {
         self.lambda * (-self.lambda * x).exp()
     }
 
-    fn get_domain(&self) -> &crate::euclid::Domain {
+    fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         &self.domain
     }
 
@@ -66,7 +62,7 @@ impl Distribution for Exponential {
 
         if x.is_nan() {
             // x is not valid
-            panic!("Tried to evaluate the quantile function with a NaN value. \n"); 
+            panic!("Tried to evaluate the quantile function with a NaN value. \n");
         }
 
         if x <= 0.0 {
@@ -93,7 +89,7 @@ impl Distribution for Exponential {
             .iter()
             .map(|x| self.quantile(*x))
             .collect::<Vec<f64>>();
-        return list; 
+        return list;
     }
 
     fn expected_value(&self) -> Option<f64> {

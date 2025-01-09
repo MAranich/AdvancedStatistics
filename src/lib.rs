@@ -45,9 +45,11 @@ use rand::rngs::ThreadRng;
 use std::cell::RefCell;
 
 pub mod distributions;
+pub mod distribution_trait;
 pub mod errors;
 pub mod euclid;
 pub mod configuration; 
+pub mod domain;
 
 
 

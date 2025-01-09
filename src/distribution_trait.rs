@@ -2,9 +2,10 @@ use std::usize;
 
 use rand::Rng;
 
+use crate::configuration::QUANTILE_USE_NEWTONS_ITER;
+use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::*;
-use crate::configuration::QUANTILE_USE_NEWTONS_ITER;
 
 /// The trait for any continuous distribution.
 pub trait Distribution {
@@ -22,7 +23,7 @@ pub trait Distribution {
 
     /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
     /// be evaluated.
-    fn get_domain(&self) -> &Domain;
+    fn get_domain(&self) -> &ContinuousDomain;
 
     // Provided methods:
     // Manual implementation for a specific distribution is recommended.
@@ -69,7 +70,7 @@ pub trait Distribution {
 
         if x.is_nan() {
             // x is not valid
-            panic!("Tried to evaluate the quantile function with a NaN value. \n"); 
+            panic!("Tried to evaluate the quantile function with a NaN value. \n");
         }
 
         let value: [f64; 1] = [x];
@@ -469,9 +470,9 @@ pub trait Distribution {
     /// It provides a computational advantage over calling the normal [Distribution::quantile]
     /// multiple times.
     ///
-    /// **Panicks** is `x` is a NaN. If a value in points is less (or equal) 
-    /// to 0.0, the minimum value in the domain will be returned. If a value in 
-    /// points is greater (or equal) to 1, the maximum value in the domain 
+    /// **Panicks** is `x` is a NaN. If a value in points is less (or equal)
+    /// to 0.0, the minimum value in the domain will be returned. If a value in
+    /// points is greater (or equal) to 1, the maximum value in the domain
     /// will be returned.
     ///
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
@@ -528,7 +529,7 @@ pub trait Distribution {
         // panick if NAN is found
         for point in points {
             if point.is_nan() {
-                panic!("Tried to evaluate the quantile_multiple function with a NaN value. \n"); 
+                panic!("Tried to evaluate the quantile_multiple function with a NaN value. \n");
             }
         }
 
@@ -1066,15 +1067,14 @@ pub trait Distribution {
     // Other (?)
 }
 
-
 /// The trait for any continuous distribution.
 pub trait DiscreteDistribution {
     //Requiered method:
 
     /// Evaluates the [PMF](https://en.wikipedia.org/wiki/Probability_density_function)
     /// (Probability Mass Function) of the distribution at point x.
-    /// The function should not be evaluated outside the domain (because it 
-    /// should return 0.0 anyway). 
+    /// The function should not be evaluated outside the domain (because it
+    /// should return 0.0 anyway).
     ///
     /// The PMF is assumed to be a valid probability distribution. If you are not sure
     /// if the PMF is normalized to have a 1 unit of area under the curve of the pdf, you
@@ -1083,7 +1083,7 @@ pub trait DiscreteDistribution {
 
     /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
     /// be evaluated.
-    fn get_domain(&self) -> &Domain;
+    fn get_domain(&self) -> &DiscreteDomain;
 
     // Provided methods:
     // Manual implementation for a specific distribution is recommended.
@@ -1096,9 +1096,8 @@ pub trait DiscreteDistribution {
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
     fn cdf(&self, x: f64) -> f64 {
-
         if x.is_nan() {
-            panic!("Tried to evaluate the cdf with a NaN value. \n"); 
+            panic!("Tried to evaluate the cdf with a NaN value. \n");
         }
 
         let aux: [f64; 1] = [x];
@@ -1113,7 +1112,7 @@ pub trait DiscreteDistribution {
     /// generates a random uniform number and evaluates the inverse cdf function
     /// (the [Distribution::quantile] function) and returns the result.
     ///
-    /// The method [Distribution::sample_multiple] is more effitient for 
+    /// The method [Distribution::sample_multiple] is more effitient for
     /// multiple sampling.
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
@@ -1134,7 +1133,7 @@ pub trait DiscreteDistribution {
 
         if x.is_nan() {
             // x is not valid
-            panic!("Tried to evaluate the quantile function with a NaN value. \n"); 
+            panic!("Tried to evaluate the quantile function with a NaN value. \n");
         }
 
         let value: [f64; 1] = [x];
@@ -1162,8 +1161,7 @@ pub trait DiscreteDistribution {
     /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
     /// a performance penalty.
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-
-        todo!("Redo function"); 
+        todo!("Redo function");
 
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let domain: &Domain = self.get_domain();
@@ -1202,9 +1200,8 @@ pub trait DiscreteDistribution {
     /// For example, we could sample from the standard normal distribution with only
     /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        
-        todo!("Redo function"); 
-        
+        todo!("Redo function");
+
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let domain: &Domain = self.get_domain();
         let pdf_checked = |x: f64| {
@@ -1263,15 +1260,14 @@ pub trait DiscreteDistribution {
             although this case should not generally happen).
 
             If the lower bound is infinite, but the upper one is not, we will compute
-            the probability from `x` to the upper bound and then do `1 - accumulator` 
+            the probability from `x` to the upper bound and then do `1 - accumulator`
             to get the final awnser. If both bounds are infinite, we will start from 0
             and go adding the numbers and adding them on 2 accumulators (one for
-            the mass in before `x` and another for after `x`), once the sum 
-            is greater than a threshold, we return the one that contains the awnser. 
+            the mass in before `x` and another for after `x`), once the sum
+            is greater than a threshold, we return the one that contains the awnser.
 
         */
 
-        
         // return error if NAN is found
         for point in points {
             if point.is_nan() {
@@ -1279,7 +1275,7 @@ pub trait DiscreteDistribution {
                 // return Err(AdvStatError::NanErr);
             }
         }
-        todo!("Redo function"); 
+        todo!("Redo function");
 
         let mut sorted_points: Vec<(usize, f64)> = points.iter().map(|x| *x).enumerate().collect();
 
@@ -1464,9 +1460,7 @@ pub trait DiscreteDistribution {
     /// }
     /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
-
-        todo!("Redo function"); 
-
+        todo!("Redo function");
 
         /*
            Plan:
@@ -1507,7 +1501,7 @@ pub trait DiscreteDistribution {
         // return error if NAN is found
         for point in points {
             if point.is_nan() {
-                panic!("Tried to evaluate the quantile multiple function with a NaN value. \n"); 
+                panic!("Tried to evaluate the quantile multiple function with a NaN value. \n");
                 //return Err(AdvStatError::NanErr);
             }
         }
@@ -1786,9 +1780,7 @@ pub trait DiscreteDistribution {
     /// of the distribution and the given order. Mode determines if the moment will be
     /// [Moments::Raw], [Moments::Central] or [Moments::Standarized].
     fn moments(&self, order: u8, mode: Moments) -> f64 {
-
-        todo!("Redo function"); 
-
+        todo!("Redo function");
 
         /*
 

@@ -1,0 +1,205 @@
+use core::f64;
+
+/// A [domain](https://en.wikipedia.org/wiki/Domain_of_a_function) composed of
+/// finitely many elements.
+///
+/// [DiscreteDomain] assumes that most discrete domains only include integers.
+/// If your domain does not fit this description, here are some possible solutions:
+///  - If your domain is a constant factor from the integers (pdf(x) can be evaluated
+/// at every `x = k/2` for some integer `k`, you can compute a new pfd_2(x) {pdf(x * 2)}).
+///  - In a more general way, you can generate a function `map_domain()` that maps from
+/// the original domain to the integers. (so you can call `pdf(map_domain(x))`)
+///  - Otherwise you may be interested on the [DiscreteDomain::Custom] variant, wich allows
+/// you to maually indicate the values you want to include on your domain.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum DiscreteDomain {
+    /// All integers
+    #[default]
+    Integers,
+    /// All the integers in the range [.0, .1] (**both** inclusive).
+    /// The first number is the minimum, and the last is the maximum.
+    ///
+    /// Has the **invariant** that `min <= max`.
+    Range(i64, i64),
+    /// All the integers from the given value onwards. The value **is** included.
+    From(i64),
+    /// All the integers until the given value. The value **is** included.
+    To(i64),
+    /// Detemine manually at wich points can this function be evaluated.
+    ///
+    /// This variant has the following **invariants**:
+    ///  - No infinities (either positive or negative)
+    ///  - No NaNs
+    ///  - No repeated elements
+    ///  - The values in the vector must be sorted
+    /// Use [DiscreteDomain::new_discrete_custom] when creating this variant to ensure
+    /// all the invariants are fullfilled.
+    Custom(Vec<f64>),
+}
+
+/// A [domain](https://en.wikipedia.org/wiki/Domain_of_a_function) of a region
+/// of the real numbers.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ContinuousDomain {
+    /// All real numbers
+    #[default]
+    Reals,
+    /// The values contained in the range.
+    ///
+    /// The first number is the minimum, and the last is the maximum.
+    ///
+    /// Has the **invariant** that `min <= max`.
+    Range(f64, f64),
+    /// All the numbers from the given value onwards.
+    From(f64),
+    /// All the numbers until the given value.
+    To(f64),
+}
+
+impl DiscreteDomain {
+    /// Create a domain composed only by the given `valiues` ([DiscreteDomain::Custom]).
+    /// This method makes sure to fullfill the necessary invariants:
+    ///  - No infinities (either positive or negative)
+    ///  - No NaNs
+    ///  - No repeated elements
+    ///  - The values in the vector must be sorted
+    pub fn new_discrete_custom(values: &[f64]) -> Self {
+        let mut points: Vec<f64> = values
+            .iter()
+            .map(|x| *x)
+            .filter(|&x| x.is_finite())
+            .collect::<Vec<f64>>();
+        points.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        // remove duplicate elements. (will remove all because `points` is sorted).
+        points.dedup();
+
+        return DiscreteDomain::Custom(points);
+    }
+
+    pub fn contains(&self, x: f64) -> bool {
+        if let DiscreteDomain::Custom(vec) = self {
+            return vec.binary_search(&x).is_ok();
+        }
+
+        if x.fract() != 0.0 {
+            // the value is fractional, but all other variants only include integers
+            return false;
+        }
+
+        let x_int: i64 = x as i64;
+
+        match self {
+            DiscreteDomain::Integers => x.fract() == 0.0,
+            DiscreteDomain::Range(min, max) => (*min <= x_int) && (x_int <= *max),
+            DiscreteDomain::From(min) => *min <= x_int,
+            DiscreteDomain::To(max) => x_int <= *max,
+            _ => {
+                // DiscreteDomain::Custom(vec) => todo!(),
+                // ^already done
+                unreachable!();
+            }
+        }
+    }
+
+    pub fn iter(&self) -> DiscreteDomainIterator {
+        // current_value being a NaN sybmolyzes that no values have been given yet
+        DiscreteDomainIterator {
+            domain: &self,
+            current_value: f64::NAN,
+            custom_domain_index: 0,
+        }
+    }
+}
+
+impl ContinuousDomain {
+    pub fn contains(&self, x: f64) -> bool {
+        match self {
+            ContinuousDomain::Reals => true,
+            ContinuousDomain::Range(min, max) => (*min <= x) && (x <= *max),
+            ContinuousDomain::From(min) => *min <= x,
+            ContinuousDomain::To(max) => x <= *max,
+        }
+    }
+
+    /// Returns the upper and lower bounds of the domain.
+    ///
+    /// Take into account that the values can also include positive and negative infinity.
+    /// It is guaranteed that return.0 <= return.1. If the bounds are finite, the values
+    /// themselves are included.
+    ///
+    /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
+    pub fn get_bounds(&self) -> (f64, f64) {
+        todo!("Do this or delete. ")
+    }
+}
+
+pub struct DiscreteDomainIterator<'a> {
+    domain: &'a DiscreteDomain,
+
+    current_value: f64,
+    /// auxiliar value if the domain is [DiscreteDomain::Custom]
+    custom_domain_index: usize,
+}
+
+impl<'a> Iterator for DiscreteDomainIterator<'a> {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.domain {
+            DiscreteDomain::Integers => {
+                if self.current_value.is_nan() {
+                    self.current_value = 0.0;
+                    return Some(self.current_value);
+                }
+
+                if self.current_value.is_sign_positive() {
+                    self.current_value = -(self.current_value + 1.0);
+                } else {
+                    self.current_value = -self.current_value;
+                }
+
+                return Some(self.current_value);
+            }
+            DiscreteDomain::Range(min, max) => {
+                if self.current_value.is_nan() {
+                    self.current_value = *min as f64;
+                    return Some(self.current_value);
+                }
+                self.current_value = self.current_value + 1.0;
+                if (*max as f64) < self.current_value {
+                    return None;
+                }
+                return Some(self.current_value);
+            }
+            DiscreteDomain::From(min) => {
+                if self.current_value.is_nan() {
+                    self.current_value = *min as f64;
+                    return Some(self.current_value);
+                }
+
+                self.current_value = self.current_value + 1.0;
+                return Some(self.current_value);
+            }
+            DiscreteDomain::To(max) => {
+                if self.current_value.is_nan() {
+                    self.current_value = *max as f64;
+                    return Some(self.current_value);
+                }
+
+                self.current_value = self.current_value - 1.0;
+                return Some(self.current_value);
+            }
+            DiscreteDomain::Custom(vec) => {
+                if self.current_value.is_nan() {
+                    self.current_value = 0.0;
+                    // ^flag that we have already given the first value
+                    self.custom_domain_index = 0;
+                    return vec.get(0);
+                }
+                self.custom_domain_index += 1;
+                return vec.get(self.custom_domain_index);
+            }
+        }
+    }
+}
