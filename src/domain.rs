@@ -1,5 +1,7 @@
 use core::f64;
 
+use crate::euclid::DEFAULT_EMPTY_DOMAIN_BOUNDS;
+
 /// A [domain](https://en.wikipedia.org/wiki/Domain_of_a_function) composed of
 /// finitely many elements.
 ///
@@ -79,7 +81,7 @@ impl DiscreteDomain {
 
     pub fn contains(&self, x: f64) -> bool {
         if let DiscreteDomain::Custom(vec) = self {
-            return vec.binary_search(&x).is_ok();
+            return vec.binary_search_by(|other| x.partial_cmp(other).unwrap()).is_ok();
         }
 
         if x.fract() != 0.0 {
@@ -99,6 +101,26 @@ impl DiscreteDomain {
                 // ^already done
                 unreachable!();
             }
+        }
+    }
+
+    /// Returns the upper and lower bounds of the domain.
+    ///
+    /// Take into account that the values can also include positive and negative infinity.
+    /// It is guaranteed that return.0 <= return.1. If the bounds are finite, the values
+    /// themselves are included.
+    ///
+    /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
+    pub fn get_bounds(&self) -> (f64, f64) {
+        match &self {
+            DiscreteDomain::Integers => (f64::NEG_INFINITY, f64::INFINITY),
+            DiscreteDomain::Range(min, max) => (*min as f64, *max as f64),
+            DiscreteDomain::From(min) => (*min as f64, f64::INFINITY),
+            DiscreteDomain::To(max) => (f64::NEG_INFINITY, *max as f64),
+            DiscreteDomain::Custom(vec) => match vec.first() {
+                Some(first) => (*first, *vec.last().unwrap()),
+                None => DEFAULT_EMPTY_DOMAIN_BOUNDS,
+            },
         }
     }
 
@@ -130,7 +152,12 @@ impl ContinuousDomain {
     ///
     /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
     pub fn get_bounds(&self) -> (f64, f64) {
-        todo!("Do this or delete. ")
+        match &self {
+            ContinuousDomain::Reals => (f64::NEG_INFINITY, f64::INFINITY),
+            ContinuousDomain::Range(min, max) => (*min, *max),
+            ContinuousDomain::From(min) => (*min, f64::INFINITY),
+            ContinuousDomain::To(max) => (f64::NEG_INFINITY, *max),
+        }
     }
 }
 
@@ -191,15 +218,23 @@ impl<'a> Iterator for DiscreteDomainIterator<'a> {
                 return Some(self.current_value);
             }
             DiscreteDomain::Custom(vec) => {
+
+                self.custom_domain_index += 1;
+
                 if self.current_value.is_nan() {
                     self.current_value = 0.0;
                     // ^flag that we have already given the first value
+
+
                     self.custom_domain_index = 0;
-                    return vec.get(0);
-                }
-                self.custom_domain_index += 1;
-                return vec.get(self.custom_domain_index);
+
+                    return vec.get(0).copied();
+                } 
+
+                return vec.get(self.custom_domain_index).copied();
             }
         }
     }
 }
+
+

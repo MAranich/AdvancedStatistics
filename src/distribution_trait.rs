@@ -21,8 +21,8 @@ pub trait Distribution {
     /// can use [crate::euclid::determine_normalitzation_constant_continuous].
     fn pdf(&self, x: f64) -> f64;
 
-    /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
-    /// be evaluated.
+    /// Returns a reference to the pdf [ContinuousDomain], wich indicates at wich points 
+    /// the pdf can be evaluated.
     fn get_domain(&self) -> &ContinuousDomain;
 
     // Provided methods:
@@ -36,6 +36,10 @@ pub trait Distribution {
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
     fn cdf(&self, x: f64) -> f64 {
+        if x.is_nan() {
+            // x is not valid
+            panic!("Tried to evaluate the cdf function with a NaN value. \n");
+        }
         let aux: [f64; 1] = [x];
         let aux_2: Vec<f64> = self.cdf_multiple(&aux);
         return aux_2[0];
@@ -76,179 +80,12 @@ pub trait Distribution {
         let value: [f64; 1] = [x];
         let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
         return quantile_vec[0];
-
-        /*
-
-        // To evaluate the quantile function we will integrate the pdf until
-        // the accumulated area == x. Then (for more precision) we will use 1
-        // iteration of Newton's method for more precision.
-
-        let domain: &Domain = self.get_pdf_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
-
-        if x == 0.0 {
-            return Ok(bounds.0);
-        }
-        if x == 1.0 {
-            return Ok(bounds.1);
-        }
-
-        let pdf_checked = |x: f64, domain: &Domain| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        match (bounds.0.is_finite(), bounds.1.is_finite()) {
-            (true, true) => {
-                // We will use [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule) for integration.
-
-                let (step_length, total_num_steps): (f64, usize) = {
-                    let integration_range: f64 = x - bounds.0;
-                    let alternative_step_length: f64 =
-                        integration_range / DEFAULT_INTEGRATION_MAXIMUM_STEPS as f64;
-                    if DEFAULT_INTEGRATION_PRECISION < alternative_step_length {
-                        (alternative_step_length, DEFAULT_INTEGRATION_MAXIMUM_STEPS)
-                        // DEFAULT_INTEGRATION_MAXIMUM_STEPS is even
-                    } else {
-                        let number_steps: usize =
-                            ((integration_range / DEFAULT_INTEGRATION_PRECISION) as usize) | 1;
-                        // x | 1 makes sure number_steps is even
-                        let corrected_step_length: f64 = integration_range / (number_steps as f64);
-                        (corrected_step_length, number_steps)
-                    }
-                };
-
-                let double_step_length: f64 = 2.0 * step_length;
-                let step_len_over_3: f64 = step_length / 3.0;
-
-                let mut accumulator: f64 = 0.0;
-                let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0, &domain);
-                let mut num_step: f64 = 0.0;
-                loop {
-                    let current_position: f64 = bounds.0 + double_step_length * num_step;
-                    let middle: f64 = pdf_checked(current_position + step_length, domain);
-                    let end: f64 = pdf_checked(current_position + double_step_length, domain);
-
-                    accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
-
-                    if x <= accumulator {
-                        break;
-                    }
-
-                    last_pdf_evaluation = end;
-                    num_step += 1.0;
-                }
-                let quantile_0: f64 = bounds.0 + double_step_length * (num_step + 1.0);
-
-                // we could return here, but if the pdf is "well behaved", we can
-                // use a single iteration of [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
-                // to get a better aproximation
-                let pdf_q: f64 = pdf_checked(quantile_0, domain);
-                if pdf_q.abs() < f64::EPSILON {
-                    // pdf_q is essentially 0, skip newton's iteration and return
-                    return Ok(quantile_0);
-                }
-                let quantile_1: f64 = quantile_0 - (accumulator - x) / pdf_q;
-                return Ok(quantile_1);
-
-            },
-            (true, false) => todo!(),
-            (false, true) => todo!(),
-            (false, false) => todo!(),
-        }
-
-        todo!("Implement deafult implementation. ");
-        */
     }
 
     // Multiple variants.
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
 
-    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
-    /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
-    ///
-    /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
-    /// a valid domain in [Distribution::get_domain]. Also the **domain must be finite**.
-    /// If it is not, better use [Distribution::rejection_sample_range] or implement
-    /// [Distribution::sample] yourself.
-    ///
-    /// It is more effitient because it does **not** requiere the evaluation of the
-    /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
-    /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
-    ///
-    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs
-    /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
-    /// a performance penalty.
-    fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &Domain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        let bounds: (f64, f64) = domain.get_bounds();
-        let bound_range: f64 = bounds.1 - bounds.0;
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
-                x = bounds.0 + x * bound_range;
-                let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
-    }
-
-    /// Same as [Distribution::rejection_sample] but only in the selected range.
-    ///
-    /// This can be usefull for distributions with a stricly infinite domain but that
-    /// virtually all their mass is concentrated in a smaller region (`range`).
-    ///
-    /// For example, we could sample from the standard normal distribution with only
-    /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
-    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &Domain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        let bounds: (f64, f64) = range;
-        let bound_range: f64 = bounds.1 - bounds.0;
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
-                x = bounds.0 + x * bound_range;
-                let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
-    }
 
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
@@ -311,7 +148,7 @@ pub trait Distribution {
         sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-        let domain: &Domain = self.get_domain();
+        let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         // if points[i] <= bounds.0  |||| Awnser is always 0
@@ -461,7 +298,6 @@ pub trait Distribution {
         rng.fill(rand_quantiles.as_mut_slice());
 
         let ret: Vec<f64> = self.quantile_multiple(&rand_quantiles);
-        // we can unwrap because there is no NaN
 
         return ret;
     }
@@ -538,7 +374,7 @@ pub trait Distribution {
         sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-        let domain: &Domain = self.get_domain();
+        let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         // if points[i] <= 0  |||| Awnser is always bounds.0 (start of domain)
@@ -850,7 +686,7 @@ pub trait Distribution {
 
         */
 
-        let domain: &Domain = self.get_domain();
+        let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         let pdf_checked = |x: f64| {
@@ -1064,7 +900,95 @@ pub trait Distribution {
         todo!("Implement deafult implementation. ");
     }
 
-    // Other (?)
+
+    // Other provided methods: 
+    // (methods that don't need to be replaced and should be here)
+
+    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
+    /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
+    ///
+    /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
+    /// a valid domain in [Distribution::get_domain]. Also the **domain must be finite**.
+    /// If it is not, better use [Distribution::rejection_sample_range] or implement
+    /// [Distribution::sample] yourself.
+    ///
+    /// It is more effitient because it does **not** requiere the evaluation of the
+    /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
+    /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
+    ///
+    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs
+    /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
+    /// a performance penalty.
+    fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let domain: &ContinuousDomain = self.get_domain();
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        };
+
+        let bounds: (f64, f64) = domain.get_bounds();
+        let bound_range: f64 = bounds.1 - bounds.0;
+
+        let mut ret: Vec<f64> = Vec::with_capacity(n);
+        for _i in 0..n {
+            let sample: f64 = loop {
+                let mut x: f64 = rng.gen();
+                x = bounds.0 + x * bound_range;
+                let y: f64 = rng.gen();
+                if y * pdf_max < pdf_checked(x) {
+                    break x;
+                }
+            };
+            ret.push(sample);
+        }
+
+        return ret;
+    }
+
+    /// Same as [Distribution::rejection_sample] but only in the selected range.
+    ///
+    /// This can be usefull for distributions with a stricly infinite domain but that
+    /// virtually all their mass is concentrated in a smaller region (`range`).
+    ///
+    /// For example, we could sample from the standard normal distribution with only
+    /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
+    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let domain: &ContinuousDomain = self.get_domain();
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        };
+
+        let bounds: (f64, f64) = range;
+        let bound_range: f64 = bounds.1 - bounds.0;
+
+        let mut ret: Vec<f64> = Vec::with_capacity(n);
+        for _i in 0..n {
+            let sample: f64 = loop {
+                let mut x: f64 = rng.gen();
+                x = bounds.0 + x * bound_range;
+                let y: f64 = rng.gen();
+                if y * pdf_max < pdf_checked(x) {
+                    break x;
+                }
+            };
+            ret.push(sample);
+        }
+
+        return ret;
+    }
+
+
+
+
 }
 
 /// The trait for any continuous distribution.
@@ -1129,7 +1053,6 @@ pub trait DiscreteDistribution {
     /// Also, if you are considering calling this function multiple times, use
     /// [Distribution::quantile_multiple] for better performance.
     fn quantile(&self, x: f64) -> f64 {
-        // just call [Distribution::quantile_multiple]
 
         if x.is_nan() {
             // x is not valid
@@ -1145,91 +1068,6 @@ pub trait DiscreteDistribution {
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
 
-    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
-    /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
-    ///
-    /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
-    /// a valid domain in [Distribution::get_domain]. Also the **domain must be finite**.
-    /// If it is not, better use [Distribution::rejection_sample_range] or implement
-    /// [Distribution::sample] yourself.
-    ///
-    /// It is more effitient because it does **not** requiere the evaluation of the
-    /// [Distribution::quantile] function, wich involves heavy computations. In exchange,
-    /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
-    ///
-    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs
-    /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
-    /// a performance penalty.
-    fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        todo!("Redo function");
-
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &Domain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        let bounds: (f64, f64) = domain.get_bounds();
-        let bound_range: f64 = bounds.1 - bounds.0;
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
-                x = bounds.0 + x * bound_range;
-                let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
-    }
-
-    /// Same as [Distribution::rejection_sample] but only in the selected range.
-    ///
-    /// This can be usefull for distributions with a stricly infinite domain but that
-    /// virtually all their mass is concentrated in a smaller region (`range`).
-    ///
-    /// For example, we could sample from the standard normal distribution with only
-    /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
-    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        todo!("Redo function");
-
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &Domain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        let bounds: (f64, f64) = range;
-        let bound_range: f64 = bounds.1 - bounds.0;
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
-                x = bounds.0 + x * bound_range;
-                let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
-    }
 
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
@@ -1282,7 +1120,7 @@ pub trait DiscreteDistribution {
         sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-        let domain: &Domain = self.get_domain();
+        let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         // if points[i] <= bounds.0  |||| Awnser is always 0
@@ -1511,7 +1349,7 @@ pub trait DiscreteDistribution {
         sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-        let domain: &Domain = self.get_domain();
+        let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         // if points[i] <= 0  |||| Awnser is always bounds.0 (start of domain)
@@ -1825,7 +1663,7 @@ pub trait DiscreteDistribution {
 
         */
 
-        let domain: &Domain = self.get_domain();
+        let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
         let pdf_checked = |x: f64| {
@@ -2039,5 +1877,96 @@ pub trait DiscreteDistribution {
         todo!("Implement deafult implementation. ");
     }
 
-    // Other
+
+
+    // Other provided methods: 
+    // (methods that don't need to be replaced and should be here)
+
+    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
+    /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
+    ///
+    /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
+    /// a valid domain in [Distribution::get_domain]. Also the **domain must be finite**.
+    /// If it is not, better use [Distribution::rejection_sample_range] or implement
+    /// [Distribution::sample] yourself.
+    ///
+    /// It is more effitient because it does **not** requiere the evaluation of the
+    /// [Distribution::quantile] function, wich involves heavy computations. In exchange,
+    /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
+    ///
+    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs
+    /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
+    /// a performance penalty.
+    fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
+        todo!("Redo function");
+
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let domain: &DiscreteDomain = self.get_domain();
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        };
+
+        let bounds: (f64, f64) = domain.get_bounds();
+        let bound_range: f64 = bounds.1 - bounds.0;
+
+        let mut ret: Vec<f64> = Vec::with_capacity(n);
+        for _i in 0..n {
+            let sample: f64 = loop {
+                let mut x: f64 = rng.gen();
+                x = bounds.0 + x * bound_range;
+                let y: f64 = rng.gen();
+                if y * pdf_max < pdf_checked(x) {
+                    break x;
+                }
+            };
+            ret.push(sample);
+        }
+
+        return ret;
+    }
+
+    /// Same as [Distribution::rejection_sample] but only in the selected range.
+    ///
+    /// This can be usefull for distributions with a stricly infinite domain but that
+    /// virtually all their mass is concentrated in a smaller region (`range`).
+    ///
+    /// For example, we could sample from the standard normal distribution with only
+    /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
+    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
+        todo!("Redo function");
+
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let domain: &DiscreteDomain = self.get_domain();
+        let pdf_checked = |x: f64| {
+            if domain.contains(x) {
+                self.pdf(x)
+            } else {
+                0.0
+            }
+        };
+
+        let bounds: (f64, f64) = range;
+        let bound_range: f64 = bounds.1 - bounds.0;
+
+        let mut ret: Vec<f64> = Vec::with_capacity(n);
+        for _i in 0..n {
+            let sample: f64 = loop {
+                let mut x: f64 = rng.gen();
+                x = bounds.0 + x * bound_range;
+                let y: f64 = rng.gen();
+                if y * pdf_max < pdf_checked(x) {
+                    break x;
+                }
+            };
+            ret.push(sample);
+        }
+
+        return ret;
+    }
+
+
 }
