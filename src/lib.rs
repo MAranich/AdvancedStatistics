@@ -50,6 +50,7 @@ pub mod errors;
 pub mod euclid;
 pub mod configuration; 
 pub mod domain;
+pub mod mixed_distribution;
 
 
 

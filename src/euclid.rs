@@ -325,3 +325,28 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
 
 /// Deafult return value if a domain is empty
 pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);
+
+/// Indicates how big is the range to integrate. 
+/// 
+/// Mainly ised for readability
+pub enum IntegrationType {
+    /// closed interval: `[a, b]`
+    Finite,
+    /// interval: `[-inf, a]`
+    InfiniteToConst,
+    /// interval: `[b, inf]`
+    ConstToInfinite,
+    /// interval: `[-inf, inf]`
+    FullInfinite,
+}
+
+impl IntegrationType {
+    pub fn from_bounds(bounds: (f64, f64)) -> IntegrationType {
+        match (bounds.0.is_finite(), bounds.1.is_finite()) {
+            (true, true) => IntegrationType::Finite,
+            (true, false) => IntegrationType::InfiniteToConst,
+            (false, true) => IntegrationType::ConstToInfinite,
+            (false, false) => IntegrationType::FullInfinite,
+        }
+    }
+}
