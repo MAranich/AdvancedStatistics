@@ -32,182 +32,43 @@ pub enum Moments {
 /// a valid probability distribution.
 ///
 /// This function assumes that `pdf` contains a finite area in it's `domain`.
-pub fn determine_normalitzation_constant_continuous(
+pub fn get_normalitzation_constant_continuous(
     pdf: impl Fn(f64) -> f64,
     domain: &ContinuousDomain,
 ) -> f64 {
-    todo!("redo");
-    let bounds: (f64, f64) = domain.get_bounds();
 
-    let pdf_checked = |x: f64| {
-        if domain.contains(x) {
-            pdf(x)
-        } else {
-            0.0
-        }
-    };
-
-    let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
-
-    
-    let integration_type: IntegrationType = IntegrationType::from_bounds(bounds); 
-
-    let double_step_length: f64 = 2.0 * step_length;
-    let step_len_over_3: f64 = step_length / 3.0;
-
-    // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
-    let mut last_pdf_evaluation: f64 = match integration_type {
-        IntegrationType::Finite => pdf_checked(bounds.0),
-        IntegrationType::InfiniteToConst => {
-            // t = 0, it would be a singularity. Skip point
-            0.0
-        }
-        IntegrationType::ConstToInfinite => {
-            // t = 0;     f(a + t/(t - 1))  /  (1 - t)^2
-            pdf_checked(bounds.0)
-        }
-        IntegrationType::FullInfinite => {
-            // t = -1;    f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2
-            // would be singularity, skip
-            0.0
-        }
-    };
-
-    let mut accumulator: f64 = 0.0;
-    let mut num_step: f64 = 0.0;
-
-    //'integration_loop: loop {
-    loop {
-        let current_position: f64 = bounds.0 + double_step_length * num_step;
-
-        let (middle, end): (f64, f64) = match integration_type {
-            IntegrationType::Finite => {
-                let fn_input: f64 = current_position + step_length;
-                let middle_: f64 = pdf_checked(fn_input);
-
-                let fn_input: f64 = current_position + double_step_length;
-                let end_: f64 = pdf_checked(fn_input);
-
-                (middle_, end_)
-            }
-            IntegrationType::InfiniteToConst => {
-                //      For -infinite to const:
-                // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-                let middle_: f64 = {
-                    let t: f64 = current_position + step_length;
-                    if t.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        let fn_input: f64 = bounds.1 - (1.0 - t) / t;
-                        pdf_checked(fn_input) / (t * t)
-                    }
-                };
-                let end_: f64 = {
-                    let t: f64 = current_position + double_step_length;
-                    if t.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        let fn_input: f64 = bounds.1 - (1.0 - t) / t;
-                        pdf_checked(fn_input) / (t * t)
-                    }
-                };
-                (middle_, end_)
-            }
-            IntegrationType::ConstToInfinite => {
-                // For const to infinite:
-                // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                let middle_: f64 = {
-                    let t: f64 = current_position + step_length;
-                    let t_minus: f64 = t - 1.0;
-                    if t_minus.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        let fn_input: f64 = bounds.0 + t / t_minus;
-                        pdf_checked(fn_input) / (t_minus * t_minus)
-                    }
-                };
-                let end_: f64 = {
-                    let t: f64 = current_position + double_step_length;
-                    let t_minus: f64 = t - 1.0;
-                    if t_minus.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        let fn_input: f64 = bounds.0 + t / t_minus;
-                        pdf_checked(fn_input) / (t_minus * t_minus)
-                    }
-                };
-                (middle_, end_)
-            }
-            IntegrationType::FullInfinite => {
-                // For -infinite to infinite:
-                // integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-                let middle_: f64 = {
-                    let t: f64 = current_position + step_length;
-                    let u: f64 = 1.0 - t * t;
-                    if u.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        let fn_input: f64 = t / u;
-                        pdf_checked(fn_input) * (1.0 + t * t) / (u * u)
-                    }
-                };
-                let end_: f64 = {
-                    let t: f64 = current_position + double_step_length;
-                    let u: f64 = 1.0 - t * t;
-                    if u.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        let fn_input: f64 = t / u;
-                        pdf_checked(fn_input) * (1.0 + t * t) / (u * u)
-                    }
-                };
-                (middle_, end_)
-            }
-        };
-
-        accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        match integration_type {
-            IntegrationType::Finite => {
-                if bounds.1 <= current_position {
-                    break;
-                }
-            }
-            _ => {
-                if 1.0 <= current_position {
-                    break;
-                }
-            }
-        }
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-        // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
-    }
-
-    return accumulator;
+    todo!("redo"); 
 }
 
-pub fn determine_normalitzation_constant_discrete(
-    pdf: impl Fn(f64) -> f64,
+
+/// Determine the total probability of a pmf.
+///
+/// If you want to have a pmf wich represents a valid probability distribution, 
+/// the result of this function shouls be one. If it is not, you can divise the 
+/// result of the pmf by the returned value in order to nomalize it. 
+///
+/// This function assumes that `pmf` contains a finite area in it's `domain`.
+pub fn get_normalitzation_constant_discrete(
+    pmf: impl Fn(f64) -> f64,
     domain: &DiscreteDomain,
     max_steps: Option<usize>,
 ) -> f64 {
-    todo!("redo");
 
     let mut ret: f64 = 0.0;
 
-    for point in domain.iter() {
-        ret += pdf(point);
+    if let Some(max) = max_steps {
+        let mut i: usize = 0; 
+        for point in domain.iter() {
+            ret += pmf(point);
+            i += 1; 
+            if max <= i {
+                break;
+            }
+        }
+    } else {
+        for point in domain.iter() {
+            ret += pmf(point);
+        }
     }
 
     return ret;
