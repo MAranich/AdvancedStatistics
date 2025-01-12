@@ -50,6 +50,8 @@ fn comparing_exponential_distr() {
     };
 
     // ***
+
+    /* 
     println!("\nIntegral of the area of the pdf: \n\n");
 
     let area_ground: f64 = euclid::determine_normalitzation_constant_continuous(
@@ -62,6 +64,7 @@ fn comparing_exponential_distr() {
     );
 
     println!("Area || \tground: {}\ttest: {} ", area_ground, area_test);
+    */
 
     // ***
 

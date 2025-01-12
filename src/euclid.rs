@@ -49,24 +49,8 @@ pub fn determine_normalitzation_constant_continuous(
 
     let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
 
-    // To simpligy things + readability
-    enum IntegrationType {
-        // closed interval [a, b]
-        Finite,
-        // [-inf, a]
-        InfiniteToPositive,
-        // [b, inf]
-        InfiniteToNegative,
-        // [-inf, inf]
-        FullInfinite,
-    }
-
-    let integration_type: IntegrationType = match (bounds.0.is_finite(), bounds.1.is_finite()) {
-        (true, true) => IntegrationType::Finite,
-        (true, false) => IntegrationType::InfiniteToPositive,
-        (false, true) => IntegrationType::InfiniteToNegative,
-        (false, false) => IntegrationType::FullInfinite,
-    };
+    
+    let integration_type: IntegrationType = IntegrationType::from_bounds(bounds); 
 
     let double_step_length: f64 = 2.0 * step_length;
     let step_len_over_3: f64 = step_length / 3.0;
@@ -74,11 +58,11 @@ pub fn determine_normalitzation_constant_continuous(
     // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
     let mut last_pdf_evaluation: f64 = match integration_type {
         IntegrationType::Finite => pdf_checked(bounds.0),
-        IntegrationType::InfiniteToPositive => {
+        IntegrationType::InfiniteToConst => {
             // t = 0, it would be a singularity. Skip point
             0.0
         }
-        IntegrationType::InfiniteToNegative => {
+        IntegrationType::ConstToInfinite => {
             // t = 0;     f(a + t/(t - 1))  /  (1 - t)^2
             pdf_checked(bounds.0)
         }
@@ -106,7 +90,7 @@ pub fn determine_normalitzation_constant_continuous(
 
                 (middle_, end_)
             }
-            IntegrationType::InfiniteToPositive => {
+            IntegrationType::InfiniteToConst => {
                 //      For -infinite to const:
                 // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
 
@@ -132,8 +116,8 @@ pub fn determine_normalitzation_constant_continuous(
                 };
                 (middle_, end_)
             }
-            IntegrationType::InfiniteToNegative => {
-                //For const to infinite:
+            IntegrationType::ConstToInfinite => {
+                // For const to infinite:
                 // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
 
                 let middle_: f64 = {

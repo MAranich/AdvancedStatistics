@@ -125,10 +125,10 @@ pub trait Distribution {
             for integration.
 
             Considering the bounds: 
-             - if both min is finite we just integrate normally. 
-             - if min is infinite but max is finite, we can integrate the area from the end
+             - If min is finite we just integrate normally. 
+             - If min is infinite but max is finite, we can integrate the area from the end
                     and then do .map(|x| 1-x )
-             - if both are infinite, we will need to do integration with a change of variable
+             - If both are infinite, we will need to do integration with a change of variable
 
             To compute integrals over an infinite range, we will perform a special
             [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
@@ -190,7 +190,13 @@ pub trait Distribution {
             IntegrationType::FullInfinite => todo!(),
         }; 
 
+        let mut i: i32 = 0; 
+
         'integration_loop: loop {
+            i += 1; 
+            if (1 << 24) < i {
+                panic!("CDF done {} iters", 1 << 24); 
+            }
             let current_position: f64;
 
             match integration_type {
@@ -241,7 +247,6 @@ pub trait Distribution {
 
             last_pdf_evaluation = end;
             num_step += 1.0;
-            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
         }
 
         for idx in idx_iter {
@@ -255,146 +260,6 @@ pub trait Distribution {
         }
 
         return ret; 
-
-        /*
-
-        let mut sorted_points: Vec<(usize, f64)> = points.iter().map(|x| *x).enumerate().collect();
-
-        sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-        let domain: &ContinuousDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
-
-        // if points[i] <= bounds.0  |||| Awnser is always 0
-        let mut small_trivial_points: usize = 0;
-        // if bounds.1 <= points[i]  |||| Awnser is always 1
-        let mut big_trivial_points: usize = 0;
-        // The points that we actually need to process
-        let mut non_trivial_points: Vec<(usize, f64)> = Vec::with_capacity(points.len());
-
-        for point in sorted_points {
-            if point.1 <= bounds.0 {
-                small_trivial_points += 1;
-            } else if bounds.1 <= point.1 {
-                big_trivial_points += 1;
-            } else {
-                // move
-                non_trivial_points.push(point);
-            }
-        }
-        let non_trivial_points_len: usize = non_trivial_points.len();
-
-        for i in 0..small_trivial_points {
-            // quickly add all cases smaller than bounds.0
-            ret.push((i, 0.0));
-        }
-
-        if non_trivial_points.is_empty() {
-            let idx_offset: usize = small_trivial_points;
-            for i in 0..big_trivial_points {
-                ret.push((idx_offset + i, 1.0));
-            }
-            ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-            // ^this could be optimized by generating a vec and putting the values
-            // according to indexes.  ( O(n) ) Also do below
-            return ret.iter().map(|x| x.1).collect();
-        }
-
-        // Integration time!
-
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        let infinite_range: bool = bounds.0.is_infinite();
-
-        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
-
-        let mut points_iter: std::vec::IntoIter<(usize, f64)> = non_trivial_points.into_iter();
-
-        let (mut current_index, mut current_cdf_point): (usize, f64) = points_iter.next().unwrap(); // safe
-
-        let double_step_length: f64 = 2.0 * step_length;
-        let step_len_over_3: f64 = step_length / 3.0;
-
-        let mut accumulator: f64 = 0.0;
-        // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
-        let mut last_pdf_evaluation: f64 = if infinite_range {
-            // t = 0, it would be a singularity. Skip point
-            0.0
-        } else {
-            pdf_checked(bounds.0)
-        };
-
-        let mut num_step: f64 = 0.0;
-        'integration_loop: loop {
-            let current_position: f64 = bounds.0 + double_step_length * num_step;
-
-            while current_cdf_point <= current_position {
-                ret.push((current_index, accumulator));
-
-                // update `current_cdf_point` to the next value or exit if we are done
-                match points_iter.next() {
-                    Some(p) => (current_index, current_cdf_point) = p,
-                    None => break 'integration_loop,
-                }
-            }
-
-            let (middle, end): (f64, f64) = if infinite_range {
-                // In order to avoid the singularity at 0 we will split this into 2 parts: [-1, 0) and (0, 1]
-                //      For -infinite to const:
-                // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-                let middle_: f64 = {
-                    let t: f64 = current_position + step_length;
-                    if t.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
-                    }
-                };
-                let end_: f64 = {
-                    let t: f64 = current_position + double_step_length;
-                    if t.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
-                    }
-                };
-                (middle_, end_)
-            } else {
-                let middle_: f64 = pdf_checked(current_position + step_length);
-                let end_: f64 = pdf_checked(current_position + double_step_length);
-                (middle_, end_)
-            };
-
-            accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
-        
-        }
-
-        for i in 0..big_trivial_points {
-            let idx_offset = small_trivial_points + non_trivial_points_len;
-            ret.push((idx_offset + i, 1.0));
-        }
-
-        // put back to original order and return
-        ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-        // ^thic could be optimixed by generating a veg and putting the values
-        // according to indexes.  ( O(n) ) Also do above
-        return ret.iter().map(|x| x.1).collect();
-
-         */
     }
 
     /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample]
@@ -445,41 +310,194 @@ pub trait Distribution {
     /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
-           Plan:
+            Plan:
 
-           For this function we will first return an error if we find a NaN.
-           Otherwise we will need to sort them and integrate until the area under
-           the pdf is = to the given number. By sorting, we only need to integrate
-           once.
+            For this function we will first return an error if we find a NaN.
+            Otherwise we will need to sort them and integrate until the area under
+            the pdf is = to the given number. By sorting, we only need to integrate
+            once.
 
-           However, this *cool* strategy has a problem and is that we will not
-           return the values in the order we were asked. To account for this we will
-           keep track of the indicies of the origianl position and at the end re-sort
-           the final array using them.
+            However, this *cool* strategy has a problem and is that we will not
+            return the values in the order we were asked. To account for this we will
+            only sort the indices. 
 
-           Also, if we find any values smaller or greater than 0 or 1, the awnser will
-           always be the edges of the domain (simplifying computations, although this
-           case should not normally happen).
+            Also, if we find any values smaller or greater than 0 or 1, the awnser will
+            always be the edges of the domain (simplifying computations, although this
+            case should not normally happen).
 
-           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-           for integration.
+            We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
+            for integration.
 
-           To compute integrals over an infinite range, we will perform a special
-           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
+            Considering the bounds: 
+             - If min is finite we just integrate normally. 
+             - If min is infinite but max is finite, we can integrate the area from the end
+                    until `1.0 - point`
+             - If both are infinite, we will need to do integration with a change of variable
 
-               For -infinite to const:
-           integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
+            To compute integrals over an infinite range, we will perform a special
+            [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
 
-               For const to infinite:
-           integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
+                For -infinite to infinite:
+            integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
 
-               For -infinite to infinite:
-           integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-           And "just" compute the new integrals (taking care of the singularities at t = 0).
+            And "just" compute the new integral (taking care of the singularities at t = +-1).
 
         */
 
+        if points.is_empty() {
+            return Vec::new(); 
+        }
+
+        // return error if NAN is found
+        for point in points {
+            if point.is_nan() {
+                panic!("Found NaN in `quantile_multiple`. \n");
+            }
+        }
+
+        let mut ret: Vec<f64> = vec![0.0; points.len()];
+        let domain: &ContinuousDomain = self.get_domain();
+        let bounds: (f64, f64) = domain.get_bounds();
+        let integration_type: IntegrationType = IntegrationType::from_bounds(bounds); 
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>(); 
+
+        sorted_indicies.sort_unstable_by(|&i, &j| {
+            let a: f64 = points[i]; 
+            let b: f64 = points[j]; 
+            if let IntegrationType::InfiniteToConst = integration_type {
+                // sort in reverse
+                b.partial_cmp(&a).unwrap()
+            } else {
+                a.partial_cmp(&b).unwrap()
+            }
+        });
+
+
+        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
+        let half_step_length: f64 = 0.5 * step_length;
+        let step_len_over_6: f64 = step_length / 6.0;
+
+        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter(); 
+        let mut current_index: usize = idx_iter.next().unwrap(); 
+        // ^unwrap is safe
+
+        let mut current_quantile: f64 = points[current_index]; 
+
+        while current_quantile <= 0.0 {
+
+            ret[current_index] = bounds.0; 
+
+            // update `current_quantile` to the next value or exit if we are done
+            match idx_iter.next() {
+                Some(v) => current_index = v,
+                None => return ret, 
+            }
+            current_quantile = points[current_index]; 
+        }
+
+        let mut num_step: f64 = 0.0;
+        let mut accumulator: f64 = 0.0;
+        
+        let mut last_pdf_evaluation: f64 = match integration_type {
+            IntegrationType::Finite | IntegrationType::ConstToInfinite=> self.pdf(bounds.0 + f64::EPSILON),
+            IntegrationType::InfiniteToConst => self.pdf(bounds.1 - f64::EPSILON),
+            IntegrationType::FullInfinite => todo!(),
+        }; 
+
+        let mut i = 0; 
+        'integration_loop: loop {
+            i += 1; 
+            if (1 << 24) < i {
+                panic!("Quantile done {} iters", 1 << 24); 
+            }
+            let current_position: f64;
+
+            match integration_type {
+                IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                    current_position = bounds.0 + step_length * num_step;
+                    while current_quantile <= accumulator {
+                        let mut quantile: f64 = current_position;
+
+                        let pdf_q: f64 = self.pdf(quantile); 
+                        if QUANTILE_USE_NEWTONS_ITER && !(pdf_q.abs() < f64::EPSILON) {
+                            // if pdf_q is essentially 0, skip this.
+                            // newton's iteration
+                            quantile = quantile - (accumulator - current_quantile) / pdf_q;
+                        }
+
+                        ret[current_index] = quantile; 
+
+                        // update `current_quantile` to the next value or exit if we are done
+                        match idx_iter.next() {
+                            Some(v) => current_index = v,
+                            None => break 'integration_loop,
+                        }
+                        current_quantile = points[current_index]; 
+                    }
+                
+                    if bounds.1 <= current_position {
+                        ret[current_index] = current_position; 
+                        break 'integration_loop;
+                    }
+                },
+                IntegrationType::InfiniteToConst => {
+                    current_position = bounds.1 - step_length * num_step;
+                    while 1.0 - accumulator <= current_quantile {
+                        let mut quantile: f64 = current_position;
+
+                        let pdf_q: f64 = self.pdf(quantile);
+                        if QUANTILE_USE_NEWTONS_ITER && !(pdf_q.abs() < f64::EPSILON) {
+                            // if pdf_q is essentially 0, skip this.
+                            // newton's iteration
+                            quantile += -((1.0 - accumulator) - current_quantile) / pdf_q;
+                        }
+
+                        ret[current_index] = quantile; 
+
+                        // update `current_cdf_point` to the next value or exit if we are done
+                        match idx_iter.next() {
+                            Some(v) => current_index = v,
+                            None => break 'integration_loop,
+                        }
+                        current_quantile = points[current_index]; 
+                    }
+                },
+                IntegrationType::FullInfinite => todo!(),
+            }; 
+
+            let (middle, end): (f64, f64) = match integration_type {
+                IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                    let _middle: f64 = self.pdf(current_position + half_step_length); 
+                    let _end: f64 = self.pdf(current_position + step_length); 
+                    (_middle, _end)
+                },
+                IntegrationType::InfiniteToConst => {
+                    let _middle: f64 = self.pdf(current_position - half_step_length); 
+                    let _end: f64 = self.pdf(current_position - step_length); 
+                    (_middle, _end)
+                },
+                IntegrationType::FullInfinite => todo!(),
+            }; 
+
+            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
+
+            last_pdf_evaluation = end;
+            num_step += 1.0;
+        }
+
+        for idx in idx_iter {
+            // use all remaining indicies
+            if let IntegrationType::InfiniteToConst = integration_type { 
+                // this really should never happen
+                ret[idx] = bounds.0; 
+            } else { 
+                ret[idx] = bounds.1; 
+            }
+        }
+
+        return ret; 
+
+        /* 
         // panick if NAN is found
         for point in points {
             if point.is_nan() {
@@ -698,6 +716,8 @@ pub trait Distribution {
         // ^thic could be optimixed by generating a veg and putting the values
         // according to indexes.  ( O(n) ) Also do above
         return ret.iter().map(|x| x.1).collect();
+
+        */
     }
 
     // Statistics
