@@ -37,6 +37,26 @@ pub fn get_normalitzation_constant_continuous(
     domain: &ContinuousDomain,
 ) -> f64 {
 
+    /*
+            Plan: 
+
+        To compute integrals over an infinite range, we will perform a special
+        [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
+        (change of variable)
+
+            For a (const) to infinite:
+        integral {-inf -> a} f(x) dx = 
+                    integral {0 -> 1} f(a + t/(1 - t))  /  (1 - t)^2  dt
+
+            For -infinite to a (const):
+        integral {-inf -> a} f(x) dx = 
+                    integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
+
+            For -infinite to infinite:
+        integral {-inf -> inf} f(x) dx = 
+                    integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)  dt
+    
+     */
     todo!("redo"); 
 }
 
@@ -177,11 +197,11 @@ pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);
 pub enum IntegrationType {
     /// closed interval: `[a, b]`
     Finite,
-    /// interval: `[-inf, a]`
+    /// interval: `(-inf, a]`
     InfiniteToConst,
-    /// interval: `[b, inf]`
+    /// interval: `[b, inf)`
     ConstToInfinite,
-    /// interval: `[-inf, inf]`
+    /// interval: `(-inf, inf)`
     FullInfinite,
 }
 
