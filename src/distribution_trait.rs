@@ -302,7 +302,7 @@ pub trait Distribution {
             1.0 - accumulator
         } else {
             accumulator
-        }; 
+        };
 
         for idx in idx_iter {
             // use all remaining indicies
@@ -535,7 +535,7 @@ pub trait Distribution {
                         }
                         current_quantile = points[current_index];
                     }
-                },
+                }
             };
 
             let (middle, end): (f64, f64) = match integration_type {

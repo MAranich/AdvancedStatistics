@@ -51,20 +51,20 @@ fn comparing_exponential_distr() {
 
     // ***
 
-    /* 
+    
     println!("\nIntegral of the area of the pdf: \n\n");
 
-    let area_ground: f64 = euclid::determine_normalitzation_constant_continuous(
+    let area_ground: f64 = euclid::get_normalitzation_constant_continuous(
         |x| Distribution::pdf(&ground, x),
         &test.domain,
     );
-    let area_test: f64 = euclid::determine_normalitzation_constant_continuous(
+    let area_test: f64 = euclid::get_normalitzation_constant_continuous(
         |x| Distribution::pdf(&test, x),
         &test.domain,
     );
 
     println!("Area || \tground: {}\ttest: {} ", area_ground, area_test);
-    */
+    
 
     // ***
 
@@ -142,36 +142,17 @@ fn discrete_domain_iterators() {
     let amount: usize = 20;
 
     let tests: Vec<(&str, DiscreteDomain)> = vec![
-        (
-            "new_discrete_integers",
-            DiscreteDomain::Integers
-        ),
-        (
-            "new_discrete_positives",
-            DiscreteDomain::From(0)
-        ),
-        (
-            "new_discrete_negatives",
-            DiscreteDomain::To(0)
-        ),
-        (
-            "new_discrete_range (-3, 13)",
-            DiscreteDomain::Range(-3, 13),
-        ),
-        (
-            "new_discrete_from (-5)",
-            DiscreteDomain::From(-5),
-        ),
-        (
-            "new_discrete_to (2)",
-            DiscreteDomain::To(2),
-        ),
+        ("new_discrete_integers", DiscreteDomain::Integers),
+        ("new_discrete_positives", DiscreteDomain::From(0)),
+        ("new_discrete_negatives", DiscreteDomain::To(0)),
+        ("new_discrete_range (-3, 13)", DiscreteDomain::Range(-3, 13)),
+        ("new_discrete_from (-5)", DiscreteDomain::From(-5)),
+        ("new_discrete_to (2)", DiscreteDomain::To(2)),
         (
             "new_discrete_custom",
             DiscreteDomain::new_discrete_custom(&[-1.0, -2.0, -5.0, 5.0, 22.0, 344.0, 866.0]),
         ),
     ];
-
 
     for (log_text, domain) in tests {
         print!("Iterator for {}: \n\t", log_text);
