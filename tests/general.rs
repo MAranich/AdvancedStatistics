@@ -130,6 +130,12 @@ fn comparing_exponential_distr() {
         test.skewness()
     );
 
+    println!(
+        "Mode: \n\t - ground: {:?}\n\t - test: {:?}\n",
+        ground.mode(),
+        test.mode()
+    );
+
     println!("\n\n================================\n\n");
 
     panic!("Show me the results. ");

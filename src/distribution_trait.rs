@@ -181,7 +181,6 @@ pub trait Distribution {
         let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
         let mut current_index: usize = idx_iter.next().unwrap();
         // ^unwrap is safe
-        let mut breaked: bool = false;
 
         let mut current_cdf_point: f64 = points[current_index];
 
@@ -816,8 +815,105 @@ pub trait Distribution {
 
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
     /// of the distribution.
+    ///
+    /// The deafult implementation uses gradient descent and has a random component,
+    /// wich means that the returned value is guaranteed to be a **local maximum**, not
+    /// the global maximum. Fortunely for functions with only 1 single maximum,
+    /// the function always returns the correct awnser, but be aware of it's limitations. 
+    /// Note that you may get incorrect results if the algorithm gets "stuck" in areas where 
+    /// the function is almost flat. 
     fn mode(&self) -> f64 {
-        todo!("Implement deafult implementation. ");
+        let bounds: (f64, f64) = self.get_domain().get_bounds();
+        let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
+
+        let r: f64 = rand::random::<f64>();
+        let seed: f64 = match integration_type {
+            IntegrationType::Finite => bounds.0 + r * (bounds.1 - bounds.0),
+            IntegrationType::InfiniteToConst => {
+                let b: f64 = 2.0;
+                // ^modificable parameter,
+
+                b * r / (1.0 - r) + bounds.0
+            }
+            IntegrationType::ConstToInfinite => {
+                let b: f64 = 2.0;
+                // ^modificable parameter,
+
+                b * r / (r - 1.0) + bounds.1
+            }
+            IntegrationType::FullInfinite => (r / (1.0 - r)).ln(),
+        };
+
+        let USE_LOG_DISTRIBUTION: bool = true; 
+
+        let h: f64 = 0.001;
+        let derivative = |x: f64| (self.pdf(x + h) - self.pdf(x)) / h; 
+        let log_derivative = |x: f64| ((self.pdf(x + h) + f64::EPSILON).ln() - (self.pdf(x) + f64::EPSILON).ln()) / h; 
+        
+
+        let mut ret: f64 = seed;
+        let mut convergence: bool = false;
+        let convergence_difference_criteria: f64 = 0.0001;
+        let mut learning_rate: f64 = 0.02;
+        let learning_rate_change: f64 = 0.9999; 
+        let mut i: u32 = 0; 
+        let min_iters: u32 = 0;
+        let max_iters: u32 = 1 << 16;
+
+        while !convergence {
+            let gradient: f64 = if USE_LOG_DISTRIBUTION {
+                log_derivative(ret)
+            } else {
+                derivative(ret)
+            }; 
+            let updated: f64 = ret + learning_rate * gradient;
+
+            if (ret - updated).abs() < convergence_difference_criteria && min_iters < i {
+                convergence = true;
+            }
+
+            if max_iters < i {
+                return ret;
+            }
+
+            match integration_type {
+                IntegrationType::Finite => {
+                    if ret <= bounds.0 {
+                        // there is a maximum at bounds.0, but we cannot go further
+                        return bounds.0;
+                    }
+
+                    if bounds.1 <= ret {
+                        // there is a maximum at bounds.1, but we cannot go further
+                        return bounds.1;
+                    }
+                }
+                IntegrationType::InfiniteToConst => {
+                    if bounds.1 <= ret {
+                        // there is a maximum at bounds.1, but we cannot go further
+                        return bounds.1;
+                    }
+                }
+                IntegrationType::ConstToInfinite => {
+                    if ret <= bounds.0 {
+                        // there is a maximum at bounds.0, but we cannot go further
+                        return bounds.0;
+                    }
+                }
+                IntegrationType::FullInfinite => {}
+            }
+
+            /* 
+            if (i & 15) == 0 {
+                println!("{}: {}\t\t(grad: {}, lr: {}, log: {}) ", i, ret, gradient, learning_rate, USE_LOG_DISTRIBUTION); 
+            }*/
+            ret = updated;
+            i += 1; 
+            learning_rate = learning_rate * learning_rate_change; 
+
+        }
+
+        return ret;
     }
 
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
