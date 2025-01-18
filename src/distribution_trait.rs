@@ -2,7 +2,7 @@ use std::usize;
 
 use rand::Rng;
 
-use crate::configuration::QUANTILE_USE_NEWTONS_ITER;
+use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::*;
@@ -844,21 +844,22 @@ pub trait Distribution {
             IntegrationType::FullInfinite => (r / (1.0 - r)).ln(),
         };
 
-        let USE_LOG_DISTRIBUTION: bool = true; 
+        let USE_LOG_DISTRIBUTION: bool = configuration::distribution_deafult_mode::USE_LOG_DERIVATIVE; 
 
         let h: f64 = 0.001;
         let derivative = |x: f64| (self.pdf(x + h) - self.pdf(x)) / h; 
         let log_derivative = |x: f64| ((self.pdf(x + h) + f64::EPSILON).ln() - (self.pdf(x) + f64::EPSILON).ln()) / h; 
         
 
+        let convergence_difference_criteria: f64 = configuration::distribution_deafult_mode::CONVERGENCE_DIFFERENCE_CRITERIA;
+        let mut learning_rate: f64 = configuration::distribution_deafult_mode::LEARNING_RATE;
+        let learning_rate_change: f64 = configuration::distribution_deafult_mode::LEARNING_RATE_CHANGE; 
+        let min_iters: u32 = configuration::distribution_deafult_mode::MIN_ITERATIONS;
+        let max_iters: u32 = configuration::distribution_deafult_mode::MAX_ITERATIONS;
+
         let mut ret: f64 = seed;
         let mut convergence: bool = false;
-        let convergence_difference_criteria: f64 = 0.0001;
-        let mut learning_rate: f64 = 0.02;
-        let learning_rate_change: f64 = 0.9999; 
         let mut i: u32 = 0; 
-        let min_iters: u32 = 0;
-        let max_iters: u32 = 1 << 16;
 
         while !convergence {
             let gradient: f64 = if USE_LOG_DISTRIBUTION {
@@ -906,7 +907,8 @@ pub trait Distribution {
             /* 
             if (i & 15) == 0 {
                 println!("{}: {}\t\t(grad: {}, lr: {}, log: {}) ", i, ret, gradient, learning_rate, USE_LOG_DISTRIBUTION); 
-            }*/
+            }
+            */
             ret = updated;
             i += 1; 
             learning_rate = learning_rate * learning_rate_change; 
