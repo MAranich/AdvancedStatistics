@@ -1,6 +1,18 @@
+//! A Domain represents the set of points where a function is defined. 
+//! 
+//! In this library we use it mainly for the pdf or pmf of Distributons (see 
+//! [crate::distribution_trait]). It has 2 variants: 
+//!  - [DiscreteDomain] 
+//!  - [ContinuousDomain]
+//! 
+//! If you intend to have a domain more complex than that (for a piecewise 
+//! function, for example), you should take a look at [crate::mixed_distribution]. 
+//! 
+
 use core::f64;
 
 use crate::euclid::DEFAULT_EMPTY_DOMAIN_BOUNDS;
+
 
 /// A [domain](https://en.wikipedia.org/wiki/Domain_of_a_function) composed of
 /// finitely many elements.

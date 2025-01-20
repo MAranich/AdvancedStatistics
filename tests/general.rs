@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 ///! General testing section
 use distribution_trait::Distribution;
 use distributions::Exponential::Exponential;
@@ -51,7 +53,6 @@ fn comparing_exponential_distr() {
 
     // ***
 
-    
     println!("\nIntegral of the area of the pdf: \n\n");
 
     let area_ground: f64 = euclid::get_normalitzation_constant_continuous(
@@ -64,7 +65,6 @@ fn comparing_exponential_distr() {
     );
 
     println!("Area || \tground: {}\ttest: {} ", area_ground, area_test);
-    
 
     // ***
 
@@ -172,3 +172,106 @@ fn discrete_domain_iterators() {
     print!("\n\n");
     panic!("Show the results. ");
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

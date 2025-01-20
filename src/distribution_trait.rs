@@ -22,13 +22,15 @@ pub trait Distribution {
     //Requiered method:
 
     /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
-    /// (Probability Density function) of the distribution at point x.
-    /// If the function is evaluated outside the domain of the pdf,
-    /// it will return `0.0`.
+    /// (Probability Density function) of the distribution at point `x`.
     ///
-    /// The PDF is assumed to be a valid probability distribution. If you are not sure
-    /// if the PDF is normalized to have a 1 unit of area under the curve of the pdf, you
-    /// can use [crate::euclid::determine_normalitzation_constant_continuous].
+    /// The PDF is assumed to be a valid probability distribution. It is must fullfill: 
+    ///  - `0.0 <= pdf(x)`
+    ///  - It is normalized. (It has an area under the curbe of `1.0`)
+    ///      - If you are not sure if the PDF is normalized, you can use 
+    /// [crate::euclid::determine_normalitzation_constant_continuous]. 
+    ///  - As `x` approaches `+-inf` (if inside the domain), `pdf(x)` should 
+    /// tend to `0.0`. 
     fn pdf(&self, x: f64) -> f64;
 
     /// Returns a reference to the pdf [ContinuousDomain], wich indicates at wich points
@@ -817,7 +819,7 @@ pub trait Distribution {
     /// of the distribution.
     ///
     /// The deafult implementation uses gradient descent and has a random component,
-    /// wich means that the returned value is guaranteed to be a **local maximum**, not
+    /// wich means that the returned value is guaranteed to be a **local maximum**, but not
     /// the global maximum. Fortunely for functions with only 1 single maximum,
     /// the function always returns the correct awnser, but be aware of it's limitations. 
     /// Note that you may get incorrect results if the algorithm gets "stuck" in areas where 

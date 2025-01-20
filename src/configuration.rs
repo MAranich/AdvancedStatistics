@@ -26,19 +26,15 @@ pub mod integration {
     pub static DEFAULT_INTEGRATION_PRECISION: f64 = 0.125;
 
     /// The maximum number of subdivisions of the domains to numerically integrate functions.
-    /// `1 << 20 + 1 = 1 048 577`
-    ///
-    /// The `+ 1` is because odd numbers are better for Simpson's integration.
-    pub static DEFAULT_INTEGRATION_MAXIMUM_STEPS: usize = (1 << 20) + 1;
+    /// `1 << 20 = 1 048 576`
+    pub static DEFAULT_INTEGRATION_MAXIMUM_STEPS: usize = 1 << 20;
     /// [DEFAULT_INTEGRATION_MAXIMUM_STEPS] but as float.
     pub static DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64: f64 =
         DEFAULT_INTEGRATION_MAXIMUM_STEPS as f64;
 
     /// The minimum number of subdivisions of the domains to numerically integrate functions.
-    /// `(1 << 10) + 1 = 4 097`
-    ///
-    /// The `+ 1` is because odd numbers are better for Simpson's integration.
-    pub static DEFAULT_INTEGRATION_MINIMUM_STEPS: usize = (1 << 12) + 1;
+    /// `1 << 12 = 4 096`
+    pub static DEFAULT_INTEGRATION_MINIMUM_STEPS: usize = 1 << 12;
     /// [DEFAULT_INTEGRATION_MINIMUM_STEPS] but as float.
     pub static DEFAULT_INTEGRATION_MINIMUM_STEPS_F64: f64 =
         DEFAULT_INTEGRATION_MINIMUM_STEPS as f64;
@@ -47,8 +43,8 @@ pub mod integration {
     /// (such as `[0, 1]` or `[-1, 1]`). The value is relatively large because we want
     /// to make sure to capture the shape of the function in the small interval.
     ///
-    /// `32769` = `2^15 + 1`
-    pub static SMALL_INTEGRATION_NUM_STEPS: usize = 32769;
+    /// `32768` = `2^15`
+    pub static SMALL_INTEGRATION_NUM_STEPS: usize = 1 << 15;
     /// [SMALL_INTEGRATION_NUM_STEPS]
     pub static SMALL_INTEGRATION_NUM_STEPS_F64: f64 = SMALL_INTEGRATION_NUM_STEPS as f64;
 
