@@ -35,8 +35,8 @@ pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);
 /// a valid probability distribution.
 ///
 /// This function assumes that `pdf` contains a finite area in it's `domain`.
-/// 
-/// If you already created a distribution `d`, you can call this function as: 
+///
+/// If you already created a distribution `d`, you can call this function as:
 /// ```
 /// let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
 /// ```
@@ -54,105 +54,126 @@ pub fn get_normalitzation_constant_continuous(
            For a (const) to infinite:
         integral {a -> inf} f(x) dx =
                     integral {0 -> 1} f(a + t/(1 - t))  /  (1 - t)^2  dt
-        let u = 1/(1-t); 
+        let u = 1/(1-t);
                     integral {0 -> 1} f(a + t * u) * u * u   dt
 
            For -infinite to a (const):
         integral {-inf -> a} f(x) dx =
                     integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-        let u = 1/t; 
+        let u = 1/t;
                     integral {0 -> 1} f(a - (1 - t) * u) * u * u  dt
 
            For -infinite to infinite:
         integral {-inf -> inf} f(x) dx =
                    integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-        let u = 1/(1-t^2); 
+        let u = 1/(1-t^2);
                    integral {-1 -> 1} f( t * u ) ) * (1 + t^2) * u * u  dt
 
     */
-    println!("Domain: {:?}", domain); 
-    let mut ret: f64 = -0.0; 
+    println!("Domain: {:?}", domain);
+    let mut ret: f64 = -0.0;
 
     let bounds: (f64, f64) = domain.get_bounds();
     let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
     let (step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds);
     let half_step_length: f64 = 0.5 * step_length;
     let step_len_over_6: f64 = step_length / 6.0;
-    //println!("bounds = {:?}", bounds); 
-    //println!("step_length = {step_length}, max_iters = {max_iters}\n"); 
+    println!("bounds = {:?}", bounds);
+    //println!("step_length = {step_length}, max_iters = {max_iters}\n");
 
     let mut num_step: f64 = 0.0;
+    println!("pre last_pdf_evaluation"); 
 
+    // estimate the bound value with the next 2 values
     let mut last_pdf_evaluation: f64 = match integration_type {
         IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-            pdf(bounds.0 + f64::EPSILON)
-        }
-        IntegrationType::InfiniteToConst => pdf(bounds.1 - f64::EPSILON),
+            println!("bounds.0: {}, \thalf_step_length: {}", bounds.0, half_step_length); 
+            let middle: f64 = pdf(bounds.0 + half_step_length);
+            let end: f64 = pdf(bounds.0 + step_length);
+            println!("mid: {middle}\t end: {end}"); 
+            2.0 * middle - end
+        },
+        IntegrationType::InfiniteToConst => {
+            println!("bounds.1: {}, \thalf_step_length: {}", bounds.1, half_step_length); 
+            //println!("pdf input: {}", bounds.1 - half_step_length); 
+            let middle: f64 = pdf(bounds.1 - half_step_length);
+            let end: f64 = pdf(bounds.1 - step_length);
+            println!("mid: {middle}\t end: {end}"); 
+            2.0 * middle - end
+        },
         IntegrationType::FullInfinite => 0.0,
     };
 
+    println!("last_pdf_evaluation"); 
 
-    'integration_loop: for _i in 0..max_iters {
+
+    for _i in 0..max_iters {
         let current_position: f64;
-        
+
         let (middle, end): (f64, f64) = match integration_type {
             IntegrationType::Finite => {
-                current_position = bounds.0 + step_length * num_step; 
+                current_position = bounds.0 + step_length * num_step;
                 let _middle: f64 = pdf(current_position + half_step_length);
                 let _end: f64 = pdf(current_position + step_length);
                 (_middle, _end)
             }
             IntegrationType::ConstToInfinite => {
                 // integral {a -> inf} f(x) dx = integral {0 -> 1} f(a + t/(1 - t))  /  (1 - t)^2  dt
-                
-                current_position = step_length * num_step; 
 
-                let _middle: f64 = {
+                current_position = step_length * num_step;
+
+                let _middle: f64 = 'mid: {
                     let t: f64 = current_position + half_step_length;
-                    let u: f64 = 1.0 / (1.0 - t); 
-                    print!("{u} \t"); 
+                    let e: f64 = 1.0 - t; 
+                    if e.abs() < f64::EPSILON {
+                        break 'mid 0.0; 
+                        // todo: implement something better here
+                    }
+                    let u: f64 = 1.0 / e; // 1/(1-t)
                     pdf(bounds.0 + t * u) * u * u
                 };
-                let _end: f64 = {
+                let _end: f64 = 'end: {
                     let t: f64 = current_position + step_length;
                     let e: f64 = 1.0 - t;
                     if e.abs() < f64::EPSILON {
-                        0.0
+                        break 'end 0.0; 
                         // todo: implement something better here
-                    } else {
-                        let u: f64 = 1.0 / e; // = 1/(1 - t)
-                        pdf(bounds.0 + t * u) * u * u
                     }
+                    let u: f64 = 1.0 / e; // = 1/(1 - t)
+                    pdf(bounds.0 + t * u) * u * u
                 };
-                (_middle, _end) 
+                (_middle, _end)
             }
             IntegrationType::InfiniteToConst => {
                 // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-                
-                current_position = step_length * num_step; 
+                // this integral is done in "reverse". Form 1 to 0. 
 
-                let _middle: f64 = {
-                    let t: f64 = current_position + half_step_length;
+                current_position = 1.0 - step_length * num_step;
+
+                let _middle: f64 = 'mid: {
+                    let t: f64 = current_position - half_step_length;
                     let u: f64 = 1.0 / t;
-                    assert_ne!(u, 0.0); 
+                    if u.is_infinite() {
+                        break 'mid 0.0; 
+                        // todo: implement something better here
+                    }
                     pdf(bounds.1 - (1.0 - t) * u) * u * u
                 };
-                let _end: f64 = {
-                    let t: f64 = current_position + step_length;
-                    if t.abs() < f64::EPSILON {
-                        0.0
+                let _end: f64 = 'end: {
+                    let t: f64 = current_position - step_length;
+                    let u: f64 = 1.0 / t; 
+                    if u.is_infinite() {
+                        break 'end 0.0; 
                         // todo: implement something better here
-                    } else {
-                        let u: f64 = 1.0 / t;
-                        pdf(bounds.1 - (1.0 - t) * u) * u * u
                     }
+                    pdf(bounds.1 - (1.0 - t) * u) * u * u
                 };
-                (_middle, _end) 
+                (_middle, _end)
             }
             IntegrationType::FullInfinite => {
                 // integral {-inf -> inf} f(x) dx = integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
 
-                current_position = -1.0 + step_length * num_step; 
+                current_position = -1.0 + step_length * num_step;
 
                 let _middle: f64 = {
                     let t: f64 = current_position + half_step_length;
@@ -172,13 +193,15 @@ pub fn get_normalitzation_constant_continuous(
                     }
                 };
                 (_middle, _end)
-            },
+            }
         };
 
         if ret.is_nan() {
-            println!("last_pdf_evaluation {last_pdf_evaluation} + 4.0 * middle {middle} + end + {end}"); 
-            panic!("ret is NAN at iter {_i}"); 
-        } 
+            println!(
+                "last_pdf_evaluation {last_pdf_evaluation} + 4.0 * middle {middle} + end + {end}"
+            );
+            panic!("ret is NAN at iter {_i}");
+        }
 
         ret += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -186,9 +209,7 @@ pub fn get_normalitzation_constant_continuous(
         num_step += 1.0;
     }
 
-
-    return ret; 
-
+    return ret;
 }
 
 /// Determine the total probability of a pmf.
@@ -198,9 +219,9 @@ pub fn get_normalitzation_constant_continuous(
 /// result of the pmf by the returned value in order to nomalize it.
 ///
 /// This function assumes that `pmf` contains a finite area in it's `domain`.
-/// 
-/// **Warning:** if `max_steps` is set to None and the domain contains infinitely 
-/// many values, the function will not terminate (infinite loop). 
+///
+/// **Warning:** if `max_steps` is set to None and the domain contains infinitely
+/// many values, the function will not terminate (infinite loop).
 pub fn get_normalitzation_constant_discrete(
     pmf: impl Fn(f64) -> f64,
     domain: &DiscreteDomain,
@@ -226,7 +247,41 @@ pub fn get_normalitzation_constant_discrete(
     return ret;
 }
 
+/// Numerical integration
+///
+/// Numerical integration for a function `func` within a finite range. The 
+/// integration is performed with 
+/// [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule).
+pub fn numerical_integration(
+    func: impl Fn(f64) -> f64,
+    integration_range: (f64, f64),
+    num_steps: u64,
+) -> f64 {
+    let mut ret: f64 = -0.0;
 
+    let bounds: (f64, f64) = integration_range;
+    let step_length: f64 = (bounds.1 - bounds.0) / num_steps as f64;
+    let half_step_length: f64 = 0.5 * step_length;
+    let step_len_over_6: f64 = step_length / 6.0;
+
+    let mut num_step: f64 = 0.0;
+
+    let mut last_pdf_evaluation: f64 = func(bounds.0 + f64::EPSILON); 
+
+    for _ in 0..num_steps {
+        let current_position: f64 = bounds.0 + step_length * num_step;
+
+        let middle: f64 = func(current_position + half_step_length); 
+        let end: f64 = func(current_position + step_length); 
+
+        ret += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
+
+        last_pdf_evaluation = end;
+        num_step += 1.0;
+    }
+
+    return ret;
+}
 
 /// Randomly permute a slice.
 ///
@@ -255,10 +310,10 @@ pub fn random_permutation<T>(arr: &mut [T]) {
 /// the number of steps.
 ///
 /// If the bounds are non-finite a change of variables for the integration is assumed.
-/// 
-/// Guarantees: 
+///
+/// Guarantees:
 ///  - `bounds.0 < bounds.1`
-///  - 
+///  -
 pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize) {
     /*
         To select the appropiate step_length (and total_num_steps, indirecly),
@@ -305,7 +360,7 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
         }
         (false, false) => {
             // if the interval [0, 1] uses SMALL_INTEGRATION_NUM_STEPS,
-            // then [-1, 1] will use the doule. 
+            // then [-1, 1] will use the doule.
             (
                 SMALL_INTEGRATION_PRECISION,
                 (SMALL_INTEGRATION_NUM_STEPS * 2) as usize,
@@ -323,8 +378,6 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
         }
     }
 }
-
-
 
 /// Indicates how big is the range to integrate.
 ///
@@ -344,8 +397,8 @@ impl IntegrationType {
     pub fn from_bounds(bounds: (f64, f64)) -> IntegrationType {
         match (bounds.0.is_finite(), bounds.1.is_finite()) {
             (true, true) => IntegrationType::Finite,
-            (true, false) => IntegrationType::InfiniteToConst,
-            (false, true) => IntegrationType::ConstToInfinite,
+            (true, false) => IntegrationType::ConstToInfinite,
+            (false, true) => IntegrationType::InfiniteToConst,
             (false, false) => IntegrationType::FullInfinite,
         }
     }

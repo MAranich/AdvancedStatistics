@@ -41,8 +41,6 @@
 //!
 //!
 
-use rand::rngs::ThreadRng;
-use std::cell::RefCell;
 
 pub mod distributions;
 pub mod distribution_trait;

@@ -33,7 +33,7 @@ fn integration_tests_finite() {
 
     let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
 
-    assert!((c - 7.57585312457).abs() < 0.000001);
+    assert!((c - 7.57585312457).abs() < 0.0000001);
 }
 
 struct InfToConstDistr {
@@ -54,7 +54,7 @@ impl Distribution for InfToConstDistr {
         let ret: f64 = log / den;
 
         if ret.is_nan() {
-            panic!("Evaluated pdf at {x} and returned NaN. ");
+            panic!("Evaluated pdf at {x} and returned NaN. \nlog: {log}\tden: {den}");
         }
         return ret;
     }
@@ -76,7 +76,7 @@ fn integration_tests_inf_to_const() {
     let expected_ret: f64 = 2.39574891663; 
 
     println!("{} || {}", c, expected_ret);
-    assert!((c - expected_ret).abs() < 0.001);
+    assert!((c - expected_ret).abs() < 0.0001);
 }
 
 struct ConstToInfDistr {
@@ -91,7 +91,7 @@ impl Distribution for ConstToInfDistr {
            area : 12 for any c
         */
         let sqrt: f64 = (x - c).sqrt();
-        let log: f64 = (x - c).sqrt();
+        let log: f64 = (x - c).ln();
         let ret: f64 = (log - sqrt).exp();
 
         if ret.is_nan() {
@@ -116,7 +116,7 @@ fn integration_tests_const_to_inf() {
     let c: f64 = euclid::get_normalitzation_constant_continuous(|x| D.pdf(x), D.get_domain());
 
     println!("{} || {}", c, 12.0);
-    assert!((c - 12.0).abs() < 0.000001);
+    assert!((c - 12.0).abs() < 0.0000001);
 }
 
 struct InfiniteDistr {
@@ -149,5 +149,5 @@ fn integration_tests_infinite() {
     let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
 
     println!("{} || {}", c * c, PI);
-    assert!((c * c - PI).abs() < 0.000001);
+    assert!((c * c - PI).abs() < 0.0000001);
 }
