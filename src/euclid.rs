@@ -70,7 +70,6 @@ pub fn get_normalitzation_constant_continuous(
                    integral {-1 -> 1} f( t * u ) ) * (1 + t^2) * u * u  dt
 
     */
-    println!("Domain: {:?}", domain);
     let mut ret: f64 = -0.0;
 
     let bounds: (f64, f64) = domain.get_bounds();
@@ -78,39 +77,24 @@ pub fn get_normalitzation_constant_continuous(
     let (step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds);
     let half_step_length: f64 = 0.5 * step_length;
     let step_len_over_6: f64 = step_length / 6.0;
-    println!("bounds = {:?}", bounds);
-    //println!("step_length = {step_length}, max_iters = {max_iters}\n");
 
     let mut num_step: f64 = 0.0;
-    println!("pre last_pdf_evaluation");
 
     // estimate the bound value with the next 2 values
     let mut last_pdf_evaluation: f64 = match integration_type {
         IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-            println!(
-                "bounds.0: {}, \thalf_step_length: {}",
-                bounds.0, half_step_length
-            );
             let middle: f64 = pdf(bounds.0 + half_step_length);
             let end: f64 = pdf(bounds.0 + step_length);
-            println!("mid: {middle}\t end: {end}");
             2.0 * middle - end
         }
         IntegrationType::InfiniteToConst => {
-            println!(
-                "bounds.1: {}, \thalf_step_length: {}",
-                bounds.1, half_step_length
-            );
-            //println!("pdf input: {}", bounds.1 - half_step_length);
             let middle: f64 = pdf(bounds.1 - half_step_length);
             let end: f64 = pdf(bounds.1 - step_length);
-            println!("mid: {middle}\t end: {end}");
             2.0 * middle - end
         }
         IntegrationType::FullInfinite => 0.0,
     };
 
-    println!("last_pdf_evaluation");
 
     for _i in 0..max_iters {
         let current_position: f64;
@@ -200,13 +184,6 @@ pub fn get_normalitzation_constant_continuous(
                 (_middle, _end)
             }
         };
-
-        if ret.is_nan() {
-            println!(
-                "last_pdf_evaluation {last_pdf_evaluation} + 4.0 * middle {middle} + end + {end}"
-            );
-            panic!("ret is NAN at iter {_i}");
-        }
 
         ret += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
