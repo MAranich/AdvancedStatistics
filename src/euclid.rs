@@ -82,30 +82,35 @@ pub fn get_normalitzation_constant_continuous(
     //println!("step_length = {step_length}, max_iters = {max_iters}\n");
 
     let mut num_step: f64 = 0.0;
-    println!("pre last_pdf_evaluation"); 
+    println!("pre last_pdf_evaluation");
 
     // estimate the bound value with the next 2 values
     let mut last_pdf_evaluation: f64 = match integration_type {
         IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-            println!("bounds.0: {}, \thalf_step_length: {}", bounds.0, half_step_length); 
+            println!(
+                "bounds.0: {}, \thalf_step_length: {}",
+                bounds.0, half_step_length
+            );
             let middle: f64 = pdf(bounds.0 + half_step_length);
             let end: f64 = pdf(bounds.0 + step_length);
-            println!("mid: {middle}\t end: {end}"); 
+            println!("mid: {middle}\t end: {end}");
             2.0 * middle - end
-        },
+        }
         IntegrationType::InfiniteToConst => {
-            println!("bounds.1: {}, \thalf_step_length: {}", bounds.1, half_step_length); 
-            //println!("pdf input: {}", bounds.1 - half_step_length); 
+            println!(
+                "bounds.1: {}, \thalf_step_length: {}",
+                bounds.1, half_step_length
+            );
+            //println!("pdf input: {}", bounds.1 - half_step_length);
             let middle: f64 = pdf(bounds.1 - half_step_length);
             let end: f64 = pdf(bounds.1 - step_length);
-            println!("mid: {middle}\t end: {end}"); 
+            println!("mid: {middle}\t end: {end}");
             2.0 * middle - end
-        },
+        }
         IntegrationType::FullInfinite => 0.0,
     };
 
-    println!("last_pdf_evaluation"); 
-
+    println!("last_pdf_evaluation");
 
     for _i in 0..max_iters {
         let current_position: f64;
@@ -124,9 +129,9 @@ pub fn get_normalitzation_constant_continuous(
 
                 let _middle: f64 = 'mid: {
                     let t: f64 = current_position + half_step_length;
-                    let e: f64 = 1.0 - t; 
+                    let e: f64 = 1.0 - t;
                     if e.abs() < f64::EPSILON {
-                        break 'mid 0.0; 
+                        break 'mid 0.0;
                         // todo: implement something better here
                     }
                     let u: f64 = 1.0 / e; // 1/(1-t)
@@ -136,7 +141,7 @@ pub fn get_normalitzation_constant_continuous(
                     let t: f64 = current_position + step_length;
                     let e: f64 = 1.0 - t;
                     if e.abs() < f64::EPSILON {
-                        break 'end 0.0; 
+                        break 'end 0.0;
                         // todo: implement something better here
                     }
                     let u: f64 = 1.0 / e; // = 1/(1 - t)
@@ -146,7 +151,7 @@ pub fn get_normalitzation_constant_continuous(
             }
             IntegrationType::InfiniteToConst => {
                 // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-                // this integral is done in "reverse". Form 1 to 0. 
+                // this integral is done in "reverse". Form 1 to 0.
 
                 current_position = 1.0 - step_length * num_step;
 
@@ -154,16 +159,16 @@ pub fn get_normalitzation_constant_continuous(
                     let t: f64 = current_position - half_step_length;
                     let u: f64 = 1.0 / t;
                     if u.is_infinite() {
-                        break 'mid 0.0; 
+                        break 'mid 0.0;
                         // todo: implement something better here
                     }
                     pdf(bounds.1 - (1.0 - t) * u) * u * u
                 };
                 let _end: f64 = 'end: {
                     let t: f64 = current_position - step_length;
-                    let u: f64 = 1.0 / t; 
+                    let u: f64 = 1.0 / t;
                     if u.is_infinite() {
-                        break 'end 0.0; 
+                        break 'end 0.0;
                         // todo: implement something better here
                     }
                     pdf(bounds.1 - (1.0 - t) * u) * u * u
@@ -249,8 +254,8 @@ pub fn get_normalitzation_constant_discrete(
 
 /// Numerical integration
 ///
-/// Numerical integration for a function `func` within a finite range. The 
-/// integration is performed with 
+/// Numerical integration for a function `func` within a finite range. The
+/// integration is performed with
 /// [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule).
 pub fn numerical_integration(
     func: impl Fn(f64) -> f64,
@@ -266,13 +271,13 @@ pub fn numerical_integration(
 
     let mut num_step: f64 = 0.0;
 
-    let mut last_pdf_evaluation: f64 = func(bounds.0 + f64::EPSILON); 
+    let mut last_pdf_evaluation: f64 = func(bounds.0 + f64::EPSILON);
 
     for _ in 0..num_steps {
         let current_position: f64 = bounds.0 + step_length * num_step;
 
-        let middle: f64 = func(current_position + half_step_length); 
-        let end: f64 = func(current_position + step_length); 
+        let middle: f64 = func(current_position + half_step_length);
+        let end: f64 = func(current_position + step_length);
 
         ret += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 

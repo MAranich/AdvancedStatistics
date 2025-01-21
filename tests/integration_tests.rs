@@ -73,7 +73,7 @@ fn integration_tests_inf_to_const() {
     };
 
     let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
-    let expected_ret: f64 = 2.39574891663; 
+    let expected_ret: f64 = 2.39574891663;
 
     println!("{} || {}", c, expected_ret);
     assert!((c - expected_ret).abs() < 0.0001);
