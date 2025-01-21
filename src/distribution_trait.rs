@@ -189,16 +189,22 @@ pub trait Distribution {
         let mut num_step: f64 = 0.0;
         let mut accumulator: f64 = 0.0;
 
+        // estimate the bound value with the next 2 values
         let mut last_pdf_evaluation: f64 = match integration_type {
             IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-                self.pdf(bounds.0 + f64::EPSILON)
+                let middle: f64 = self.pdf(bounds.0 + half_step_length);
+                let end: f64 = self.pdf(bounds.0 + step_length);
+                2.0 * middle - end
             }
-            IntegrationType::InfiniteToConst => self.pdf(bounds.1 - f64::EPSILON),
+            IntegrationType::InfiniteToConst => {
+                let middle: f64 = self.pdf(bounds.1 - half_step_length);
+                let end: f64 = self.pdf(bounds.1 - step_length);
+                2.0 * middle - end
+            }
             IntegrationType::FullInfinite => 0.0,
         };
 
         for _ in 0..max_iters {
-            //all_iterations_done = i + 1 == max_iters;
             let current_position: f64;
 
             match integration_type {
@@ -452,11 +458,18 @@ pub trait Distribution {
         let mut num_step: f64 = 0.0;
         let mut accumulator: f64 = 0.0;
 
+        // estimate the bound value with the next 2 values
         let mut last_pdf_evaluation: f64 = match integration_type {
             IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-                self.pdf(bounds.0 + f64::EPSILON)
+                let middle: f64 = self.pdf(bounds.0 + half_step_length);
+                let end: f64 = self.pdf(bounds.0 + step_length);
+                2.0 * middle - end
             }
-            IntegrationType::InfiniteToConst => self.pdf(bounds.1 - f64::EPSILON),
+            IntegrationType::InfiniteToConst => {
+                let middle: f64 = self.pdf(bounds.1 - half_step_length);
+                let end: f64 = self.pdf(bounds.1 - step_length);
+                2.0 * middle - end
+            }
             IntegrationType::FullInfinite => 0.0,
         };
 
