@@ -638,7 +638,7 @@ pub trait Distribution {
         };
 
         let USE_LOG_DISTRIBUTION: bool =
-            configuration::distribution_deafult_mode::USE_LOG_DERIVATIVE;
+            configuration::distribution_mode_deafult::USE_LOG_DERIVATIVE;
 
         let h: f64 = 0.001;
         let derivative = |x: f64| (self.pdf(x + h) - self.pdf(x)) / h;
@@ -647,12 +647,12 @@ pub trait Distribution {
         };
 
         let convergence_difference_criteria: f64 =
-            configuration::distribution_deafult_mode::CONVERGENCE_DIFFERENCE_CRITERIA;
-        let mut learning_rate: f64 = configuration::distribution_deafult_mode::LEARNING_RATE;
+            configuration::distribution_mode_deafult::CONVERGENCE_DIFFERENCE_CRITERIA;
+        let mut learning_rate: f64 = configuration::distribution_mode_deafult::LEARNING_RATE;
         let learning_rate_change: f64 =
-            configuration::distribution_deafult_mode::LEARNING_RATE_CHANGE;
-        let min_iters: u32 = configuration::distribution_deafult_mode::MIN_ITERATIONS;
-        let max_iters: u32 = configuration::distribution_deafult_mode::MAX_ITERATIONS;
+            configuration::distribution_mode_deafult::LEARNING_RATE_CHANGE;
+        let min_iters: u32 = configuration::distribution_mode_deafult::MIN_ITERATIONS;
+        let max_iters: u32 = configuration::distribution_mode_deafult::MAX_ITERATIONS;
 
         let mut ret: f64 = seed;
         let mut convergence: bool = false;
@@ -784,14 +784,6 @@ pub trait Distribution {
         let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
         let (mean, std_dev): (f64, f64) = match mode {
             Moments::Raw => (0.0, 1.0),
@@ -812,75 +804,74 @@ pub trait Distribution {
 
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let integration_type: IntegrationType = IntegrationType::from_bounds(bounds); 
-        let (step_length, num_steps): (f64, usize) = choose_integration_precision_and_steps(bounds);
+        let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
+        let (_, num_steps): (f64, usize) = choose_integration_precision_and_steps(bounds);
 
         let moment: f64 = match integration_type {
             IntegrationType::Finite => {
                 let integration_fn = |x: f64| {
                     let std_inp: f64 = (x + minus_mean) * inv_std_dev;
                     std_inp.powi(order_exp) * self.pdf(x)
-                }; 
+                };
 
                 euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
-            },
+            }
             IntegrationType::InfiniteToConst => {
                 // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
                 let integration_fn = |x: f64| 'integration: {
                     // x will go from 0.0 to 1.0
                     if x.abs() < f64::EPSILON {
                         // too near singularity, skip
-                        break 'integration 0.0; 
+                        break 'integration 0.0;
                     }
-                    let inv_x: f64 = 1.0 / x; 
+                    let inv_x: f64 = 1.0 / x;
                     let fn_input: f64 = bounds.1 - (1.0 - x) * inv_x;
                     let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                     std_inp.powi(order_exp) * self.pdf(fn_input) * inv_x * inv_x
-                }; 
+                };
 
-                euclid::numerical_integration(integration_fn, bounds, num_steps as u64) 
-            },
+                euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
+            }
             IntegrationType::ConstToInfinite => {
                 // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-                
+
                 let integration_fn = |x: f64| 'integration: {
                     // x will go from 0.0 to 1.0
 
                     let x_minus: f64 = x - 1.0;
                     if x_minus.abs() < f64::EPSILON {
                         // too near singularity, skip
-                        break 'integration 0.0; 
-                    } 
+                        break 'integration 0.0;
+                    }
 
-                    let u: f64 = 1.0 / x_minus; 
+                    let u: f64 = 1.0 / x_minus;
                     let fn_input: f64 = bounds.0 + x * u;
                     let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
                     std_inp.powi(order_exp) * self.pdf(fn_input) * u * u
-                }; 
+                };
 
-                euclid::numerical_integration(integration_fn, bounds, num_steps as u64) 
-            },
+                euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
+            }
             IntegrationType::FullInfinite => {
                 // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-                
+
                 let integration_fn = |x: f64| 'integration: {
                     // x will go from -1.0 to 1.0
 
                     let u: f64 = 1.0 - x * x;
                     if u.abs() < f64::EPSILON {
                         // too near singularity, skip
-                        break 'integration 0.0; 
-                    } 
-                    let v: f64 = 1.0 / u; 
-                    let fn_input: f64 = x * v; 
+                        break 'integration 0.0;
+                    }
+                    let v: f64 = 1.0 / u;
+                    let fn_input: f64 = x * v;
                     let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + x * x) * v * v
-                }; 
+                    std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
+                };
 
-                euclid::numerical_integration(integration_fn, bounds, num_steps as u64) 
-            },
-        }; 
-
+                euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
+            }
+        };
 
         return moment;
     }
@@ -989,7 +980,7 @@ pub trait DiscreteDistribution {
     /// The PMF is assumed to be a valid probability distribution. If you are not sure
     /// if the PMF is normalized to have a 1 unit of area under the curve of the pdf, you
     /// can use [crate::euclid::determine_normalitzation_constant_discrete].
-    fn pdf(&self, x: f64) -> f64;
+    fn pmf(&self, x: f64) -> f64;
 
     /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
     /// be evaluated. The returned domain should be constant and not change.
@@ -1064,175 +1055,108 @@ pub trait DiscreteDistribution {
     /// }
     /// ```
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
-        /*
-            Plan: (sery similar to [Distribution::quantile_multiple])
+        if points.is_empty() {
+            return Vec::new();
+        }
 
-            For cdf_multiple we will first panic if we find a NaN.
-            Otherwise we will need to sort them and (discretely) integrate until we have
-            integrated to the given number (and store the value).
-            By sorting, we only need to integrate once through the pdf.
-
-            However, this *cool* strategy has a problem and is that we will not
-            return the values in the order we were asked. To account for this we will
-            keep track of the indicies of the origianl position and at the end re-sort
-            the final array using them.
-
-            Also, if we find any values smaller or greater than the bounds of the
-            domain, the awnser will always be 0.0 or 1.0 (simplifying computations,
-            although this case should not generally happen).
-
-            If the lower bound is infinite, but the upper one is not, we will compute
-            the probability from `x` to the upper bound and then do `1 - accumulator`
-            to get the final awnser. If both bounds are infinite, we will start from 0
-            and go adding the numbers and adding them on 2 accumulators (one for
-            the mass in before `x` and another for after `x`), once the sum
-            is greater than a threshold, we return the one that contains the awnser.
-
-        */
-
-        // return error if NAN is found
+        // panic if NAN is found
         for point in points {
             if point.is_nan() {
                 panic!("Found NaN in `cdf_multiple`. \n");
-                // return Err(AdvStatError::NanErr);
             }
         }
-        todo!("Redo function");
 
-        let mut sorted_points: Vec<(usize, f64)> = points.iter().map(|x| *x).enumerate().collect();
-
-        sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
+        let mut ret: Vec<f64> = vec![0.0; points.len()];
         let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
+        let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
+        if let IntegrationType::FullInfinite = integration_type {
+            panic!("Cannot evaluate the cdf of a Discrete distribution wich also has an infinite domain. ")
+            // Todo: find somenthing to do here
+        }
 
-        // if points[i] <= bounds.0  |||| Awnser is always 0
-        let mut small_trivial_points: usize = 0;
-        // if bounds.1 <= points[i]  |||| Awnser is always 1
-        let mut big_trivial_points: usize = 0;
-        // The points that we actually need to process
-        let mut non_trivial_points: Vec<(usize, f64)> = Vec::with_capacity(points.len());
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
 
-        for point in sorted_points {
-            if point.1 <= bounds.0 {
-                small_trivial_points += 1;
-            } else if bounds.1 <= point.1 {
-                big_trivial_points += 1;
+        sorted_indicies.sort_unstable_by(|&i, &j| {
+            let a: f64 = points[i];
+            let b: f64 = points[j];
+            if let IntegrationType::InfiniteToConst = integration_type {
+                // sort in reverse
+                b.partial_cmp(&a).unwrap()
             } else {
-                // move
-                non_trivial_points.push(point);
+                a.partial_cmp(&b).unwrap()
             }
-        }
-        let non_trivial_points_len: usize = non_trivial_points.len();
+        });
 
-        for i in 0..small_trivial_points {
-            // quickly add all cases smaller than bounds.0
-            ret.push((i, 0.0));
-        }
+        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
+        let mut current_index: usize = idx_iter.next().unwrap();
+        // ^unwrap is safe
 
-        if non_trivial_points.is_empty() {
-            let idx_offset: usize = small_trivial_points;
-            for i in 0..big_trivial_points {
-                ret.push((idx_offset + i, 1.0));
-            }
-            ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-            // ^this could be optimized by generating a vec and putting the values
-            // according to indexes.  ( O(n) ) Also do below
-            return ret.iter().map(|x| x.1).collect();
-        }
-
-        // Integration time!
-
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        let infinite_range: bool = bounds.0.is_infinite();
-
-        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
-
-        let mut points_iter: std::vec::IntoIter<(usize, f64)> = non_trivial_points.into_iter();
-
-        let (mut current_index, mut current_cdf_point): (usize, f64) = points_iter.next().unwrap(); // safe
-
-        let double_step_length: f64 = 2.0 * step_length;
-        let step_len_over_3: f64 = step_length / 3.0;
+        let mut current_cdf_point: f64 = points[current_index];
 
         let mut accumulator: f64 = 0.0;
-        // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
-        let mut last_pdf_evaluation: f64 = if infinite_range {
-            // t = 0, it would be a singularity. Skip point
-            0.0
-        } else {
-            pdf_checked(bounds.0)
-        };
 
-        let mut num_step: f64 = 0.0;
-        'integration_loop: loop {
-            let current_position: f64 = bounds.0 + double_step_length * num_step;
-
-            while current_cdf_point <= current_position {
-                ret.push((current_index, accumulator));
-
-                // update `current_cdf_point` to the next value or exit if we are done
-                match points_iter.next() {
-                    Some(p) => (current_index, current_cdf_point) = p,
-                    None => break 'integration_loop,
+        match integration_type {
+            IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                while current_cdf_point <= bounds.0 {
+                    ret[current_index] = 0.0;
+                    match idx_iter.next() {
+                        Some(v) => current_index = v,
+                        None => return ret,
+                    }
+                    current_cdf_point = points[current_index];
                 }
             }
-
-            let (middle, end): (f64, f64) = if infinite_range {
-                // In order to avoid the singularity at 0 we will split this into 2 parts: [-1, 0) and (0, 1]
-                //      For -infinite to const:
-                // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-                let middle_: f64 = {
-                    let t: f64 = current_position + step_length;
-                    if t.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
+            IntegrationType::InfiniteToConst => {
+                while bounds.1 <= current_cdf_point {
+                    ret[current_index] = 1.0;
+                    match idx_iter.next() {
+                        Some(v) => current_index = v,
+                        None => return ret,
                     }
-                };
-                let end_: f64 = {
-                    let t: f64 = current_position + double_step_length;
-                    if t.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        0.0
-                    } else {
-                        pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
-                    }
-                };
-                (middle_, end_)
-            } else {
-                let middle_: f64 = pdf_checked(current_position + step_length);
-                let end_: f64 = pdf_checked(current_position + double_step_length);
-                (middle_, end_)
-            };
-
-            accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
+                    current_cdf_point = points[current_index];
+                }
+            }
+            IntegrationType::FullInfinite => unreachable!(),
         }
 
-        for i in 0..big_trivial_points {
-            let idx_offset = small_trivial_points + non_trivial_points_len;
-            ret.push((idx_offset + i, 1.0));
+        for x in domain.iter() {
+            match integration_type {
+                IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                    while current_cdf_point <= x {
+                        ret[current_index] = accumulator;
+                        match idx_iter.next() {
+                            Some(v) => current_index = v,
+                            None => return ret,
+                        }
+                        current_cdf_point = points[current_index];
+                    }
+                }
+                IntegrationType::InfiniteToConst => {
+                    while x <= current_cdf_point {
+                        ret[current_index] = 1.0 - accumulator;
+                        match idx_iter.next() {
+                            Some(v) => current_index = v,
+                            None => return ret,
+                        }
+                        current_cdf_point = points[current_index];
+                    }
+                }
+                IntegrationType::FullInfinite => unreachable!(),
+            }
+
+            accumulator += self.pmf(x);
         }
 
-        // put back to original order and return
-        ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-        // ^thic could be optimixed by generating a veg and putting the values
-        // according to indexes.  ( O(n) ) Also do above
-        return ret.iter().map(|x| x.1).collect();
+        // If we reach this point it means that the domian is finite and the remaining
+        // values are <= bounds.1
+
+        ret[current_index] = 1.0;
+        for idx in idx_iter {
+            ret[idx] = 1.0;
+        }
+
+        return ret;
     }
 
     /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample]
@@ -1282,280 +1206,105 @@ pub trait DiscreteDistribution {
     /// }
     /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
-        todo!("Redo function");
+        if points.is_empty() {
+            return Vec::new();
+        }
 
-        /*
-           Plan:
-
-           For this function we will first return an error if we find a NaN.
-           Otherwise we will need to sort them and integrate until the area under
-           the pdf is = to the given number. By sorting, we only need to integrate
-           once.
-
-           However, this *cool* strategy has a problem and is that we will not
-           return the values in the order we were asked. To account for this we will
-           keep track of the indicies of the origianl position and at the end re-sort
-           the final array using them.
-
-           Also, if we find any values smaller or greater than 0 or 1, the awnser will
-           always be the edges of the domain (simplifying computations, although this
-           case should not normally happen).
-
-           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-           for integration.
-
-           To compute integrals over an infinite range, we will perform a special
-           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-               For -infinite to const:
-           integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-               For const to infinite:
-           integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-               For -infinite to infinite:
-           integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-           And "just" compute the new integrals (taking care of the singularities at t = 0).
-
-        */
-
-        // return error if NAN is found
+        // panic if NAN is found
         for point in points {
             if point.is_nan() {
-                panic!("Tried to evaluate the quantile multiple function with a NaN value. \n");
-                //return Err(AdvStatError::NanErr);
+                panic!("Found NaN in `quantile_multiple`. \n");
             }
         }
 
-        let mut sorted_points: Vec<(usize, f64)> = points.iter().map(|x| *x).enumerate().collect();
-
-        sorted_points.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        let mut ret: Vec<(usize, f64)> = Vec::with_capacity(points.len());
+        let mut ret: Vec<f64> = vec![0.0; points.len()];
         let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
+        let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
+        if let IntegrationType::FullInfinite = integration_type {
+            panic!("Cannot evaluate the quantile function of a Discrete distribution wich also has an infinite domain. ")
+            // Todo: find somenthing to do here (?)
+        }
 
-        // if points[i] <= 0  |||| Awnser is always bounds.0 (start of domain)
-        let mut small_trivial_points: usize = 0;
-        // if 1 <= points[i]  |||| Awnser is always bounds.1 (end of domain)
-        let mut big_trivial_points: usize = 0;
-        // The points that we actually need to process
-        let mut non_trivial_points: Vec<(usize, f64)> = Vec::with_capacity(points.len());
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
 
-        for point in sorted_points {
-            if point.1 <= 0.0 {
-                small_trivial_points += 1;
-            } else if 1.0 <= point.1 {
-                big_trivial_points += 1;
+        sorted_indicies.sort_unstable_by(|&i, &j| {
+            let a: f64 = points[i];
+            let b: f64 = points[j];
+            if let IntegrationType::InfiniteToConst = integration_type {
+                // sort in reverse
+                b.partial_cmp(&a).unwrap()
             } else {
-                // move
-                non_trivial_points.push(point);
+                a.partial_cmp(&b).unwrap()
             }
-        }
-        let non_trivial_points_len: usize = non_trivial_points.len();
+        });
 
-        for i in 0..small_trivial_points {
-            // quickly add all cases smaller than 0
-            ret.push((i, bounds.0));
-        }
+        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
+        let mut current_index: usize = idx_iter.next().unwrap();
+        // ^unwrap is safe
 
-        if non_trivial_points.is_empty() {
-            let idx_offset: usize = small_trivial_points;
-            for i in 0..big_trivial_points {
-                ret.push((idx_offset + i, bounds.1));
-            }
-            ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-            // ^this could be optimized by generating a vec and putting the values
-            // according to indexes.  ( O(n) ) Also do below
-            return ret.iter().map(|x| x.1).collect();
-        }
-
-        // Integration time!
-
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        // To simpligy things + readability
-        enum IntegrationType {
-            // closed interval [a, b]
-            Finite,
-            // [-inf, a]
-            InfiniteToPositive,
-            // [b, inf]
-            InfiniteToNegative,
-            // [-inf, inf]
-            FullInfinite,
-        }
-
-        let integration_type: IntegrationType = match (bounds.0.is_finite(), bounds.1.is_finite()) {
-            (true, true) => IntegrationType::Finite,
-            (true, false) => IntegrationType::InfiniteToPositive,
-            (false, true) => IntegrationType::InfiniteToNegative,
-            (false, false) => IntegrationType::FullInfinite,
-        };
-
-        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
-
-        let mut points_iter: std::vec::IntoIter<(usize, f64)> = non_trivial_points.into_iter();
-
-        let (mut current_index, mut current_quantile): (usize, f64) = points_iter.next().unwrap(); // safe
-                                                                                                   //let mut current_quantile: f64 = points_iter.next().unwrap().1; // safe
-
-        let double_step_length: f64 = 2.0 * step_length;
-        let step_len_over_3: f64 = step_length / 3.0;
+        let mut current_quantile_point: f64 = points[current_index];
 
         let mut accumulator: f64 = 0.0;
-        // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
-        let mut last_pdf_evaluation: f64 = match integration_type {
-            IntegrationType::Finite => pdf_checked(bounds.0),
-            IntegrationType::InfiniteToPositive => {
-                // t = 0, it would be a singularity. Skip point
-                0.0
-            }
-            IntegrationType::InfiniteToNegative => {
-                // t = 0;     f(a + t/(t - 1))  /  (1 - t)^2
-                pdf_checked(bounds.0)
-            }
-            IntegrationType::FullInfinite => {
-                // t = -1;    f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2
-                // would be singularity, skip
-                0.0
-            }
-        };
 
-        let mut num_step: f64 = 0.0;
-        'integration_loop: loop {
-            let current_position: f64 = bounds.0 + double_step_length * num_step;
-            //let middle: f64 = pdf_checked(current_position + step_length);
-            //let end: f64 = pdf_checked(current_position + double_step_length);
-
-            let (middle, end): (f64, f64) = match integration_type {
-                IntegrationType::Finite => {
-                    let middle_: f64 = pdf_checked(current_position + step_length);
-                    let end_: f64 = pdf_checked(current_position + double_step_length);
-                    (middle_, end_)
-                }
-                IntegrationType::InfiniteToPositive => {
-                    // In order to avoid the singularity at 0 we will split this into 2 parts: [-1, 0) and (0, 1]
-                    //      For -infinite to const:
-                    // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-                    let middle_: f64 = {
-                        let t: f64 = current_position + step_length;
-                        if t.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
-                        }
-                    };
-                    let end_: f64 = {
-                        let t: f64 = current_position + double_step_length;
-                        if t.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            pdf_checked(bounds.1 - (1.0 - t) / t) / (t * t)
-                        }
-                    };
-                    (middle_, end_)
-                }
-                IntegrationType::InfiniteToNegative => {
-                    //For const to infinite:
-                    // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                    let middle_: f64 = {
-                        let t: f64 = current_position + step_length;
-                        let t_minus: f64 = t - 1.0;
-                        if t_minus.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            pdf_checked(bounds.0 + t / t_minus) / (t_minus * t_minus)
-                        }
-                    };
-                    let end_: f64 = {
-                        let t: f64 = current_position + double_step_length;
-                        let t_minus: f64 = t - 1.0;
-                        if t_minus.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            pdf_checked(bounds.0 + t / t_minus) / (t_minus * t_minus)
-                        }
-                    };
-                    (middle_, end_)
-                }
-                IntegrationType::FullInfinite => {
-                    // For -infinite to infinite:
-                    // integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-                    let middle_: f64 = {
-                        let t: f64 = current_position + step_length;
-                        let u: f64 = 1.0 - t * t;
-                        if u.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            pdf_checked(t / u) * (1.0 + t * t) / (u * u)
-                        }
-                    };
-                    let end_: f64 = {
-                        let t: f64 = current_position + double_step_length;
-                        let u: f64 = 1.0 - t * t;
-                        if u.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            pdf_checked(t / u) * (1.0 + t * t) / (u * u)
-                        }
-                    };
-                    (middle_, end_)
-                }
-            };
-
-            accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            while current_quantile <= accumulator {
-                let mut quantile: f64 = bounds.0 + double_step_length * (num_step + 1.0);
-
-                let pdf_q: f64 = pdf_checked(quantile);
-                if !(pdf_q.abs() < f64::EPSILON) && QUANTILE_USE_NEWTONS_ITER {
-                    // if pdf_q is essentially 0, skip this.
-                    // newton's iteration
-                    quantile = quantile - (accumulator - current_quantile) / pdf_q;
-                }
-
-                ret.push((current_index, quantile));
-
-                // update `current_quantile` to the next value or exit if we are done
-                match points_iter.next() {
-                    Some(p) => (current_index, current_quantile) = p,
-                    None => break 'integration_loop,
+        match integration_type {
+            IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                while current_quantile_point <= 0.0 {
+                    ret[current_index] = bounds.0;
+                    match idx_iter.next() {
+                        Some(v) => current_index = v,
+                        None => return ret,
+                    }
+                    current_quantile_point = points[current_index];
                 }
             }
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
+            IntegrationType::InfiniteToConst => {
+                while 1.0 <= current_quantile_point {
+                    ret[current_index] = bounds.1;
+                    match idx_iter.next() {
+                        Some(v) => current_index = v,
+                        None => return ret,
+                    }
+                    current_quantile_point = points[current_index];
+                }
+            }
+            IntegrationType::FullInfinite => unreachable!(),
         }
 
-        for i in 0..big_trivial_points {
-            let idx_offset = small_trivial_points + non_trivial_points_len;
-            ret.push((idx_offset + i, bounds.1));
+        for x in domain.iter() {
+            match integration_type {
+                IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                    while current_quantile_point <= accumulator {
+                        ret[current_index] = x;
+                        match idx_iter.next() {
+                            Some(v) => current_index = v,
+                            None => return ret,
+                        }
+                        current_quantile_point = points[current_index];
+                    }
+                }
+                IntegrationType::InfiniteToConst => {
+                    while 1.0 - accumulator <= current_quantile_point {
+                        ret[current_index] = x;
+                        match idx_iter.next() {
+                            Some(v) => current_index = v,
+                            None => return ret,
+                        }
+                        current_quantile_point = points[current_index];
+                    }
+                }
+                IntegrationType::FullInfinite => unreachable!(),
+            }
+
+            accumulator += self.pmf(x);
         }
 
-        // put back to original order and return
-        ret.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-        // ^thic could be optimixed by generating a veg and putting the values
-        // according to indexes.  ( O(n) ) Also do above
-        return ret.iter().map(|x| x.1).collect();
+        ret[current_index] = bounds.1;
+        for idx in idx_iter {
+            ret[idx] = bounds.1;
+        }
+
+        return ret;
     }
 
     // Statistics
@@ -1602,74 +1351,20 @@ pub trait DiscreteDistribution {
     /// of the distribution and the given order. Mode determines if the moment will be
     /// [Moments::Raw], [Moments::Central] or [Moments::Standarized].
     fn moments(&self, order: u8, mode: Moments) -> f64 {
-        todo!("Redo function");
-
-        /*
-
-               Plan:
-
-            Just to the integral. The integral that gives us the moments of order `k` is:
-
-            ```
-            integral {a -> b} ( (x - mu) / std )^k * f(x) dx
-            ```
-             - `k` is the order of the moment
-             - `f(x)` is the pdf of the distribution.
-             - `a` and `b` are the values that bound the domain of `f(x)`
-                    (they can be `a = -inf` and `b = -inf`).
-             - `mu` is the mean of the distribution (or `0` if we selected the `Raw` moment)
-             - `std` is the standard deviation of the distribution
-                    (or `1` if we did not select the `Standarized` moment)
-
-
-           Distiguish between cases depending on the domain.
-
-           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-           for integration.
-
-           To compute integrals over an infinite range, we will perform a special
-           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-            let g(x) = ( (x - mu) / std )^k * f(x)
-                For -infinite to const:
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} g(a - (1 - t)/t)  /  t^2  dt
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} ( (a - (1 - t)/t - mu) / std )^k * f(a - (1 - t)/t)  /  t^2  dt
-
-                For const to infinite:
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} g(a + t/(t - 1))  /  (1 - t)^2  dt
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} ( (a + t/(t - 1) - mu) / std )^k * f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                For -infinite to infinite:
-            let inp = t/(1 - t^2)
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} g(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} ( (t/(1 - t^2) - mu) / std )^k * f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-
-        */
-
         let domain: &DiscreteDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
-
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
 
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
         let (mean, std_dev): (f64, f64) = match mode {
             Moments::Raw => (0.0, 1.0),
             Moments::Central => (
                 self.expected_value()
-                    .expect("We need expected value to continue"),
+                    .expect("Tried to compute a central moment but the expected value is undefined. "),
                 1.0,
             ),
             Moments::Standarized => (
                 self.expected_value()
-                    .expect("We need expected value to continue"),
-                self.variance().expect("We need variance value to continue"),
+                    .expect("Tried to compute a central/standarized moment but the Expected value is undefined. "),
+                self.variance().expect("Tried to compute a standarized moment but the variance is undefined. "),
             ),
         };
 
@@ -1679,180 +1374,18 @@ pub trait DiscreteDistribution {
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
 
-        let (step_length, _): (f64, usize) = choose_integration_precision_and_steps(bounds);
-
-        // To simpligy things + readability
-        enum IntegrationType {
-            // closed interval [a, b]
-            Finite,
-            // [-inf, a]
-            InfiniteToPositive,
-            // [b, inf]
-            InfiniteToNegative,
-            // [-inf, inf]
-            FullInfinite,
-        }
-
-        let integration_type: IntegrationType = match (bounds.0.is_finite(), bounds.1.is_finite()) {
-            (true, true) => IntegrationType::Finite,
-            (true, false) => IntegrationType::InfiniteToPositive,
-            (false, true) => IntegrationType::InfiniteToNegative,
-            (false, false) => IntegrationType::FullInfinite,
+        let integration_fn = |x: f64| {
+            let std_inp: f64 = (x + minus_mean) * inv_std_dev;
+            std_inp.powi(order_exp) * self.pmf(x)
         };
 
-        let double_step_length: f64 = 2.0 * step_length;
-        let step_len_over_3: f64 = step_length / 3.0;
+        let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
+        let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
-        // let mut last_pdf_evaluation: f64 = pdf_checked(bounds.0);
-        let mut last_pdf_evaluation: f64 = match integration_type {
-            IntegrationType::Finite => pdf_checked(bounds.0),
-            IntegrationType::InfiniteToPositive => {
-                // t = 0, it would be a singularity. Skip point
-                0.0
-            }
-            IntegrationType::InfiniteToNegative => {
-                // t = 0;     f(a + t/(t - 1))  /  (1 - t)^2
-                pdf_checked(bounds.0)
-            }
-            IntegrationType::FullInfinite => {
-                // t = -1;    f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2
-                // would be singularity, skip
-                0.0
-            }
-        };
+        let moment: f64 =
+            euclid::get_normalitzation_constant_discrete(integration_fn, domain, max_steps_opt);
 
-        let mut accumulator: f64 = 0.0;
-        let mut num_step: f64 = 0.0;
-
-        //'integration_loop: loop {
-        loop {
-            let current_position: f64 = bounds.0 + double_step_length * num_step;
-
-            let (middle, end): (f64, f64) = match integration_type {
-                IntegrationType::Finite => {
-                    let fn_input: f64 = current_position + step_length;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    let middle_: f64 = std_inp.powi(order_exp) * pdf_checked(fn_input);
-
-                    let fn_input: f64 = current_position + double_step_length;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    let end_: f64 = std_inp.powi(order_exp) * pdf_checked(fn_input);
-
-                    (middle_, end_)
-                }
-                IntegrationType::InfiniteToPositive => {
-                    //      For -infinite to const:
-                    // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-                    let middle_: f64 = {
-                        let t: f64 = current_position + step_length;
-                        if t.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            let fn_input: f64 = bounds.1 - (1.0 - t) / t;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t * t)
-                        }
-                    };
-                    let end_: f64 = {
-                        let t: f64 = current_position + double_step_length;
-                        if t.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            let fn_input: f64 = bounds.1 - (1.0 - t) / t;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t * t)
-                        }
-                    };
-                    (middle_, end_)
-                }
-                IntegrationType::InfiniteToNegative => {
-                    //For const to infinite:
-                    // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                    let middle_: f64 = {
-                        let t: f64 = current_position + step_length;
-                        let t_minus: f64 = t - 1.0;
-                        if t_minus.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            let fn_input: f64 = bounds.0 + t / t_minus;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t_minus * t_minus)
-                        }
-                    };
-                    let end_: f64 = {
-                        let t: f64 = current_position + double_step_length;
-                        let t_minus: f64 = t - 1.0;
-                        if t_minus.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            let fn_input: f64 = bounds.0 + t / t_minus;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) / (t_minus * t_minus)
-                        }
-                    };
-                    (middle_, end_)
-                }
-                IntegrationType::FullInfinite => {
-                    // For -infinite to infinite:
-                    // integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-                    let middle_: f64 = {
-                        let t: f64 = current_position + step_length;
-                        let u: f64 = 1.0 - t * t;
-                        if u.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            let fn_input: f64 = t / u;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t)
-                                / (u * u)
-                        }
-                    };
-                    let end_: f64 = {
-                        let t: f64 = current_position + double_step_length;
-                        let u: f64 = 1.0 - t * t;
-                        if u.abs() < f64::EPSILON {
-                            // too near singularity, skip
-                            0.0
-                        } else {
-                            let fn_input: f64 = t / u;
-                            let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                            std_inp.powi(order_exp) * pdf_checked(fn_input) * (1.0 + t * t)
-                                / (u * u)
-                        }
-                    };
-                    (middle_, end_)
-                }
-            };
-
-            accumulator += step_len_over_3 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            match integration_type {
-                IntegrationType::Finite => {
-                    if bounds.1 <= current_position {
-                        break;
-                    }
-                }
-                _ => {
-                    if 1.0 <= current_position {
-                        break;
-                    }
-                }
-            }
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-            // we do 2 steps each iteration but at `current_position` we are mult. by `double_step_length`
-        }
-
-        return accumulator;
+        return moment;
     }
 
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
@@ -1864,83 +1397,58 @@ pub trait DiscreteDistribution {
     // Other provided methods:
     // (methods that don't need to be replaced and should be here)
 
-    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
-    /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
-    ///
-    /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
-    /// a valid domain in [Distribution::get_domain]. Also the **domain must be finite**.
-    /// If it is not, better use [Distribution::rejection_sample_range] or implement
-    /// [Distribution::sample] yourself.
-    ///
-    /// It is more effitient because it does **not** requiere the evaluation of the
-    /// [Distribution::quantile] function, wich involves heavy computations. In exchange,
-    /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
-    ///
-    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs
-    /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
-    /// a performance penalty.
-    fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        todo!("Redo function");
-
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &DiscreteDomain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
-        let bounds: (f64, f64) = domain.get_bounds();
-        let bound_range: f64 = bounds.1 - bounds.0;
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
-                x = bounds.0 + x * bound_range;
-                let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
-    }
-
-    /// Same as [Distribution::rejection_sample] but only in the selected range.
+    /// Sample the distribution but only in the specified range.
     ///
     /// This can be usefull for distributions with a stricly infinite domain but that
-    /// virtually all their mass is concentrated in a smaller region (`range`).
+    /// virtually all their mass is concentrated in a smaller region (`range`). For
+    /// example, we could sample from the a binomial distribution with a large `n` and
+    /// low variance (`p` is close to 0 or 1), where most of the mass is centered very
+    /// close to the mean but there is very little far away.
     ///
-    /// For example, we could sample from the standard normal distribution with only
-    /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
-    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        todo!("Redo function");
-
+    /// Note that this does NOT work for [DiscreteDomain::Custom] variant and
+    /// for the remaining variants, `range` needs to be contained within the domain
+    /// of the distribution. If these conditions are notfullfilled, an empty vector
+    /// will be returned.
+    ///
+    ///  - `n`: represents the number of samples to be generated.
+    ///  - `pmf_max`: the maximum probability within the range.
+    ///      - Using a value smaller than the actual value will make the results
+    ///         not follow the distribution.
+    ///      - Using a value larger than the actual value will incur a extra
+    ///         computational cost.
+    ///      - Can be computed with [DiscreteDistribution::mode].
+    ///  - `range`: the bounds of the region to be sampled from.
+    ///      - Both values are inclusive.
+    fn rejection_sample_range(&self, n: usize, pmf_max: f64, range: (i64, i64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let domain: &DiscreteDomain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
+        let range_f: (f64, f64);
+
+        {
+            // possible early return
+            let domain: &DiscreteDomain = self.get_domain();
+
+            if let DiscreteDomain::Custom(_) = domain {
+                return Vec::new();
             }
-        };
 
-        let bounds: (f64, f64) = range;
-        let bound_range: f64 = bounds.1 - bounds.0;
+            let bounds: (f64, f64) = domain.get_bounds();
+            range_f = (range.0 as f64, range.1 as f64);
+            if range.1 < range.0 || (range_f.0 < bounds.0.floor()) || bounds.1.ceil() < range_f.1 {
+                return Vec::new();
+            }
+        }
 
+        // domain is not of the custom variant.
+        // `range` is contained within the domain of the distribution
+
+        let bound_range: f64 = (range.1 - range.0) as f64;
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _i in 0..n {
             let sample: f64 = loop {
                 let mut x: f64 = rng.gen();
-                x = bounds.0 + x * bound_range;
+                x = range_f.0 + x * bound_range;
                 let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
+                if y * pmf_max < self.pmf(x) {
                     break x;
                 }
             };

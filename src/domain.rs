@@ -46,6 +46,7 @@ pub enum DiscreteDomain {
     ///  - No NaNs
     ///  - No repeated elements
     ///  - The values in the vector must be sorted
+    /// 
     /// Use [DiscreteDomain::new_discrete_custom] when creating this variant to ensure
     /// all the invariants are fullfilled.
     Custom(Vec<f64>),

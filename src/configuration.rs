@@ -53,6 +53,17 @@ pub mod integration {
     pub static SMALL_INTEGRATION_PRECISION: f64 = 1.0 / SMALL_INTEGRATION_NUM_STEPS_F64;
 }
 
+pub mod disrete_distribution_deafults {
+
+    /// `1 << 20 = 1 048 576`
+    /// 
+    /// When computing [crate::distribution_trait::DiscreteDistribution::moments], 
+    /// if the distribution has an infinite number of steps, there will be an infinite
+    /// loop. To avoid this, we set a maximum number of steps to terminate at some point. 
+    pub static MOMENTS_MAXIMUM_STEPS: u64 = 1 << 20; 
+
+}
+
 /// Determines if a Newton's method iteration is used in the (deafult)
 /// quantile function (continuous).
 ///
@@ -70,7 +81,7 @@ pub mod derivation {
 /// [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent) 
 /// (but adapted for our use case). This module allows the user to change the deafult 
 /// values of the parameters of the algorithm. 
-pub mod distribution_deafult_mode {
+pub mod distribution_mode_deafult {
 
     /// Use the [Logarithmic derivative](https://en.wikipedia.org/wiki/Logarithmic_derivative)
     /// instead of the normal derivarive to compute the gradient. We have found that it 
