@@ -879,7 +879,18 @@ pub trait Distribution {
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution
     fn entropy(&self) -> f64 {
-        todo!("Implement deafult implementation. ");
+
+        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly 
+        // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
+
+        let log_fn = |x| {
+            let p: f64 = self.pdf(x); 
+            p * (p + f64::MIN_POSITIVE).ln()
+        }; 
+
+        let entropy: f64 = euclid::get_normalitzation_constant_continuous(log_fn, self.get_domain()); 
+
+        return -entropy; 
     }
 
     // Other provided methods:
@@ -1391,7 +1402,22 @@ pub trait DiscreteDistribution {
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution
     fn entropy(&self) -> f64 {
-        todo!("Implement deafult implementation. ");
+
+        let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
+        let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
+
+        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly 
+        // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
+
+        let log_fn = |x| {
+            let p: f64 = self.pmf(x); 
+            p * (p + f64::MIN_POSITIVE).ln()
+        }; 
+
+        let entropy: f64 = euclid::get_normalitzation_constant_discrete(log_fn, self.get_domain(), max_steps_opt); 
+
+        return -entropy; 
+
     }
 
     // Other provided methods:
