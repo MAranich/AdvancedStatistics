@@ -1346,7 +1346,6 @@ pub trait DiscreteDistribution {
     /// 
     /// Panics if the domain contains no values. 
     fn mode(&self) -> f64 {
-        todo!("Implement deafult implementation. ");
 
         let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
 
