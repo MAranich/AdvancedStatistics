@@ -45,7 +45,8 @@
 //!
 //! ### Discrete distributions
 //!
-//!  - [ ] ... (more to come)
+//!  - [x] Bernoulli
+//!  - [ ] Binomial
 //!  - [ ] ... (more to come)
 //!
 //!

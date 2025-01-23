@@ -16,7 +16,7 @@ use crate::euclid::{self, *};
 /// is NOT a [valid pdf](https://en.wikipedia.org/wiki/Probability_density_function).
 /// So, it needs to fullfill:
 ///  - The function must be stricly non-negative
-///  - The function must be real valued
+///  - The function must be real valued (no `+-inf` or NaNs)
 ///  - The function must have a total area of 1 under the curve.
 pub trait Distribution {
     //Requiered method:
@@ -29,6 +29,7 @@ pub trait Distribution {
     ///  - It is normalized. (It has an area under the curbe of `1.0`)
     ///      - If you are not sure if the PDF is normalized, you can use
     /// [crate::euclid::numerical_integration].
+    ///  - The function must be real valued (no `+-inf` or NaNs)
     ///  - As `x` approaches `+-inf` (if inside the domain), `pdf(x)` should
     /// tend to `0.0`.
     fn pdf(&self, x: f64) -> f64;
@@ -359,15 +360,11 @@ pub trait Distribution {
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
     /// ```
-    /// fn quantile_multiple(&self, points: &[f64]) -> Result<Vec<f64>, crate::errors::AdvStatError> {
-    ///     let list: Vec<f64> = points
+    /// fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
+    ///     return points
     ///         .iter()
-    ///         .map(|x| match self.quantile(*x) {
-    ///             Ok(v) => v,
-    ///             Err(_) => panic!("There has been an error! "),
-    ///         })
+    ///         .map(|&x| self.quantile(x))
     ///         .collect::<Vec<f64>>();
-    ///     Ok(list)
     /// }
     /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
@@ -591,6 +588,8 @@ pub trait Distribution {
 
         return ret;
     }
+
+
 
     // Statistics
 
