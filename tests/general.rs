@@ -55,11 +55,11 @@ fn comparing_exponential_distr() {
 
     println!("\nIntegral of the area of the pdf: \n\n");
 
-    let area_ground: f64 = euclid::get_normalitzation_constant_continuous(
+    let area_ground: f64 = euclid::numerical_integration(
         |x| Distribution::pdf(&ground, x),
         &test.domain,
     );
-    let area_test: f64 = euclid::get_normalitzation_constant_continuous(
+    let area_test: f64 = euclid::numerical_integration(
         |x| Distribution::pdf(&test, x),
         &test.domain,
     );

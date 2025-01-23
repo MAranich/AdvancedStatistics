@@ -28,7 +28,7 @@ pub trait Distribution {
     ///  - `0.0 <= pdf(x)`
     ///  - It is normalized. (It has an area under the curbe of `1.0`)
     ///      - If you are not sure if the PDF is normalized, you can use
-    /// [crate::euclid::determine_normalitzation_constant_continuous].
+    /// [crate::euclid::numerical_integration].
     ///  - As `x` approaches `+-inf` (if inside the domain), `pdf(x)` should
     /// tend to `0.0`.
     fn pdf(&self, x: f64) -> f64;
@@ -640,14 +640,14 @@ pub trait Distribution {
         let USE_LOG_DISTRIBUTION: bool =
             configuration::distribution_mode_deafult::USE_LOG_DERIVATIVE;
 
-        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly 
+        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
         // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
 
         let h: f64 = 0.001;
         let derivative = |x: f64| (self.pdf(x + h) - self.pdf(x)) / h;
         let log_derivative = |x: f64| {
-            let incr: f64 = (self.pdf(x + h) + f64::MIN_POSITIVE).ln(); 
-            let curr: f64 = (self.pdf(x) + f64::MIN_POSITIVE).ln(); 
+            let incr: f64 = (self.pdf(x + h) + f64::MIN_POSITIVE).ln();
+            let curr: f64 = (self.pdf(x) + f64::MIN_POSITIVE).ln();
             (incr - curr) / h
         };
 
@@ -819,7 +819,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(x)
                 };
 
-                euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
+                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
             IntegrationType::InfiniteToConst => {
                 // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
@@ -835,7 +835,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(fn_input) * inv_x * inv_x
                 };
 
-                euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
+                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
             IntegrationType::ConstToInfinite => {
                 // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
@@ -855,7 +855,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(fn_input) * u * u
                 };
 
-                euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
+                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
             IntegrationType::FullInfinite => {
                 // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
@@ -874,7 +874,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
                 };
 
-                euclid::numerical_integration(integration_fn, bounds, num_steps as u64)
+                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
         };
 
@@ -884,18 +884,17 @@ pub trait Distribution {
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution
     fn entropy(&self) -> f64 {
-
-        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly 
+        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
         // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
 
         let log_fn = |x| {
-            let p: f64 = self.pdf(x); 
+            let p: f64 = self.pdf(x);
             p * (p + f64::MIN_POSITIVE).ln()
-        }; 
+        };
 
-        let entropy: f64 = euclid::get_normalitzation_constant_continuous(log_fn, self.get_domain()); 
+        let entropy: f64 = euclid::numerical_integration(log_fn, self.get_domain());
 
-        return -entropy; 
+        return -entropy;
     }
 
     // Other provided methods:
@@ -995,7 +994,7 @@ pub trait DiscreteDistribution {
     ///
     /// The PMF is assumed to be a valid probability distribution. If you are not sure
     /// if the PMF is normalized to have a 1 unit of area under the curve of the pdf, you
-    /// can use [crate::euclid::determine_normalitzation_constant_discrete].
+    /// can use [crate::euclid::discrete_integration].
     fn pmf(&self, x: f64) -> f64;
 
     /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
@@ -1339,19 +1338,18 @@ pub trait DiscreteDistribution {
 
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
     /// of the distribution.
-    /// 
-    /// If the distribution is very large or infinite, it only checks the first 
-    /// [configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS]
-    /// values. 
-    /// 
-    /// Panics if the domain contains no values. 
+    ///
+    /// If the distribution is very large or infinite, it only checks the first
+    /// [configuration::disrete_distribution_deafults::MAXIMUM_STEPS]
+    /// values.
+    ///
+    /// Panics if the domain contains no values.
     fn mode(&self) -> f64 {
+        let max_steps: u64 = configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
 
-        let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
-
-        let domain: &DiscreteDomain = self.get_domain(); 
-        let mut domain_iter: crate::domain::DiscreteDomainIterator<'_> = domain.iter(); 
-        let mut i: u64 = 0; 
+        let domain: &DiscreteDomain = self.get_domain();
+        let mut domain_iter: crate::domain::DiscreteDomainIterator<'_> = domain.iter();
+        let mut i: u64 = 0;
         let (mut max, mut max_value) = match domain_iter.next() {
             Some(v) => (v, self.pmf(v)),
             None => panic!("Attempted to compute the mode of a distribution with empty domain. (Domain contains no elements)"),
@@ -1362,13 +1360,13 @@ pub trait DiscreteDistribution {
                 break;
             }
 
-            let mass: f64 = self.pmf(point); 
+            let mass: f64 = self.pmf(point);
             if max_value < mass {
-                max = point; 
-                max_value = mass; 
+                max = point;
+                max_value = mass;
             }
 
-            i += 1; 
+            i += 1;
         }
 
         return max;
@@ -1426,11 +1424,10 @@ pub trait DiscreteDistribution {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
-        let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
+        let max_steps: u64 = configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
-        let moment: f64 =
-            euclid::get_normalitzation_constant_discrete(integration_fn, domain, max_steps_opt);
+        let moment: f64 = euclid::discrete_integration(integration_fn, domain, max_steps_opt);
 
         return moment;
     }
@@ -1438,22 +1435,20 @@ pub trait DiscreteDistribution {
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution
     fn entropy(&self) -> f64 {
-
-        let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
+        let max_steps: u64 = configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
-        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly 
+        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
         // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
 
         let log_fn = |x| {
-            let p: f64 = self.pmf(x); 
+            let p: f64 = self.pmf(x);
             p * (p + f64::MIN_POSITIVE).ln()
-        }; 
+        };
 
-        let entropy: f64 = euclid::get_normalitzation_constant_discrete(log_fn, self.get_domain(), max_steps_opt); 
+        let entropy: f64 = euclid::discrete_integration(log_fn, self.get_domain(), max_steps_opt);
 
-        return -entropy; 
-
+        return -entropy;
     }
 
     // Other provided methods:

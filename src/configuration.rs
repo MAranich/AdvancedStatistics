@@ -1,26 +1,26 @@
 //! This file contains the deafult values and other value choices used trough the library.
 //!
 
-/// The library uses numerical integration in a few instances.
-/// In order to do this we have decided to use the [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-/// to untegrate. But even considering this, for a given integral we still need
-/// to choose the step length or the number of steps.
-///
-/// For most intervals, we integrate using a step length of [DEFAULT_INTEGRATION_PRECISION],
-/// however if the interval is too large (it would requiere more than [DEFAULT_INTEGRATION_MAXIMUM_STEPS]
-/// to integrate), we will keep the number of steps fixed and just change the precision to not do more than
-/// that many steps. In the other hand, is the interval is very small (a 2 units or less),
-/// we will just use [SMALL_INTEGRATION_NUM_STEPS] with the appropiate precision.
-/// We will also make sure that if we are using the [DEFAULT_INTEGRATION_PRECISION], we do
-/// at least [DEFAULT_INTEGRATION_MINIMUM_STEPS] (and adapt the precision if needed).
-///
-/// In order to choose the correct values, we use the [crate::euclid::choose_integration_precision_and_steps]
-/// function.
-///
-/// There are no perfect values that will work with every distribution. Increasing the
-/// precision comes with an extra computational cost. We recommend changing the values
-/// to fit your needs. This values are just a mere recomendation.
 pub mod integration {
+    //! The library uses numerical integration in a few instances.
+    //! In order to do this we have decided to use the [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
+    //! to untegrate. But even considering this, for a given integral we still need
+    //! to choose the step length or the number of steps.
+    //!
+    //! For most intervals, we integrate using a step length of [DEFAULT_INTEGRATION_PRECISION],
+    //! however if the interval is too large (it would requiere more than [DEFAULT_INTEGRATION_MAXIMUM_STEPS]
+    //! to integrate), we will keep the number of steps fixed and just change the precision to not do more than
+    //! that many steps. In the other hand, is the interval is very small (a 2 units or less),
+    //! we will just use [SMALL_INTEGRATION_NUM_STEPS] with the appropiate precision.
+    //! We will also make sure that if we are using the [DEFAULT_INTEGRATION_PRECISION], we do
+    //! at least [DEFAULT_INTEGRATION_MINIMUM_STEPS] (and adapt the precision if needed).
+    //!
+    //! In order to choose the correct values, we use the [crate::euclid::choose_integration_precision_and_steps]
+    //! function.
+    //!
+    //! There are no perfect values that will work with every distribution. Increasing the
+    //! precision comes with an extra computational cost. We recommend changing the values
+    //! to fit your needs. This values are just a mere recomendation.
 
     /// The deafult integration precision is `1/8`.
     pub static DEFAULT_INTEGRATION_PRECISION: f64 = 0.125;
@@ -56,12 +56,11 @@ pub mod integration {
 pub mod disrete_distribution_deafults {
 
     /// `1 << 20 = 1 048 576`
-    /// 
-    /// When computing [crate::distribution_trait::DiscreteDistribution::moments], 
+    ///
+    /// When computing a discrete integration of [crate::distribution_trait::DiscreteDistribution],
     /// if the distribution has an infinite number of steps, there will be an infinite
-    /// loop. To avoid this, we set a maximum number of steps to terminate at some point. 
-    pub static MOMENTS_MAXIMUM_STEPS: u64 = 1 << 20; 
-
+    /// loop. To avoid this, we set a maximum number of steps to terminate at some point.
+    pub static MAXIMUM_STEPS: u64 = 1 << 20;
 }
 
 /// Determines if a Newton's method iteration is used in the (deafult)
@@ -72,59 +71,56 @@ pub mod disrete_distribution_deafults {
 pub static QUANTILE_USE_NEWTONS_ITER: bool = true;
 
 pub mod derivation {
-
+    //! Currenly unused. May get expanded or deleted in the future.
 }
 
-/// The [mode](https://en.wikipedia.org/wiki/Mode_(statistics)) for a continuous distribution
-/// is the value `m` wich maximizes the pdf. This means that it is a function 
-/// optimitzation problem. To solve this problem the solution we have settled on is 
-/// [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent) 
-/// (but adapted for our use case). This module allows the user to change the deafult 
-/// values of the parameters of the algorithm. 
 pub mod distribution_mode_deafult {
+    //! The [mode](https://en.wikipedia.org/wiki/Mode_(statistics)) for a continuous distribution
+    //! is the value `m` wich maximizes the pdf. This means that it is a function
+    //! optimitzation problem. To solve this problem the solution we have settled on is
+    //! [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent)
+    //! (but adapted for our use case). This module allows the user to change the deafult
+    //! values of the parameters of the algorithm.
 
     /// Use the [Logarithmic derivative](https://en.wikipedia.org/wiki/Logarithmic_derivative)
-    /// instead of the normal derivarive to compute the gradient. We have found that it 
-    /// usally performs better by using it. 
-    pub static USE_LOG_DERIVATIVE: bool = true; 
+    /// instead of the normal derivarive to compute the gradient. We have found that it
+    /// usally performs better by using it.
+    pub static USE_LOG_DERIVATIVE: bool = true;
 
-    /// The [learning rate](https://en.wikipedia.org/wiki/Learning_rate). It indicates 
-    /// how big is the "step" we take to the solution. 
-    ///  - A big learning rate will lead to the solution faster, but may overshoot. 
-    ///  - A small learning rate will better converge once near a local optimum but 
-    /// may also get stuck in an undesirable local maximum (not the global maximum). 
-    /// It will also have a slow convergence. 
-    pub static LEARNING_RATE: f64 = 0.02; 
+    /// The [learning rate](https://en.wikipedia.org/wiki/Learning_rate). It indicates
+    /// how big is the "step" we take to the solution.
+    ///  - A big learning rate will lead to the solution faster, but may overshoot.
+    ///  - A small learning rate will better converge once near a local optimum but
+    /// may also get stuck in an undesirable local maximum (not the global maximum).
+    /// It will also have a slow convergence.
+    pub static LEARNING_RATE: f64 = 0.02;
 
-    /// The change of the [learning rate](https://en.wikipedia.org/wiki/Learning_rate) 
-    /// ([LEARNING_RATE]). After every iteration the learning rate us updated as: 
-    /// 
+    /// The change of the [learning rate](https://en.wikipedia.org/wiki/Learning_rate)
+    /// ([LEARNING_RATE]). After every iteration the learning rate us updated as:
+    ///
     /// ```
-    /// current_learning_rate = current_learning_rate * LEARNING_RATE_CHANGE; 
+    /// current_learning_rate = current_learning_rate * LEARNING_RATE_CHANGE;
     /// ```
-    /// 
-    /// Using this strategy to update the learning rate can lead to bigger steps 
-    /// at the initial iterations while smaller at the latter ones. Setting 
-    /// `LEARNING_RATE_CHANGE = 1.0` essentially disables this feature. We do not 
-    /// reccomend using values greater than `1.0` or smaller than `0.5`. 
-    pub static LEARNING_RATE_CHANGE: f64 = 0.9999; 
+    ///
+    /// Using this strategy to update the learning rate can lead to bigger steps
+    /// at the initial iterations while smaller at the latter ones. Setting
+    /// `LEARNING_RATE_CHANGE = 1.0` essentially disables this feature. We do not
+    /// reccomend using values greater than `1.0` or smaller than `0.5`.
+    pub static LEARNING_RATE_CHANGE: f64 = 0.9999;
 
+    /// How close need to be the old and updated value in order to declare that
+    /// convergence has been achived and return the result.
+    pub static CONVERGENCE_DIFFERENCE_CRITERIA: f64 = 0.0001;
 
-    /// How close need to be the old and updated value in order to declare that 
-    /// convergence has been achived and return the result. 
-    pub static CONVERGENCE_DIFFERENCE_CRITERIA: f64 = 0.0001; 
+    /// Sets the number of iterations that the algorithm must do before
+    /// reaching convergence.
+    ///
+    /// Setting this to a big number may be uscefull
+    /// if the algorithm is in a very flat part of the function.
+    pub static MIN_ITERATIONS: u32 = 0;
 
-    /// Sets the number of iterations that the algorithm must do before 
-    /// reaching convergence. 
-    /// 
-    /// Setting this to a big number may be uscefull 
-    /// if the algorithm is in a very flat part of the function. 
-    pub static MIN_ITERATIONS: u32 = 0; 
-
-    /// Sets the maximum number of iterations. 
-    /// 
+    /// Sets the maximum number of iterations.
+    ///
     /// Deafult: `1 << 16 = 65 536`
-    pub static MAX_ITERATIONS: u32 = 1 << 16; 
-
-
+    pub static MAX_ITERATIONS: u32 = 1 << 16;
 }

@@ -1,18 +1,17 @@
-//! A Domain represents the set of points where a function is defined. 
-//! 
-//! In this library we use it mainly for the pdf or pmf of Distributons (see 
-//! [crate::distribution_trait]). It has 2 variants: 
-//!  - [DiscreteDomain] 
+//! A Domain represents the set of points where a function is defined.
+//!
+//! In this library we use it mainly for the pdf or pmf of Distributons (see
+//! [crate::distribution_trait]). It has 2 variants:
+//!  - [DiscreteDomain]
 //!  - [ContinuousDomain]
-//! 
-//! If you intend to have a domain more complex than that (for a piecewise 
-//! function, for example), you should take a look at [crate::mixed_distribution]. 
-//! 
+//!
+//! If you intend to have a domain more complex than that (for a piecewise
+//! function, for example), you should take a look at [crate::mixed_distribution].
+//!
 
 use core::f64;
 
 use crate::euclid::DEFAULT_EMPTY_DOMAIN_BOUNDS;
-
 
 /// A [domain](https://en.wikipedia.org/wiki/Domain_of_a_function) composed of
 /// finitely many elements.
@@ -46,7 +45,7 @@ pub enum DiscreteDomain {
     ///  - No NaNs
     ///  - No repeated elements
     ///  - The values in the vector must be sorted
-    /// 
+    ///
     /// Use [DiscreteDomain::new_discrete_custom] when creating this variant to ensure
     /// all the invariants are fullfilled.
     Custom(Vec<f64>),
@@ -94,7 +93,9 @@ impl DiscreteDomain {
 
     pub fn contains(&self, x: f64) -> bool {
         if let DiscreteDomain::Custom(vec) = self {
-            return vec.binary_search_by(|other| x.partial_cmp(other).unwrap()).is_ok();
+            return vec
+                .binary_search_by(|other| x.partial_cmp(other).unwrap())
+                .is_ok();
         }
 
         if x.fract() != 0.0 {
@@ -231,23 +232,19 @@ impl<'a> Iterator for DiscreteDomainIterator<'a> {
                 return Some(self.current_value);
             }
             DiscreteDomain::Custom(vec) => {
-
                 self.custom_domain_index += 1;
 
                 if self.current_value.is_nan() {
                     self.current_value = 0.0;
                     // ^flag that we have already given the first value
 
-
                     self.custom_domain_index = 0;
 
                     return vec.get(0).copied();
-                } 
+                }
 
                 return vec.get(self.custom_domain_index).copied();
             }
         }
     }
 }
-
-

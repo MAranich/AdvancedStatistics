@@ -29,21 +29,21 @@ pub enum Moments {
 /// Deafult return value if a domain is empty
 pub const DEFAULT_EMPTY_DOMAIN_BOUNDS: (f64, f64) = (-0.0, 0.0);
 
-/// Determine the normalitzation constant of a pdf.
+/// Integrate a function it it's whole domain.
+/// Can be used to determine the normalitzation constant of a pdf.
+///
+/// This function assumes that `pdf` contains a finite area in it's `domain`.
 ///
 /// You need to divide the value given by `pdf` by the returned value in order to have
 /// a valid probability distribution.
 ///
-/// This function assumes that `pdf` contains a finite area in it's `domain`.
-///
-/// If you already created a distribution `d`, you can call this function as:
+/// If you already created a distribution `d`, and want to make sure it integrates
+/// to `1.0`, you can use:
 /// ```
-/// let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
+/// let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
+/// assert!((c - 1.0).abs() < 0.0001)
 /// ```
-pub fn get_normalitzation_constant_continuous(
-    pdf: impl Fn(f64) -> f64,
-    domain: &ContinuousDomain,
-) -> f64 {
+pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain) -> f64 {
     /*
            Plan:
 
@@ -94,7 +94,6 @@ pub fn get_normalitzation_constant_continuous(
         }
         IntegrationType::FullInfinite => 0.0,
     };
-
 
     for _i in 0..max_iters {
         let current_position: f64;
@@ -194,7 +193,8 @@ pub fn get_normalitzation_constant_continuous(
     return ret;
 }
 
-/// Determine the total probability of a pmf.
+/// Sum all the discrete values in a distribution.
+/// Can be used to determine the total probability of a pmf.
 ///
 /// If you want to have a pmf wich represents a valid probability distribution,
 /// the result of this function shouls be one. If it is not, you can divise the
@@ -204,7 +204,7 @@ pub fn get_normalitzation_constant_continuous(
 ///
 /// **Warning:** if `max_steps` is set to None and the domain contains infinitely
 /// many values, the function will not terminate (infinite loop).
-pub fn get_normalitzation_constant_discrete(
+pub fn discrete_integration(
     pmf: impl Fn(f64) -> f64,
     domain: &DiscreteDomain,
     max_steps: Option<usize>,
@@ -229,12 +229,12 @@ pub fn get_normalitzation_constant_discrete(
     return ret;
 }
 
-/// Numerical integration
+/// Numerical integration but for a finite range.
 ///
 /// Numerical integration for a function `func` within a finite range. The
 /// integration is performed with
 /// [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule).
-pub fn numerical_integration(
+pub fn numerical_integration_finite(
     func: impl Fn(f64) -> f64,
     integration_range: (f64, f64),
     num_steps: u64,

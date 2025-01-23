@@ -31,7 +31,7 @@ fn integration_tests_finite() {
         domain: ContinuousDomain::Range(0.0, 5.47347),
     };
 
-    let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
+    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
 
     assert!((c - 7.57585312457).abs() < 0.0000001);
 }
@@ -72,7 +72,7 @@ fn integration_tests_inf_to_const() {
         domain: ContinuousDomain::To(c),
     };
 
-    let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
+    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
     let expected_ret: f64 = 2.39574891663;
 
     println!("{} || {}", c, expected_ret);
@@ -113,7 +113,7 @@ fn integration_tests_const_to_inf() {
         domain: ContinuousDomain::From(-5.0),
     };
 
-    let c: f64 = euclid::get_normalitzation_constant_continuous(|x| D.pdf(x), D.get_domain());
+    let c: f64 = euclid::numerical_integration(|x| D.pdf(x), D.get_domain());
 
     println!("{} || {}", c, 12.0);
     assert!((c - 12.0).abs() < 0.0000001);
@@ -146,7 +146,7 @@ fn integration_tests_infinite() {
         domain: ContinuousDomain::Reals,
     };
 
-    let c: f64 = euclid::get_normalitzation_constant_continuous(|x| d.pdf(x), d.get_domain());
+    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
 
     println!("{} || {}", c * c, PI);
     assert!((c * c - PI).abs() < 0.0000001);
