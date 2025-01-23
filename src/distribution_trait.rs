@@ -640,10 +640,15 @@ pub trait Distribution {
         let USE_LOG_DISTRIBUTION: bool =
             configuration::distribution_mode_deafult::USE_LOG_DERIVATIVE;
 
+        // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly 
+        // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
+
         let h: f64 = 0.001;
         let derivative = |x: f64| (self.pdf(x + h) - self.pdf(x)) / h;
         let log_derivative = |x: f64| {
-            ((self.pdf(x + h) + f64::EPSILON).ln() - (self.pdf(x) + f64::EPSILON).ln()) / h
+            let incr: f64 = (self.pdf(x + h) + f64::MIN_POSITIVE).ln(); 
+            let curr: f64 = (self.pdf(x) + f64::MIN_POSITIVE).ln(); 
+            (incr - curr) / h
         };
 
         let convergence_difference_criteria: f64 =
@@ -1334,8 +1339,40 @@ pub trait DiscreteDistribution {
 
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
     /// of the distribution.
+    /// 
+    /// If the distribution is very large or infinite, it only checks the first 
+    /// [configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS]
+    /// values. 
+    /// 
+    /// Panics if the domain contains no values. 
     fn mode(&self) -> f64 {
         todo!("Implement deafult implementation. ");
+
+        let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
+
+        let domain: &DiscreteDomain = self.get_domain(); 
+        let mut domain_iter = domain.iter()
+        let mut i: u64 = 0; 
+        let (mut max, mut max_value) = match domain_iter.next() {
+            Some(v) => (v, self.pmf(v)),
+            None => panic!("Attempted to compute the mode of a distribution with empty domain. (Domain contains no elements)"),
+        };
+
+        for point in domain_iter {
+            if max_steps <= i {
+                break;
+            }
+
+            let mass: f64 = self.pmf(point); 
+            if max_value < mass {
+                max = point; 
+                max_value = mass; 
+            }
+
+            i += 1; 
+        }
+
+        return max;
     }
 
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
