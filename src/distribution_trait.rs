@@ -1351,7 +1351,7 @@ pub trait DiscreteDistribution {
         let max_steps: u64 = configuration::disrete_distribution_deafults::MOMENTS_MAXIMUM_STEPS;
 
         let domain: &DiscreteDomain = self.get_domain(); 
-        let mut domain_iter = domain.iter()
+        let mut domain_iter: crate::domain::DiscreteDomainIterator<'_> = domain.iter(); 
         let mut i: u64 = 0; 
         let (mut max, mut max_value) = match domain_iter.next() {
             Some(v) => (v, self.pmf(v)),
