@@ -43,8 +43,10 @@ pub trait Distribution {
 
     /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
     /// (Cumulative distribution function).
-    /// If the function is evaluated outside the domain of the pdf, it will either
-    /// return either `0.0` or `1.0`. **Panicks** is `x` is a NaN.
+    ///
+    /// The cdf includes the `x` itself. If the function is evaluated outside
+    /// the domain of the pdf, it will either return either `0.0` or `1.0`.
+    /// **Panicks** is `x` is a NaN.
     ///
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
@@ -190,7 +192,7 @@ pub trait Distribution {
         let mut num_step: f64 = 0.0;
         let mut accumulator: f64 = 0.0;
 
-        // estimate the bound value with the next 2 values
+        // estimate the bound likelyhood with the next 2 values
         let mut last_pdf_evaluation: f64 = match integration_type {
             IntegrationType::Finite | IntegrationType::ConstToInfinite => {
                 let middle: f64 = self.pdf(bounds.0 + half_step_length);
@@ -589,24 +591,26 @@ pub trait Distribution {
         return ret;
     }
 
-
-
     // Statistics
 
     /// Returns the [expected value](https://en.wikipedia.org/wiki/Expected_value)
-    /// of the distribution if it exists.
+    /// of the distribution if it exists. Represents the theorical mean of the distribution;
+    /// the average of it's samples.
     fn expected_value(&self) -> Option<f64> {
         return Some(self.moments(1, Moments::Raw));
     }
 
     /// Returns the [variance](https://en.wikipedia.org/wiki/Variance) of
-    /// the distribution if it exists.
+    /// the distribution if it exists. Represents how spread the
+    /// distribution is.
+    ///
+    /// The variance is the square of the standard deviation.
     fn variance(&self) -> Option<f64> {
         return Some(self.moments(2, Moments::Central));
     }
 
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
-    /// of the distribution.
+    /// of the distribution. It represents the most "likely" outcome.
     ///
     /// The deafult implementation uses gradient descent and has a random component,
     /// wich means that the returned value is guaranteed to be a **local maximum**, but not
@@ -718,8 +722,19 @@ pub trait Distribution {
         return ret;
     }
 
+    /// The [median](https://en.wikipedia.org/wiki/Median) of the distribution. If
+    /// you sample a distribution, the median represnts the value that will be
+    /// greater than 50% of your samples and also smaller than the other 50%.
+    ///
+    /// It may happen that the quantile distribution is hard to evaluate but that
+    /// the median has a closed form solution. Otherwise, it will be equivalent to
+    /// evaluating the [Distribution::quantile] function at `0.5`.
+    fn median(&self) -> f64 {
+        return self.quantile(0.5);
+    }
+
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
-    /// of the distribution.
+    /// of the distribution. Measures how asymetric is the distribution.
     fn skewness(&self) -> Option<f64> {
         return Some(self.moments(3, Moments::Standarized));
     }
@@ -739,7 +754,7 @@ pub trait Distribution {
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
-    /// of the distribution and the given order. Mode determines if the moment will be
+    /// of the distribution for the given order. ´mode´ determines if the moment will be
     /// [Moments::Raw], [Moments::Central] or [Moments::Standarized].
     fn moments(&self, order: u8, mode: Moments) -> f64 {
         /*
@@ -881,7 +896,8 @@ pub trait Distribution {
     }
 
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
-    /// of the distribution
+    /// of the distribution. Measures how "uncertain" are the samples from the
+    /// distribution.
     fn entropy(&self) -> f64 {
         // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
         // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
@@ -1324,19 +1340,23 @@ pub trait DiscreteDistribution {
     // Statistics
 
     /// Returns the [expected value](https://en.wikipedia.org/wiki/Expected_value)
-    /// of the distribution if it exists.
+    /// of the distribution if it exists. Represents the theorical mean of the distribution;
+    /// the average of it's samples.
     fn expected_value(&self) -> Option<f64> {
         return Some(self.moments(1, Moments::Raw));
     }
 
     /// Returns the [variance](https://en.wikipedia.org/wiki/Variance) of
-    /// the distribution if it exists.
+    /// the distribution if it exists. Represents how spread the
+    /// distribution is.
+    ///
+    /// The variance is the square of the standard deviation.
     fn variance(&self) -> Option<f64> {
         return Some(self.moments(2, Moments::Central));
     }
 
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
-    /// of the distribution.
+    /// of the distribution. It represents the most likely outcome.
     ///
     /// If the distribution is very large or infinite, it only checks the first
     /// [configuration::disrete_distribution_deafults::MAXIMUM_STEPS]
@@ -1371,8 +1391,19 @@ pub trait DiscreteDistribution {
         return max;
     }
 
+    /// The [median](https://en.wikipedia.org/wiki/Median) of the distribution. If
+    /// you sample a distribution, the median represnts the value that will be
+    /// greater than 50% of your samples and also smaller than the other 50%.
+    ///
+    /// It may happen that the quantile distribution is hard to evaluate but that
+    /// the median has a closed form solution. Otherwise, it will be equivalent to
+    /// evaluating the [Distribution::quantile] function at `0.5`.
+    fn median(&self) -> f64 {
+        return self.quantile(0.5);
+    }
+
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
-    /// of the distribution.
+    /// of the distribution. Measures how asymetric is the distribution.
     fn skewness(&self) -> Option<f64> {
         return Some(self.moments(3, Moments::Standarized));
     }
@@ -1392,7 +1423,7 @@ pub trait DiscreteDistribution {
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
-    /// of the distribution and the given order. Mode determines if the moment will be
+    /// of the distribution for the given order. `mode` determines if the moment will be
     /// [Moments::Raw], [Moments::Central] or [Moments::Standarized].
     fn moments(&self, order: u8, mode: Moments) -> f64 {
         let domain: &DiscreteDomain = self.get_domain();
@@ -1432,7 +1463,8 @@ pub trait DiscreteDistribution {
     }
 
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
-    /// of the distribution
+    /// of the distribution. Measures how "uncertain" are the samples from the
+    /// distribution.
     fn entropy(&self) -> f64 {
         let max_steps: u64 = configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
@@ -1496,6 +1528,28 @@ pub trait DiscreteDistribution {
 
         // domain is not of the custom variant.
         // `range` is contained within the domain of the distribution
+
+        /*
+
+           let probability_region: f64 = {
+               let cdf_values: Vec<f64> = self.cdf_multiple(&[(range.0 - 1) as f64, range.1 as f64]);
+               cdf_values[1] - cdf_values[0]
+           };
+
+           If the desired region only contains `probability_region` mass, then
+           we need to divide pmf() to get a new valid probability distribution.
+           Then the real maximim of the new pmf cound be `pmf_max/probability_region`.
+           The condition for being sampled is:
+           (if `probability_region` = 1, (the normal way))
+           `rand() < pmf(x) / pmf_max`
+           (if `probability_region` != 1)
+           `rand() < (pmf(x) / probability_region) / (pmf_max / probability_region)` =
+           `rand() < pmf(x) / (probability_region * pmf_max / probability_region)` =
+           `rand() < pmf(x) / pmf_max` =
+           `rand() * pmf_max < pmf(x)`
+
+           Therefore we do not need `probability_region`.
+        */
 
         let bound_range: f64 = (range.1 - range.0) as f64;
         let mut ret: Vec<f64> = Vec::with_capacity(n);

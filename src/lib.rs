@@ -7,8 +7,7 @@
 //!
 //! This library is a statistics library that provides:
 //!
-//! - [ ] Interface to create distributions
-//!     - (only implemented for continuous case)
+//! - [x] Interface to create distributions
 //! - [ ] Common distributions (ready to be used in any calculation)
 //! - [ ] Data computation
 //! - [ ] Multiple tests (hypothesys testing)
@@ -22,11 +21,12 @@
 //!
 //! ## Distributions
 //!
-//! We have defined the trait [distribution_trait::Distribution] and
-//! [distribution_trait::DiscreteDistribution] that define a basic interface
-//! to work with distributions. The only requiered methods to implement are:
-//!  - [distribution_trait::Distribution::pdf]: the pdf of the distribution.
-//!  - [distribution_trait::Distribution::get_domain]: the [domain]
+//! We have defined the trait [Distribution](distribution_trait::Distribution) and
+//! [DiscreteDistribution](distribution_trait::DiscreteDistribution) that define a
+//! basic trait (interface) to work with distributions. The only requiered methods
+//! to implement are:
+//!  - [pdf](distribution_trait::Distribution::pdf): the pdf of the distribution.
+//!  - [get_domain](distribution_trait::Distribution::get_domain): the [domain]
 //! of the pdf of the distribution.
 //!
 //! After this, a wide array of funcions are avaliable (check
@@ -38,20 +38,42 @@
 //! But if you are interested on a more common distribution, you may find it among the
 //! ones that we have already implemented:
 //!
-//! ### Continuous distributions
+//! ### Continuous distributions:
 //!
-//!  - [x] Exponential
-//!  - [ ] ... (more to come)
+//!  - [ ] [Normal distribution](https://en.wikipedia.org/wiki/Normal_distribution)
+//!  - [ ] [Uniform distribution](https://en.wikipedia.org/wiki/Continuous_uniform_distribution)
+//!  - [x] [Exponential](crate::distributions::Exponential) ([Wiki](https://en.wikipedia.org/wiki/Exponential_distribution))
+//!  - [ ] [Chi squared distribution](https://en.wikipedia.org/wiki/Chi-squared_distribution)
+//!  - [ ] [Chi distribution](https://en.wikipedia.org/wiki/Chi_distribution)
+//!  - [ ] [F distribution](https://en.wikipedia.org/wiki/F-distribution)
+//!  - [ ] [Gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
+//!  - [ ] [Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution)
+//!  - [ ] [Student's T distribution](https://en.wikipedia.org/wiki/Student%27s_t-distribution)
+//!  - [ ] [Hypergeometric](https://en.wikipedia.org/wiki/Hypergeometric_distribution) (?)
+//!  - [ ] [Beta prime distribution](https://en.wikipedia.org/wiki/Beta_prime_distribution)
+//!  - [ ] [Pareto distribution](https://en.wikipedia.org/wiki/Pareto_distribution)
+//!  - [ ] [Cauchy distribution](https://en.wikipedia.org/wiki/Cauchy_distribution)
+//!  - [ ] [Laplace distribution](https://en.wikipedia.org/wiki/Laplace_distribution)
+//!  - [ ] [Logistic distribution](https://en.wikipedia.org/wiki/Logistic_distribution)
+//!  - [ ] [Quantile parameterized distribution](https://en.wikipedia.org/wiki/Quantile-parameterized_distribution) (?)
+//!  - [ ] ... (more to come (?))
 //!
-//! ### Discrete distributions
+//! ### Discrete distributions:
 //!
-//!  - [x] Bernoulli
-//!  - [ ] Binomial
-//!  - [ ] ... (more to come)
+//!  - [x] [Bernoulli](distributions::Bernoulli) ([Wiki](https://en.wikipedia.org/wiki/Bernoulli_distribution))
+//!  - [x] [Binomial](distributions::Binomial) ([Wiki](https://en.wikipedia.org/wiki/Binomial_distribution))
+//!  - [ ] [Uniform](https://en.wikipedia.org/wiki/Discrete_uniform_distribution) (discrete)
+//!  - [ ] [Geometric distribution](https://en.wikipedia.org/wiki/Geometric_distribution)
+//!  - [ ] [Negative binomial distribution](https://en.wikipedia.org/wiki/Negative_binomial_distribution)
+//!  - [ ] [Poisson distribution](https://en.wikipedia.org/wiki/Poisson_distribution)
+//!  - [ ] [Degenerate distribution](https://en.wikipedia.org/wiki/Degenerate_distribution) (aka. Dirac distribution)
+//!  - [ ] ... (more to come (?))
 //!
 //!
 //!
 //!
+
+use distribution_trait::Distribution;
 
 pub mod configuration;
 pub mod distribution_trait;
@@ -60,3 +82,12 @@ pub mod domain;
 pub mod errors;
 pub mod euclid;
 pub mod mixed_distribution;
+
+// Todo: Do this struct that allows to shift the location of a distribution
+pub struct Loation<D>
+where
+    D: Distribution,
+{
+    location: f64,
+    distribution: D,
+}

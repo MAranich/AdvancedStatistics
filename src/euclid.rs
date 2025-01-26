@@ -385,3 +385,81 @@ impl IntegrationType {
         }
     }
 }
+
+pub mod combinatorics {
+
+    /// Compute the [binomial coeffitient](https://en.wikipedia.org/wiki/Binomial_coefficient).
+    ///
+    /// Returns an error if there was a problem with the computation (overflow),
+    /// if `n` or `k` are negative or if `n < k`.
+    pub fn binomial_coeffitient(n: u64, mut k: u64) -> Result<u128, ()> {
+        // todo: https://math.stackexchange.com/questions/202554/how-do-i-compute-binomial-coefficients-efficiently
+
+        /*
+               Plan:
+
+           I have 2 methods.
+
+           let (n|k) = `n choose k`;
+
+           Method recursive:
+           *****************************************************************************
+           We will use the recursive formula:
+
+           let (n|k) = `n choose k`;
+
+            - ( n | k ) = (n - 1 | k - 1) + (n - 1 | k )
+            - ( n | 0 ) = 1
+                - (for all `0 <= n`)
+            - ( n | n ) = 1
+
+           With the dymanic programming principles we can create a table with the
+           results like:
+
+           | k \ n 	| 0 	| 1 	| 2 	| 3 	| 4 	| 5 	| 6 	| 7 	|
+           |-------	|---	|---	|---	|---	|---	|---	|---	|---	|
+           | 0     	| 1 	| 1 	| 1 	| 1 	| ^ 	| ^ 	| ^ 	| _ 	|
+           | 1     	| u 	| 1 	| 2 	| 3 	| 4 	| ^ 	| ^ 	| _ 	|
+           | 2     	| u 	| u 	| 1 	| _ 	| _ 	| a 	| ^ 	| _ 	|
+           | 3     	| u 	| u 	| u 	| 1 	| _ 	| b 	| x 	| _ 	|
+           | 4     	| u 	| u 	| u 	| u 	| 1 	| _ 	| _ 	| _ 	|
+           | 5     	| u 	| u 	| u 	| u 	| u 	| 1 	| _ 	| _ 	|
+
+           If we ant to find x, we just need to add a and b. values marked by  _
+           represent uncomputed values and u represnt the values where the binomial
+           coefitient is undefined. Note that we kust need a matrix of size k x n
+           (even if the example is bigger). The values marked by u or ^ do not need
+           to be computed.
+
+           I have just noticed that this is just making the pascal triangle.
+           *****************************************************************************
+
+           Method optimized iterative approach (MOIA (?)):
+
+           (n | k) = productory {i = 1 -> k} (n - k + i) / i
+
+
+
+
+        */
+
+        // Since C(n, k) = C(n, n-k)
+        if n - k < k {
+            k = n - k;
+        }
+
+        let N: u128 = n as u128;
+        let K: u128 = k as u128;
+
+        let mut ret: u128 = 1;
+        for i in 1..=K {
+            match ret.checked_mul(N - K + i) {
+                Some(v) => ret = v,
+                None => return Err(()),
+            }
+            ret = ret / i;
+        }
+
+        return Ok(ret);
+    }
+}

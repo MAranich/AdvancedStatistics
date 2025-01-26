@@ -12,8 +12,6 @@
 //!
 //!
 
-use std::collections::btree_map::Entry;
-
 use rand::Rng;
 
 use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain};
@@ -28,9 +26,8 @@ pub struct Bernoulli {
 impl Bernoulli {
     /// Creates a new [bernulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution).
     ///
-    /// `p` indicates the probability of success (returning `1.0`).
-    ///
-    /// `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
+    ///  - `p` indicates the probability of success (returning `1.0`).
+    ///     - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
     pub fn new(p: f64) -> Result<Bernoulli, ()> {
         if p.is_infinite() || p.is_nan() {
             return Err(());
@@ -46,6 +43,11 @@ impl Bernoulli {
     /// Does not check if p is in `[0, 1]`.
     pub unsafe fn new_unchecked(p: f64) -> Bernoulli {
         return Bernoulli { p: p };
+    }
+
+    /// Return `p` (probability of success).
+    pub fn get_p(&self) -> f64 {
+        return self.p.clone();
     }
 }
 
