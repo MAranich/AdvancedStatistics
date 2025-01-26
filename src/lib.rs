@@ -88,6 +88,10 @@ pub struct Loation<D>
 where
     D: Distribution,
 {
-    location: f64,
+    /// The main distribution to be modified
     distribution: D,
+    /// Indicates wich value is now the `0.0` of the distribution
+    location: f64,
+    /// Flips the distribution (horizontally). The flip is done after the location shift. 
+    flipped: bool, 
 }

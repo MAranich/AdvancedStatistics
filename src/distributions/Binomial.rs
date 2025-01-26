@@ -10,11 +10,9 @@
 //! The [Bernoulli distribution](crate::distributions::Bernoulli) is equivalent to a
 //! Binomial distribution with `n = 1`
 
-use std::f64::consts::{E, PI};
+use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain, euclid};
 
 use rand::Rng;
-
-use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain, euclid};
 
 pub struct Binomial {
     domain: DiscreteDomain,
@@ -37,13 +35,9 @@ impl Binomial {
             return Err(());
         }
 
-        let domain_: DiscreteDomain = DiscreteDomain::Range(0, n.try_into().unwrap_or(i64::MAX));
+        let domain: DiscreteDomain = DiscreteDomain::Range(0, n.try_into().unwrap_or(i64::MAX));
 
-        return Ok(Binomial {
-            p: p,
-            n: n,
-            domain: domain_,
-        });
+        return Ok(Binomial { domain, p, n });
     }
 
     /// Creates a new [Binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution).
@@ -52,13 +46,9 @@ impl Binomial {
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise the structure will be invalid.
     ///  - `n` indicates the number of trials
     pub unsafe fn new_unchecked(p: f64, n: u64) -> Binomial {
-        let domain_: DiscreteDomain = DiscreteDomain::Range(0, n.try_into().unwrap_or(i64::MAX));
+        let domain: DiscreteDomain = DiscreteDomain::Range(0, n.try_into().unwrap_or(i64::MAX));
 
-        return Binomial {
-            p: p,
-            n: n,
-            domain: domain_,
-        };
+        return Binomial { domain, p, n };
     }
 
     /// Return `p` (probability of success).

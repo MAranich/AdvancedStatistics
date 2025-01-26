@@ -933,24 +933,16 @@ pub trait Distribution {
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let domain: &ContinuousDomain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
-
         let bounds: (f64, f64) = domain.get_bounds();
         let bound_range: f64 = bounds.1 - bounds.0;
 
         let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
+        for _ in 0..n {
             let sample: f64 = loop {
                 let mut x: f64 = rng.gen();
                 x = bounds.0 + x * bound_range;
                 let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
+                if y * pdf_max < self.pdf(x) {
                     break x;
                 }
             };
@@ -970,24 +962,21 @@ pub trait Distribution {
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let domain: &ContinuousDomain = self.get_domain();
-        let pdf_checked = |x: f64| {
-            if domain.contains(x) {
-                self.pdf(x)
-            } else {
-                0.0
-            }
-        };
+        let bounds: (f64, f64) = domain.get_bounds();
+        let range_magnitude: f64 = range.1 - range.0;
 
-        let bounds: (f64, f64) = range;
-        let bound_range: f64 = bounds.1 - bounds.0;
+        if range_magnitude.is_sign_negative() || range.0 < bounds.0 || bounds.1 < range.1 {
+            // possible early return
+            return Vec::new();
+        }
 
         let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
+        for _ in 0..n {
             let sample: f64 = loop {
                 let mut x: f64 = rng.gen();
-                x = bounds.0 + x * bound_range;
+                x = range.0 + x * range_magnitude;
                 let y: f64 = rng.gen();
-                if y * pdf_max < pdf_checked(x) {
+                if y * pdf_max < self.pdf(x) {
                     break x;
                 }
             };
