@@ -40,8 +40,8 @@
 //!
 //! ### Continuous distributions:
 //!
-//!  - [ ] [Normal distribution](https://en.wikipedia.org/wiki/Normal_distribution)
-//!  - [ ] [Uniform distribution](https://en.wikipedia.org/wiki/Continuous_uniform_distribution)
+//!  - [x] [Normal distribution](crate::distributions::Normal) ([Wiki](https://en.wikipedia.org/wiki/Normal_distribution))
+//!  - [x] [Uniform distribution](crate::distributions::Exponential) ([Wiki](https://en.wikipedia.org/wiki/Continuous_uniform_distribution))
 //!  - [x] [Exponential](crate::distributions::Exponential) ([Wiki](https://en.wikipedia.org/wiki/Exponential_distribution))
 //!  - [ ] [Chi squared distribution](https://en.wikipedia.org/wiki/Chi-squared_distribution)
 //!  - [ ] [Chi distribution](https://en.wikipedia.org/wiki/Chi_distribution)

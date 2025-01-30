@@ -918,12 +918,15 @@ pub trait Distribution {
     /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
     /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
     ///
-    /// Important: [Distribution::rejection_sample] assumes a valid [Distribution::pdf] and
-    /// a valid domain in [Distribution::get_domain]. Also the **domain must be finite**.
-    /// If it is not, better use [Distribution::rejection_sample_range] or implement
-    /// [Distribution::sample] yourself.
+    /// Important: 
+    ///  - [Distribution::rejection_sample] assumes a valid [Distribution::pdf] 
+    ///  - Also assumes a valid domain in [Distribution::get_domain]. 
+    ///  - Also the **domain must be finite**.
+    ///      - If it is not, consider the following: 
+    ///          - Use [Distribution::rejection_sample_range]. 
+    ///          - Implement [Distribution::sample] yourself.
     ///
-    /// It is more effitient because it does **not** requiere the evaluation of the
+    /// It is usually more effitient because it does **not** requiere the evaluation of the
     /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
     ///
@@ -952,13 +955,11 @@ pub trait Distribution {
         return ret;
     }
 
-    /// Same as [Distribution::rejection_sample] but only in the selected range.
+    /// Same as [Distribution::rejection_sample] but only in the selected range. (Also 
+    /// same preconditions).- 
     ///
     /// This can be usefull for distributions with a stricly infinite domain but that
     /// virtually all their mass is concentrated in a smaller region (`range`).
-    ///
-    /// For example, we could sample from the standard normal distribution with only
-    /// the range `(-8.0, 8.0)` since the density left out of this range is negligible.
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let domain: &ContinuousDomain = self.get_domain();
