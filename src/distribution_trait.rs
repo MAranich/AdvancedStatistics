@@ -916,23 +916,25 @@ pub trait Distribution {
     // (methods that don't need to be replaced and should be here)
 
     /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
-    /// method. In general, it is considerably more effitient that the normal [Distribution::sample]
+    /// method. In general, it can be more effitient that the 
+    /// normal [Distribution::sample]. 
     ///
     /// Important: 
-    ///  - [Distribution::rejection_sample] assumes a valid [Distribution::pdf] 
-    ///  - Also assumes a valid domain in [Distribution::get_domain]. 
-    ///  - Also the **domain must be finite**.
-    ///      - If it is not, consider the following: 
-    ///          - Use [Distribution::rejection_sample_range]. 
-    ///          - Implement [Distribution::sample] yourself.
+    ///  - The **domain must be finite**. If it is not, consider the following: 
+    ///      - Use [Distribution::rejection_sample_range]. 
+    ///      - Implement [Distribution::sample] yourself.
     ///
+    ///  - `n`: represents the number of samples to be generated.
+    ///  - `pmf_max`: the maximum probability of the [Distribution::pdf].
+    ///      - Using a value smaller than the actual value will make the results
+    ///         not follow the distribution.
+    ///      - Using a value larger than the actual value will incur a extra
+    ///         computational cost.
+    ///      - Can be computed with [Distribution::mode].
+    /// 
     /// It is usually more effitient because it does **not** requiere the evaluation of the
     /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
-    ///
-    /// Note: `pdf_max` does **not** need to be the real global maximum, it just needs
-    /// to be equal or greater to it. Note that using a greater `pdf_max` value will incur
-    /// a performance penalty.
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let domain: &ContinuousDomain = self.get_domain();
@@ -956,10 +958,19 @@ pub trait Distribution {
     }
 
     /// Same as [Distribution::rejection_sample] but only in the selected range. (Also 
-    /// same preconditions).- 
+    /// same preconditions). 
     ///
     /// This can be usefull for distributions with a stricly infinite domain but that
     /// virtually all their mass is concentrated in a smaller region (`range`).
+    /// 
+    ///  - `n`: represents the number of samples to be generated.
+    ///  - `pmf_max`: the maximum probability within the range.
+    ///      - Using a value smaller than the actual value will make the results
+    ///         not follow the distribution.
+    ///      - Using a value larger than the actual value will incur a extra
+    ///         computational cost.
+    ///      - Can be computed with [Distribution::mode].
+    ///  - `range`: the bounds of the region to be sampled from.
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let domain: &ContinuousDomain = self.get_domain();

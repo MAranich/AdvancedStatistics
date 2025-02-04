@@ -82,6 +82,7 @@ pub mod domain;
 pub mod errors;
 pub mod euclid;
 pub mod mixed_distribution;
+pub mod Samples;
 
 // Todo: Do this struct that allows to shift the location of a distribution
 pub struct Loation<D>
