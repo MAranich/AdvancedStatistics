@@ -1,4 +1,4 @@
-use bon::{bon, builder};
+use bon::bon;
 
 pub struct Samples {
     // non-empty
@@ -486,14 +486,13 @@ impl Samples {
     pub fn sort_dedup_quantiles(&mut self) {
         self.properties
             .quantiles
-            .sort_unstable_by(|a: &(f64, f64), b: &(f64, f64)| {
-                a.0.partial_cmp(&b.0).unwrap()
+            .sort_unstable_by(|a: &(f64, f64), b: &(f64, f64)| a.0.partial_cmp(&b.0).unwrap());
+
+        self.properties
+            .quantiles
+            .dedup_by(|a: &mut (f64, f64), b: &mut (f64, f64)| {
+                a.0.partial_cmp(&b.0).unwrap().is_eq()
             });
-
-
-        self.properties.quantiles.dedup_by(|a: &mut (f64, f64), b: &mut (f64, f64)| {
-            a.0.partial_cmp(&b.0).unwrap().is_eq()
-        });
     }
 
     /// Returns the [quantile](https://en.wikipedia.org/wiki/Quantile) of `q`.
@@ -542,10 +541,11 @@ impl Samples {
         #[builder(default)] minimum: bool,
         #[builder(default)] sort: bool,
     ) -> &SampleProperties {
-        if !quantiles.is_empty() || maximum || minimum || sort {
+        if !quantiles.is_empty() || sort {
             self.sort_data();
         }
 
+        // The functions already assing the values to [SampleProperties] internally.
         if mean {
             let _ = self.mean();
         }

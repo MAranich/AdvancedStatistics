@@ -9,7 +9,7 @@
 //!
 //! - [x] Interface to create distributions
 //! - [ ] Common distributions (ready to be used in any calculation)
-//! - [ ] Data computation
+//! - [x] Data computation
 //! - [ ] Multiple tests (hypothesys testing)
 //! - [ ] Computing P values and confidence intervals
 //! - [ ] Parameter estimation
@@ -21,7 +21,7 @@
 //!
 //! ## Distributions
 //!
-//! We have defined the trait [Distribution](distribution_trait::Distribution) and
+//! We have defined the trait [Distribution] and
 //! [DiscreteDistribution](distribution_trait::DiscreteDistribution) that define a
 //! basic trait (interface) to work with distributions. The only requiered methods
 //! to implement are:
@@ -75,6 +75,7 @@
 
 use distribution_trait::Distribution;
 
+pub mod Samples;
 pub mod configuration;
 pub mod distribution_trait;
 pub mod distributions;
@@ -82,7 +83,6 @@ pub mod domain;
 pub mod errors;
 pub mod euclid;
 pub mod mixed_distribution;
-pub mod Samples;
 
 // Todo: Do this struct that allows to shift the location of a distribution
 pub struct Loation<D>
@@ -90,9 +90,9 @@ where
     D: Distribution,
 {
     /// The main distribution to be modified
-    distribution: D,
+    pub distribution: D,
     /// Indicates wich value is now the `0.0` of the distribution
-    location: f64,
-    /// Flips the distribution (horizontally). The flip is done after the location shift. 
-    flipped: bool, 
+    pub location: f64,
+    /// Flips the distribution (horizontally). The flip is done after the location shift.
+    pub flipped: bool,
 }
