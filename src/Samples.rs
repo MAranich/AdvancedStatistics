@@ -1,3 +1,5 @@
+use bon::{bon, builder};
+
 pub struct Samples {
     // non-empty
     data: Vec<f64>,
@@ -18,6 +20,12 @@ pub struct SampleProperties {
     pub skewness: Option<f64>,
     /// the excess kurtosis of the sample
     pub excess_kurtosis: Option<f64>,
+    /// All the computed quantiles for this distribution.
+    ///
+    /// Stored as (q, quantile), where q [0, 1]. It is not guaranteed to be sorted or
+    /// de-duplicated (use [Samples::sort_dedup_quantiles] to fix that).
+    /// There are no NaNs.
+    pub quantiles: Vec<(f64, f64)>,
     /// The maximum value of the sample
     pub maximum: Option<f64>,
     /// The minimum value of the sample
@@ -26,6 +34,7 @@ pub struct SampleProperties {
     pub is_sorted: bool,
 }
 
+#[bon]
 impl Samples {
     /// Creates a new instance of [Samples] with the given `data`.
     ///
@@ -132,6 +141,8 @@ impl Samples {
 
     /// Returns a reference to the internal field that contains
     /// all computed statistics ([SampleProperties]).
+    ///
+    /// If you want to also compute the properties, use [Samples::get_properties].
     pub fn peek_properties(&self) -> &SampleProperties {
         return &self.properties;
     }
@@ -472,31 +483,96 @@ impl Samples {
         self.properties.is_sorted = true;
     }
 
-    /// Returns the quantile.
+    pub fn sort_dedup_quantiles(&mut self) {
+        self.properties
+            .quantiles
+            .sort_unstable_by(|a: &(f64, f64), b: &(f64, f64)| {
+                a.0.partial_cmp(&b.0).unwrap()
+            });
+
+
+        self.properties.quantiles.dedup_by(|a: &mut (f64, f64), b: &mut (f64, f64)| {
+            a.0.partial_cmp(&b.0).unwrap().is_eq()
+        });
+    }
+
+    /// Returns the [quantile](https://en.wikipedia.org/wiki/Quantile) of `q`.
     ///
     /// Sorts the data if it is not sorted already. Returns `None` if data
-    /// is empty. If `q <= 0.0` returns a the smallest value in data. 
-    /// If `1.0 <= q` returns a the greatest value in data. 
+    /// is empty. If `q <= 0.0` returns a the smallest value in data.
+    /// If `1.0 <= q` returns a the greatest value in data.
     pub fn quantile(&mut self, mut q: f64) -> Option<f64> {
-
         // sort data if it has not been sorted already.
         self.sort_data();
 
         // handle edge cases
-        let n: usize = self.data.len(); 
+        let n: usize = self.data.len();
         if n == 0 {
             return None;
         }
 
-        q = q.clamp(0.0, 1.0); 
+        q = q.clamp(0.0, 1.0);
 
-        // We use the [nearest rank method](https://en.wikipedia.org/wiki/Percentile#The_nearest-rank_method). 
-        // but adapted in order to work from quantiles, where q ranges from [0, 1] instead of 
-        // ranging from (0, 100]. 
+        // We use the [nearest rank method](https://en.wikipedia.org/wiki/Percentile#The_nearest-rank_method).
+        // but adapted in order to work from quantiles, where q ranges from [0, 1] instead of
+        // ranging from (0, 100].
 
-        let index: usize = ((n as f64) * q).ceil() as usize; 
+        let index: usize = ((n as f64) * q).ceil() as usize;
+        let quantile: f64 = self.data.get(index).copied().unwrap();
+        self.properties.quantiles.push((q, quantile));
 
-        return self.data.get(index).copied();
+        return Some(quantile);
+    }
+
+    /// Compute multiple properties in bulk.
+    ///
+    /// Returns a reference to the updated [SampleProperties]
+    /// (same as using [Samples::peek_properties]). Note that the computation of some
+    /// values implie indirecly the computation of others. For example, if you ask
+    /// to compute only the `variance`, the `mean` will also be computed as a by-product.
+    #[builder]
+    pub fn get_properties(
+        &mut self,
+        #[builder(default)] mean: bool,
+        #[builder(default)] variance: bool,
+        #[builder(default)] skewness: bool,
+        #[builder(default)] excess_kurtosis: bool,
+        #[builder(default)] quantiles: Vec<f64>,
+        #[builder(default)] maximum: bool,
+        #[builder(default)] minimum: bool,
+        #[builder(default)] sort: bool,
+    ) -> &SampleProperties {
+        if !quantiles.is_empty() || maximum || minimum || sort {
+            self.sort_data();
+        }
+
+        if mean {
+            let _ = self.mean();
+        }
+        if variance {
+            let _ = self.variance();
+        }
+        if skewness {
+            let _ = self.skewness();
+        }
+        if excess_kurtosis {
+            let _ = self.excess_kurtosis();
+        }
+        if minimum {
+            let _ = self.minimum();
+        }
+        if maximum {
+            let _ = self.maximum();
+        }
+
+        if !quantiles.is_empty() {
+            for q in quantiles {
+                let _ = self.quantile(q);
+            }
+            self.sort_dedup_quantiles();
+        }
+
+        return &self.properties;
     }
 }
 
@@ -507,6 +583,7 @@ impl SampleProperties {
             variance: None,
             skewness: None,
             excess_kurtosis: None,
+            quantiles: Vec::new(),
             maximum: None,
             minimum: None,
             is_sorted: false,
