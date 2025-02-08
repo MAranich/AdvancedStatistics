@@ -1,7 +1,6 @@
 use bon::bon;
 
 pub struct Samples {
-    // non-empty
     data: Vec<f64>,
     properties: SampleProperties,
 }

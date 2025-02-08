@@ -305,6 +305,9 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
 
 
         num_steps needs to be odd
+
+        // SAFETY: all the accesses to static variables shoulb be safe because 
+        the values at the config file should not be changed during this function call. 
     */
 
     match (bounds.0.is_finite(), bounds.1.is_finite()) {
@@ -315,23 +318,25 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
 
             if range <= 1.0 {
                 // small range (less than an unit)
-                num_steps = SMALL_INTEGRATION_NUM_STEPS;
+                num_steps = unsafe { SMALL_INTEGRATION_NUM_STEPS };
                 // ^already odd
                 step_length = range / num_steps as f64;
-            } else if DEFAULT_INTEGRATION_PRECISION * DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 < range
+            } else if unsafe {
+                DEFAULT_INTEGRATION_PRECISION * DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64
+            } < range
             {
                 // interval is very big, we will increase the step_lenght.
 
-                step_length = range / DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64;
-                num_steps = DEFAULT_INTEGRATION_MAXIMUM_STEPS;
+                step_length = range / unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 };
+                num_steps = unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS };
                 // ^already odd
             } else {
                 // *normal* interval
 
-                let first_num: f64 = range / DEFAULT_INTEGRATION_PRECISION;
-                if first_num < DEFAULT_INTEGRATION_MINIMUM_STEPS_F64 {
+                let first_num: f64 = range / unsafe { DEFAULT_INTEGRATION_PRECISION };
+                if first_num < unsafe { DEFAULT_INTEGRATION_MINIMUM_STEPS_F64 } {
                     // too litle steps
-                    num_steps = DEFAULT_INTEGRATION_MINIMUM_STEPS;
+                    num_steps = unsafe { DEFAULT_INTEGRATION_MINIMUM_STEPS };
                 } else {
                     num_steps = (first_num as usize) | 1;
                 }
@@ -343,10 +348,9 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
         (false, false) => {
             // if the interval [0, 1] uses SMALL_INTEGRATION_NUM_STEPS,
             // then [-1, 1] will use the doule.
-            (
-                SMALL_INTEGRATION_PRECISION,
-                (SMALL_INTEGRATION_NUM_STEPS * 2) as usize,
-            )
+            unsafe {
+                (SMALL_INTEGRATION_PRECISION, (SMALL_INTEGRATION_NUM_STEPS * 2) as usize)
+            }
         }
         _ => {
             /* Cases:
@@ -355,8 +359,7 @@ pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize
             */
 
             // The range in this case is [0, 1], so we can return the same values.
-
-            (SMALL_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS)
+            unsafe { (SMALL_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS) }
         }
     }
 }

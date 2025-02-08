@@ -176,7 +176,7 @@ impl DiscreteDistribution for Bernoulli {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
-        let max_steps: u64 = crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
+        let max_steps: u64 = unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
         let moment: f64 =

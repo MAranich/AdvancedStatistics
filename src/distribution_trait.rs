@@ -3,9 +3,11 @@ use std::usize;
 use rand::Rng;
 
 use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
+use crate::distributions::Normal::StdNormal;
 use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::{self, *};
+use crate::Samples::Samples;
 
 /// The trait for any continuous distribution.
 ///
@@ -472,6 +474,8 @@ pub trait Distribution {
             IntegrationType::FullInfinite => 0.0,
         };
 
+        let use_newtons_method: bool = unsafe { QUANTILE_USE_NEWTONS_ITER };
+
         'integration_loop: for _ in 0..max_iters {
             let current_position: f64;
 
@@ -482,7 +486,7 @@ pub trait Distribution {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
-                        if QUANTILE_USE_NEWTONS_ITER && !(pdf_q.abs() < f64::EPSILON) {
+                        if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                             // if pdf_q is essentially 0, skip this.
                             // newton's iteration
                             quantile = quantile - (accumulator - current_quantile) / pdf_q;
@@ -509,7 +513,7 @@ pub trait Distribution {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
-                        if QUANTILE_USE_NEWTONS_ITER && !(pdf_q.abs() < f64::EPSILON) {
+                        if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                             // if pdf_q is essentially 0, skip this.
                             // newton's iteration
                             quantile += -((1.0 - accumulator) - current_quantile) / pdf_q;
@@ -533,7 +537,7 @@ pub trait Distribution {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
-                        if QUANTILE_USE_NEWTONS_ITER && !(pdf_q.abs() < f64::EPSILON) {
+                        if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                             // if pdf_q is essentially 0, skip this.
                             // newton's iteration
                             quantile = quantile - (accumulator - current_quantile) / pdf_q;
@@ -641,7 +645,7 @@ pub trait Distribution {
         };
 
         let USE_LOG_DISTRIBUTION: bool =
-            configuration::distribution_mode_deafult::USE_LOG_DERIVATIVE;
+            unsafe { configuration::distribution_mode_deafult::USE_LOG_DERIVATIVE };
 
         // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
         // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
@@ -655,12 +659,13 @@ pub trait Distribution {
         };
 
         let convergence_difference_criteria: f64 =
-            configuration::distribution_mode_deafult::CONVERGENCE_DIFFERENCE_CRITERIA;
-        let mut learning_rate: f64 = configuration::distribution_mode_deafult::LEARNING_RATE;
+            unsafe { configuration::distribution_mode_deafult::CONVERGENCE_DIFFERENCE_CRITERIA };
+        let mut learning_rate: f64 =
+            unsafe { configuration::distribution_mode_deafult::LEARNING_RATE };
         let learning_rate_change: f64 =
-            configuration::distribution_mode_deafult::LEARNING_RATE_CHANGE;
-        let min_iters: u32 = configuration::distribution_mode_deafult::MIN_ITERATIONS;
-        let max_iters: u32 = configuration::distribution_mode_deafult::MAX_ITERATIONS;
+            unsafe { configuration::distribution_mode_deafult::LEARNING_RATE_CHANGE };
+        let min_iters: u32 = unsafe { configuration::distribution_mode_deafult::MIN_ITERATIONS };
+        let max_iters: u32 = unsafe { configuration::distribution_mode_deafult::MAX_ITERATIONS };
 
         let mut ret: f64 = seed;
         let mut convergence: bool = false;
@@ -916,12 +921,12 @@ pub trait Distribution {
     // (methods that don't need to be replaced and should be here)
 
     /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
-    /// method. In general, it can be more effitient that the 
-    /// normal [Distribution::sample]. 
+    /// method. In general, it can be more effitient that the
+    /// normal [Distribution::sample].
     ///
-    /// Important: 
-    ///  - The **domain must be finite**. If it is not, consider the following: 
-    ///      - Use [Distribution::rejection_sample_range]. 
+    /// Important:
+    ///  - The **domain must be finite**. If it is not, consider the following:
+    ///      - Use [Distribution::rejection_sample_range].
     ///      - Implement [Distribution::sample] yourself.
     ///
     ///  - `n`: represents the number of samples to be generated.
@@ -931,7 +936,7 @@ pub trait Distribution {
     ///      - Using a value larger than the actual value will incur a extra
     ///         computational cost.
     ///      - Can be computed with [Distribution::mode].
-    /// 
+    ///
     /// It is usually more effitient because it does **not** requiere the evaluation of the
     /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
@@ -957,12 +962,12 @@ pub trait Distribution {
         return ret;
     }
 
-    /// Same as [Distribution::rejection_sample] but only in the selected range. (Also 
-    /// same preconditions). 
+    /// Same as [Distribution::rejection_sample] but only in the selected range. (Also
+    /// same preconditions).
     ///
     /// This can be usefull for distributions with a stricly infinite domain but that
     /// virtually all their mass is concentrated in a smaller region (`range`).
-    /// 
+    ///
     ///  - `n`: represents the number of samples to be generated.
     ///  - `pmf_max`: the maximum probability within the range.
     ///      - Using a value smaller than the actual value will make the results
@@ -1365,7 +1370,7 @@ pub trait DiscreteDistribution {
     ///
     /// Panics if the domain contains no values.
     fn mode(&self) -> f64 {
-        let max_steps: u64 = configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
+        let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
 
         let domain: &DiscreteDomain = self.get_domain();
         let mut domain_iter: crate::domain::DiscreteDomainIterator<'_> = domain.iter();
@@ -1455,7 +1460,7 @@ pub trait DiscreteDistribution {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
-        let max_steps: u64 = configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
+        let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
         let moment: f64 = euclid::discrete_integration(integration_fn, domain, max_steps_opt);
@@ -1467,7 +1472,7 @@ pub trait DiscreteDistribution {
     /// of the distribution. Measures how "uncertain" are the samples from the
     /// distribution.
     fn entropy(&self) -> f64 {
-        let max_steps: u64 = configuration::disrete_distribution_deafults::MAXIMUM_STEPS;
+        let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
         // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
@@ -1567,5 +1572,147 @@ pub trait DiscreteDistribution {
         }
 
         return ret;
+    }
+}
+
+/// This trait controls [Distribution]s with parameters.
+///
+/// This trait is uscefull to find the best fit from some data to
+/// the given distribution. The parameters must be floats ([f64]).
+///
+/// Each distribution mush have a specific otdering for it's parameters.
+/// This way, when they are passed trough functions it can be assumed that they
+/// are always the same (and in the same order).
+///
+/// ## Requered methods:
+///
+///  1. [general_pdf](Parametric::general_pdf)
+///  2. [number_of_parameters](Parametric::number_of_parameters)
+///  3. Either of: (ideally both)
+///      - [derivative_pdf_parameters](Parametric::derivative_pdf_parameters)
+///      - [log_derivative_pdf_parameters](Parametric::log_derivative_pdf_parameters)
+///
+/// ### Notes:
+///
+/// The `&self` in most methods is required because there can be other non-float
+/// parameters that may be needed to compute [general_pdf](Parametric::general_pdf).
+/// Otherwise there may be some a parameter we don't want to optimize for.
+pub trait Parametric: Distribution {
+    /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
+    /// (Probability Density function) of the distribution at point `x` with
+    /// the given `parameters`.
+    ///
+    /// If follows the same constraits as the normal [Distribution::pdf] but taking
+    /// the parameters into account.
+    fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64;
+
+    /// Returns the gradient of the pdf in respect to the parameters.
+    ///
+    /// `x` is considered constant.
+    ///
+    /// See: [logarithmic derivative](https://en.wikipedia.org/wiki/Logarithmic_derivative)
+    fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+        // => f(x) * d/dx ln(f(x)) = f'(x)
+
+        return self
+            .log_derivative_pdf_parameters(x, parameters)
+            .iter()
+            .map(|log_d| log_d * self.general_pdf(x, parameters))
+            .collect::<Vec<f64>>();
+    }
+
+    /// The natural logarithm of [derivative_pdf_parameters]. The logarithm
+    /// of the elements of the gradient of the pdf in respect to the parameters.
+    ///
+    /// `x` is considered constant.
+    ///
+    /// See: [logarithmic derivative](https://en.wikipedia.org/wiki/Logarithmic_derivative)
+    fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+
+        return self
+            .derivative_pdf_parameters(x, parameters)
+            .iter()
+            .map(|der| {
+                let mut pdf: f64 = self.general_pdf(x, parameters);
+                pdf = pdf.max(f64::EPSILON);
+                der / pdf
+            })
+            .collect::<Vec<f64>>();
+    }
+
+    /// Returns the number of parameters of the model.
+    ///
+    /// If [u16] is not enough, you may be interested in other machine leaning
+    /// approaches that AdvancedStatistics does not focus on.
+    fn number_of_parameters() -> u16;
+
+    /// Restrict the parameters if necessary.
+    ///
+    /// For example, the std_dev in the normal distribution is stricly
+    /// positive, therefore the body for the [Normal distribution](crate::distributions::Normal::Normal).
+    /// should be `{ parameters[1] = parameters[1].max(f64::EPSILON)}` to
+    /// ensure that the std_dev is always stricly positive.
+    ///
+    /// An empty body (like in the deafult implemetation) means no restrictions on
+    /// any of the parameters.
+    ///
+    /// Used in [Parametric::fit]
+    #[allow(unused_variables)]
+    fn parameter_restriction(&self, parameters: &mut [f64]) {}
+
+    /// Returns a vector of the parameters that best fit the distribution given
+    /// the data.
+    ///
+    /// The method used is [Maximum Likelihood Estimation](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation)
+    /// (MLE) with [Gradient Descent](https://en.wikipedia.org/wiki/Gradient_descent).
+    fn fit(&self, data: &Samples) -> Vec<f64> {
+        let d: u16 = Self::number_of_parameters();
+        let d_usize: usize = d as usize;
+        let std_normal: StdNormal = StdNormal::new();
+        let mut parameters: Vec<f64> = std_normal.sample_multiple(d_usize);
+
+        let learning_rate: f64 =
+            unsafe { configuration::maximum_likelihood_estimation::LEARNING_RATE };
+        let conv_diff_criteria: f64 = unsafe {
+            configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
+        };
+
+        let inv_n: f64 = 1.0 / (data.peek_data().len() as f64);
+
+        let mut gradient: Vec<f64> = vec![0.0; d_usize];
+        loop {
+            // set gradient to 0
+            gradient = gradient.iter_mut().map(|_| 0.0).collect::<Vec<f64>>();
+
+            for sample in data.peek_data() {
+                let local_log_grad: Vec<f64> =
+                    self.log_derivative_pdf_parameters(*sample, &parameters);
+
+                for i in 0..d_usize {
+                    gradient[i] += local_log_grad[i];
+                }
+            }
+
+            let mut total_change: f64 = 0.0;
+            for i in 0..d_usize {
+                // We want to maximize likelyhood, so we won't put the `-`
+                let change: f64 = learning_rate * inv_n * gradient[i];
+                parameters[i] += change;
+                total_change += change;
+            }
+
+            self.parameter_restriction(&mut parameters);
+
+            if total_change < conv_diff_criteria {
+                // todo: if parameter_restriction changes something,
+                // it is not taken into account in `total_change`.
+                // Do something about it.
+                break;
+            }
+        }
+
+        return parameters;
     }
 }
