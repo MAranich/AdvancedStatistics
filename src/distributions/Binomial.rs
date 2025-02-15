@@ -10,7 +10,13 @@
 //! The [Bernoulli distribution](crate::distributions::Bernoulli) is equivalent to a
 //! Binomial distribution with `n = 1`
 
-use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain, euclid};
+use std::collections::btree_map::ValuesMut;
+
+use crate::{
+    distribution_trait::{DiscreteDistribution, Parametric},
+    domain::DiscreteDomain,
+    euclid,
+};
 
 use rand::Rng;
 
@@ -68,6 +74,10 @@ impl DiscreteDistribution for Binomial {
         // `binomial_coef` can be very big and `prob_p * prob_q` can be very small
         // causing problems in their computations that could be avoided if
         // their computations were joined
+        // DO THE SAME AT THE GENERAL PMF DEF.
+
+        // P(x) = ( n | x ) * p^x * (1-p)^(n-x)
+        // Where ( a | b ) is `a choose b`
 
         let X: u64 = x.floor() as u64;
         let binomial_coef: u128 = euclid::combinatorics::binomial_coeffitient(self.n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
@@ -351,7 +361,8 @@ impl DiscreteDistribution for Binomial {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
-        let max_steps: u64 = unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
+        let max_steps: u64 =
+            unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
         let moment: f64 = euclid::discrete_integration(integration_fn, domain, max_steps_opt);
@@ -369,4 +380,237 @@ impl DiscreteDistribution for Binomial {
         return 0.5 * log; // + O(1/n)
     }
     */
+}
+
+impl Parametric for Binomial {
+    /// Evaluates the [Binomial::pmf] in a general way taking into account
+    /// the parameters.
+    ///
+    /// ## Parameters:
+    ///
+    /// The [Binomial] distribution has 2 parameters `n` (**n**umber of trials)
+    /// and `p` (**p**robability of success). Since `n` must be a natural number,
+    /// we won't take it into account when fitting. The order of the `parameters` is:
+    ///
+    /// > \[p, n\]
+    ///
+    /// If `n` is used, like in [Binomial::general_pdf], it will be rounded down
+    /// and must be non-negative.
+    fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
+        // Todo: update this basic 1:1 implementation for fomething better
+        // `binomial_coef` can be very big and `prob_p * prob_q` can be very small
+        // causing problems in their computations that could be avoided if
+        // their computations were joined
+        // DO THE SAME AT THE NORMAL PMF DEF.
+
+        let p: f64 = parameters[0];
+        let n: u64 = parameters[1] as u64;
+
+        let X: u64 = x.floor() as u64;
+        let binomial_coef: u128 = euclid::combinatorics::binomial_coeffitient(n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
+
+        let prob_p: f64 = p.powi(X as i32);
+        let prob_q: f64 = (1.0 - p).powi((n - X) as i32);
+
+        return (binomial_coef as f64) * prob_p * prob_q;
+    }
+
+    /// Returns `2` but we do **not** optimize for n
+    fn number_of_parameters() -> u16 {
+        return 2;
+    }
+
+    fn get_parameters(&self, parameters: &mut [f64]) {
+        parameters[0] = self.p;
+        parameters[1] = self.n as f64;
+    }
+
+    fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // P(x) = ( n | x ) * p^x * (1-p)^(n-x)
+        // Where ( a | b ) is `a choose b`
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        // derivative for `x` is 0 
+        ret.push(0.0);
+
+        {
+            /*
+                   Derivative of P(x) respect to `p`:
+
+                P(x) = ( n | x ) * p^x * (1-p)^(n-x) => 
+                d/dp P(x) = d/dp ( n | x ) * p^x * (1-p)^(n-x)
+                          =  d/dp [( n | x )] * p^x * (1-p)^(n-x) + 
+                            ( n | x ) * d/dp[p^x] * (1-p)^(n-x) + 
+                            ( n | x ) * p^x * d/dp[(1-p)^(n-x)] 
+                          =   0       * p^x * (1-p)^(n-x) + 
+                            ( n | x ) * x*p^(x-1) * (1-p)^(n-x) + 
+                            ( n | x ) * p^x *  (n-x)*(1-p)^(n-x-1)*-1 
+            
+                          =   0 + ( n | x ) * (
+                              x*p^(x-1) * (1-p)^(n-x) + 
+                              p^x *  (n-x)*(1-p)^(n-x-1)*-1 
+                          )
+                          =  ( n | x ) * (x*p^(x-1) * (1-p)^(n-x) + p^x * (x-n)*(1-p)^(n-x-1) )
+            
+            */
+
+
+            let q: f64 = 1.0 - self.p; 
+            let num: f64 = x * q + self.p * (x - parameters[1]); 
+            let den: f64 = q * self.p; 
+            ret.push(num / den);
+        }
+
+        // derivative for `n` is 0 
+        ret.push(0.0);
+
+        return ret; 
+    }
+
+    /// The natural logarithm of [derivative_pdf_parameters]. The logarithm
+    /// of the elements of the gradient of the pdf in respect to the parameters.
+    ///
+    /// The returned vector has the derivative respect `x` in the first position
+    /// (at index 0), the derivative respect to the first parameter at the second position
+    /// (at index 1), the derivative respect to the second parameter at the third position
+    /// (at index 2) and so on.
+    ///
+    /// If a parameter is discrete (for example can only be a natural number) then the
+    /// derivative will be `-inf` or a NaN.
+    ///
+    /// See: [logarithmic derivative](https://en.wikipedia.org/wiki/Logarithmic_derivative)
+    /// `d/dx ln(f(x)) = f'(x)/f(x)`
+    ///
+    /// ### Binomial:
+    ///
+    /// Since the variable `x` and `n` (number of trials) are not continuous variables,
+    /// they do not have a defined derivative. For this reason, their derivarives are
+    /// considered to be `0.0` and their log_derivatives are `-inf`.
+    fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+
+        // P(x) = ( n | x ) * p^x * (1-p)^(n-x)
+        // Where ( a | b ) is `a choose b`
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        // derivative for `x` is 0 => -inf
+        ret.push(f64::NEG_INFINITY);
+
+        {
+            /*
+                   Log derivative of P(x) respect to `p`:
+
+               ln(P(x)) = ln( ( n | x ) * p^x * (1-p)^(n-x) )
+                        = ln(( n | x )) + ln(p^x) + ln((1-p)^(n-x))
+                        = ln(( n | x )) + x*ln(p) + (n-x) * ln(1-p)
+                        = ln(( n | x )) + x*ln(p) + n*ln(1-p) -x*ln(1-p)
+               d/dp ln(P(x)) = d/dp ln(( n | x )) + x*ln(p) + (n-x) * ln(1-p)
+                             = 0 + x/p + (n-x) * -1/(1-p)
+                             = x/p + (x-n)/(1-p)
+                             = x*(1-p)/((1-p)*p) + p*(x-n)/((1-p)*p)
+                             = ( x*(1-p) + p*(x-n) ) / ((1-p)*p)
+                             = ( x*q + p*(x-n) ) / (q*p)
+
+                ## Check: 
+                f(x) * d/dx ln(f(x)) = f'(x)
+
+                d/dp P(x) = ( n | x ) * ( x*p^(x-1) * (1-p)^(n-x) + p^x * (x-n)*(1-p)^(n-x-1) )
+                Derivation at [Binomial::derivative_pdf_parameters]. 
+
+                >  P(x) * d/dp ln(P(x)) =? d/dp P(x)
+
+                P(x) * d/dp ln(P(x)) = ( n | x ) * p^x * (1-p)^(n-x) * ( x/p + (x-n)/(1-p) )
+                     = ( n | x ) * p^x * (1-p)^(n-x) * ( x/p + (x-n)/(1-p) )
+                     = ( n | x ) * ( x*p^(x-1) * (1-p)^(n-x) + p^x * (x-n)*(1-p)^(n-x-1) )
+                
+                Wich has the exact same expression as d/dp P(x). So they both coincide :)
+
+            */
+
+
+            let q: f64 = 1.0 - self.p; 
+            let num: f64 = x * q + self.p * (x - parameters[1]); 
+            let den: f64 = q * self.p; 
+            ret.push(num / den);
+        }
+
+        // derivative for `n` is 0 => -inf
+        ret.push(f64::NEG_INFINITY);
+
+        return ret; 
+    }
+
+    fn parameter_restriction(&self, parameters: &mut [f64]) {
+        // p
+        parameters[0] = parameters[0].clamp(0.0, 1.0); 
+        // n
+        parameters[1] = parameters[1].floor(); 
+    }
+
+    /// Returns a vector of the parameters that best fit the distribution given
+    /// the data. Important: we will assume that `n` is the value within self 
+    /// (we assume it is a given). One possible estimation of `n` is: `data.maximum()`. 
+    ///
+    /// The method used is [Maximum Likelihood Estimation](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation)
+    /// (MLE). (Using the analytical solution for the Binomial). 
+    /// 
+    /// If there are no samples in the data or `n = 0`, `p` will be set to `0`. 
+    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+        
+        /*
+            If we want to maximize f(x), we should find f'(x) = 0
+            sumatory{x_i} d/dp ln(P(x_i)) = sumatory{x_i} x_i/p + (x_i-n)/(1-p)
+            0 = sumatory{x_i} x_i/p + (x_i-n)/(1-p) 
+
+            #### For only 1 sample: 
+            x/p + (x-n)/(1-p) 
+            -(x-n)/(1-p) = x/p 
+            (n-x)/(1-p) = x/p 
+            (n-x)*p = (1-p)*x 
+            (n-x)*p = x-p*x 
+            (n - x)*p + x*p = x 
+            (n - x + x)*p = x 
+            n*p = x 
+            p = x/n 
+
+            #### For multiple samples: 
+            Assuming k samples. Then `i` goes from [0, k-1]
+
+            0 = sumatory{x_i} x_i/p + (x_i-n)/(1-p) 
+            sumatory{x_i} [-(x_i-n)/(1-p)] = sumatory{x_i} x_i/p 
+            sumatory{x_i} [-(x_i-n)] * 1/(1-p) = 1/p * sumatory{x_i} [x_i] 
+            sumatory{x_i} [n-x_i] = (1-p)/p * sumatory{x_i} [x_i] 
+            sumatory{x_i} [n-x_i] / sumatory{x_i} [x_i] = 1/p - 1
+            sumatory{x_i} [n-x_i] / sumatory{x_i} [x_i] + 1= 1/p
+            (sumatory{x_i} [n-x_i] + sumatory{x_i} [x_i]) / sumatory{x_i} [x_i] = 1/p
+            (sumatory{x_i} [n-x_i + x_i]) / sumatory{x_i} [x_i] = 1/p
+            (sumatory{x_i} [n]) / sumatory{x_i} [x_i] = 1/p
+            sumatory{x_i} [x_i] / sumatory{x_i} [n] = p
+            sumatory{x_i} [x_i] / (n*k) = p
+            mean[x_i] / n = p
+            
+            Since we have an analytical solution, there is no need for 
+            numerical mathods (gradient descent). Also, this result coincides 
+            with the values given by the method of moments. 
+         */
+
+        // Reserve vector for exacly 2 elements
+        let mut ret: Vec<f64> = Vec::new(); 
+        ret.reserve_exact(2); 
+
+        
+        let estimatior_p: f64 = data.mean().unwrap_or(0.0); 
+        ret.push(estimatior_p);
+
+        let n: f64 = self.n as f64; 
+        ret.push(n);
+
+        return ret; 
+    }
 }

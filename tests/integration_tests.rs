@@ -109,11 +109,11 @@ impl Distribution for ConstToInfDistr {
 fn integration_tests_const_to_inf() {
     println!("Integration test const to inf");
 
-    let D: ConstToInfDistr = ConstToInfDistr {
+    let d: ConstToInfDistr = ConstToInfDistr {
         domain: ContinuousDomain::From(-5.0),
     };
 
-    let c: f64 = euclid::numerical_integration(|x| D.pdf(x), D.get_domain());
+    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
 
     println!("{} || {}", c, 12.0);
     assert!((c - 12.0).abs() < 0.0000001);
