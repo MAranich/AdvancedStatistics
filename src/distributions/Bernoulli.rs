@@ -12,8 +12,6 @@
 //!
 //!
 
-use core::f64;
-
 use rand::Rng;
 
 use crate::{

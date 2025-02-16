@@ -1385,7 +1385,7 @@ impl Parametric for Normal {
     }
 
     fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
-        // Reserve a vector with exacly 1 elements
+        // Reserve a vector with exacly 2 elements
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(2);
 

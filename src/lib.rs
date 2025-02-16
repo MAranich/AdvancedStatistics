@@ -12,7 +12,7 @@
 //! - [x] Data computation
 //! - [ ] Multiple tests (hypothesys testing)
 //! - [ ] Computing P values and confidence intervals
-//! - [ ] Parameter estimation
+//! - [x] Parameter estimation
 //! - [ ] Outlier detection
 //! - [ ] Resampling methods
 //! - [ ] Multidimensional data support
