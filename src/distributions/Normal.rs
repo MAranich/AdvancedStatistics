@@ -1122,8 +1122,6 @@ impl Parametric for Normal {
     /// and `std` (standard deviation). The order of the `parameters` is:
     ///
     /// > \[mean, std\]
-    ///
-    /// If `n` is used, it will be rounded down and must be non-negative.
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         let input: f64 = x - parameters[0];
         let inv_std_dev: f64 = 1.0 / parameters[1];
