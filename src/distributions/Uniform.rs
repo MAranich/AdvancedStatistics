@@ -399,7 +399,7 @@ impl Parametric for Uniform {
         return ret; 
     }
     
-    fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+    fn log_derivative_pdf_parameters(&self, _x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
     

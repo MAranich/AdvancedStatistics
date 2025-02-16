@@ -10,8 +10,6 @@
 //! The [Bernoulli distribution](crate::distributions::Bernoulli) is equivalent to a
 //! Binomial distribution with `n = 1`
 
-use std::collections::btree_map::ValuesMut;
-
 use crate::{
     distribution_trait::{DiscreteDistribution, Parametric},
     domain::DiscreteDomain,
@@ -414,7 +412,8 @@ impl Parametric for Binomial {
         return (binomial_coef as f64) * prob_p * prob_q;
     }
 
-    /// Returns `2` but we do **not** optimize for n
+    /// Returns the number of parameters of the model: `2`, 
+    /// but we do **not** optimize for `n`. 
     fn number_of_parameters() -> u16 {
         return 2;
     }

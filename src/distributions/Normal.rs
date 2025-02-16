@@ -17,7 +17,10 @@ use std::f64::consts::{E, PI};
 
 use rand::Rng;
 
-use crate::{distribution_trait::Distribution, domain::ContinuousDomain};
+use crate::{
+    distribution_trait::{Distribution, Parametric},
+    domain::ContinuousDomain,
+};
 
 pub struct StdNormal {
     domain: ContinuousDomain,
@@ -794,7 +797,8 @@ impl Distribution for StdNormal {
 
 impl Distribution for Normal {
     fn pdf(&self, x: f64) -> f64 {
-        return self.std_normal.pdf(x - self.mean) / self.standard_deviation;
+        let inv_std: f64 = 1.0 / self.standard_deviation; 
+        return self.std_normal.pdf((x - self.mean) * inv_std) * inv_std;
     }
 
     fn get_domain(&self) -> &ContinuousDomain {
@@ -1073,7 +1077,7 @@ impl Distribution for Normal {
     }
 
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        // Todo: this should be probably be put in terms of the [rejection_sample_range] 
+        // Todo: this should be probably be put in terms of the [rejection_sample_range]
         // implemetation os StdNormal (like we did with [rejection_sample])
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let range_magnitude: f64 = range.1 - range.0;
@@ -1096,6 +1100,352 @@ impl Distribution for Normal {
             };
             ret.push(sample);
         }
+
+        return ret;
+    }
+}
+
+// Note: no Parametric for StdNormal because it does not have any parameters,
+// since it has no parameters (mean is always 0 and std_dev is always 1).
+// If it is needed to compute the derivatives/log derivatives of the std normal
+// we recommend simply creating a Normal with parameters 0 and 1.
+
+impl Parametric for Normal {
+    /// Evaluates the [Normal::pdf] in a general way taking into account
+    /// the parameters.
+    ///
+    /// > pdf(x | mean, std) = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) )
+    ///
+    /// ### Parameters for Normal:
+    ///
+    /// The [Normal] distribution has 2 parameters: `mean`
+    /// and `std` (standard deviation). The order of the `parameters` is:
+    ///
+    /// > \[mean, std\]
+    ///
+    /// If `n` is used, it will be rounded down and must be non-negative.
+    fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
+        let input: f64 = x - parameters[0];
+        let inv_std_dev: f64 = 1.0 / parameters[1];
+        let inv_var: f64 = inv_std_dev * inv_std_dev;
+
+        let inv_sqrt_2_pi: f64 = 1.0 / (2.0 * PI).sqrt();
+        let normalitzation_constant: f64 = inv_sqrt_2_pi * inv_std_dev;
+
+        return normalitzation_constant * (-0.5 * input * input * inv_var).exp();
+    }
+
+    /// Returns the number of parameters of the model: `2`
+    fn number_of_parameters() -> u16 {
+        2
+    }
+
+    fn get_parameters(&self, parameters: &mut [f64]) {
+        parameters[0] = self.mean;
+        parameters[1] = self.standard_deviation;
+    }
+
+    fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+        // => f(x) * d/dx ln(f(x)) = f'(x)
+
+        // pdf(x | mean, std) = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) )
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        {
+            //## Derivative respect to x:
+            /*
+               d/dx pdf(x | mean, std) = d/dx 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) )
+                = 1/(std * sqrt(2*pi)) * d/dx exp( -(x - mean)^2 / (2*std^2) )
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) * d/dx -(x - mean)^2 / (2*std^2)
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / (2*std^2) * d/dx -(x - mean)^2
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / (2*std^2) * -2*(x - mean) d/dx x - mean
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / (2*std^2) * -2*(x - mean)
+                = 1/(std * sqrt(2*pi) * 2*std^2) * exp( -(x - mean)^2 / (2*std^2) )  * -2*(x - mean)
+                = 1/(sqrt(8*pi) * std^3) * exp( -(x - mean)^2 / (2*std^2) ) * -2*(x - mean)
+                = -2/(sqrt(8*pi) * std^3) * exp( -(x - mean)^2 / (2*std^2) ) * (x - mean)
+
+            */
+
+            let input: f64 = x - parameters[0];
+            let inv_std_dev: f64 = 1.0 / parameters[1];
+            let inv_var: f64 = inv_std_dev * inv_std_dev;
+
+            // norm_const = -2/(sqrt(8*pi) * std^3)
+            let inv_sqrt_8_pi: f64 = 1.0 / (8.0 * PI).sqrt();
+            let normalitzation_constant: f64 = -2.0 * inv_sqrt_8_pi * inv_std_dev * inv_var;
+
+            let der: f64 = normalitzation_constant * (-0.5 * input * input * inv_var).exp() * input;
+            ret.push(der);
+        }
+
+        {
+            //## Derivative respect to mean:
+            /*
+               d/d_mean pdf(x | mean, std) = d/d_mean 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) )
+                = 1/(std * sqrt(2*pi)) * d/d_mean exp( -(x - mean)^2 / (2*std^2) )
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) * d/d_mean -(x - mean)^2 / (2*std^2)
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / (2*std^2) * d/d_mean -(x - mean)^2
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / (2*std^2) * -2*(x - mean) d/d_mean x - mean
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / (2*std^2) * -2*(x - mean) * -1
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / (2*std^2) * 2*(x - mean)
+                = 2/(std * sqrt(2*pi) * 2*std^2) * exp( -(x - mean)^2 / (2*std^2) ) * (x - mean)
+                = 2/(sqrt(8*pi) * std^3) * exp( -(x - mean)^2 / (2*std^2) ) * (x - mean)
+
+                Notice how:
+                > d/d_mean pdf(x | mean, std) = -d/d_x pdf(x | mean, std)
+
+                Therefore we only need to reuse the prevously computed number:
+            */
+
+            ret.push(-ret[0]);
+        }
+
+        {
+            //## Derivative respect to std:
+            /*
+               d/d_std pdf(x | mean, std) = d/d_std 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) )
+                = 1/(sqrt(2*pi)) d/d_std 1/std * exp( -(x - mean)^2 / (2*std^2) )
+                = 1/(sqrt(2*pi)) d/d_std exp( -(x - mean)^2 / (2*std^2) ) / std
+                = 1/(sqrt(2*pi)) ( d/d_std[exp( -(x - mean)^2 / (2*std^2) )] * std - 1*exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * d/d_std[-(x - mean)^2 / (2*std^2) ] * std - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * d/d_std[-(x - mean)^2 * (2*std^2)^-1 ] * std - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * -(x - mean)^2 * d/d_std[(2*std^2)^-1 ] * std - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * -(x - mean)^2 * -(2*std^2)^-2 * 4 * std * std - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * -(x - mean)^2 * -1/(2*std^2)^2 * 4 * std * std - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * -(x - mean)^2 * -1/(4*std^4) * 4 * std * std - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * -(x - mean)^2 * -1/std^4 * std * std - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)) ( exp( -(x - mean)^2 / (2*std^2) ) * -(x - mean)^2 * -1/std^2 - exp( -(x - mean)^2 / (2*std^2) )) / std^2
+                = 1/(sqrt(2*pi)*std^2) ( exp( -(x - mean)^2 / (2*std^2) ) * (-(x - mean)^2 * -1/std^2 - 1))
+                = 1/(sqrt(2*pi)*std^2) ( exp( -(x - mean)^2 / (2*std^2) ) * ((x - mean)^2 * 1/std^2 - 1))
+                = 1/(sqrt(2*pi)*std^2) ( exp( -(x - mean)^2 / (2*std^2) ) * ((x - mean)^2/std^2 - 1))
+                = 1/(std^2 * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) * (((x - mean)/std)^2 - 1)
+                = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) / std * (((x - mean)/std)^2 - 1)
+                = pdf(x | mean, std)/std * (((x - mean)/std)^2 - 1)
+                = pdf(x | mean, std) * (((x - mean)/std)^2 - 1)/std
+
+            *********************************
+
+            Alt proof:
+            pdf(x | mean, std) = pdf_std((x - mean)/std) / std_dev
+            d/d_std pdf(x | mean, std) = d/d_std pdf_std((x - mean)/std) / std_dev
+             = d/d_std pdf_std((x - mean)/std) / std_dev
+             = (pdf_std'((x - mean)/std) * d/d_std[(x - mean)/std_dev] * std_dev - 1 * pdf_std((x - mean)/std)) / std_dev^2
+             = (pdf_std'((x - mean)/std) * (x - mean) * d/d_std[1/std_dev] * std_dev - pdf_std((x - mean)/std)) / std_dev^2
+             = (pdf_std'((x - mean)/std) * (x - mean) * -1/std_dev^2 * std_dev - pdf_std((x - mean)/std)) / std_dev^2
+             = (pdf_std'((x - mean)/std) * (x - mean) * -1/std_dev - pdf_std((x - mean)/std)) / std_dev^2
+             = (pdf_std'((x - mean)/std) * -(x - mean)/std_dev - pdf_std((x - mean)/std)) / std_dev^2
+
+            Computing pdf_std'(s):
+
+            pdf_std'(s) = d/ds pdf_std(s) = d/ds 1/(sqrt(2*pi)) * exp( -0.5*s^2 )
+             = 1/(sqrt(2*pi)) * d/ds exp( -0.5*s^2 )
+             = 1/(sqrt(2*pi)) * exp( -0.5*s^2 ) * d/ds -0.5*s^2
+             = 1/(sqrt(2*pi)) * exp( -0.5*s^2 ) * -0.5 * d/ds s^2
+             = 1/(sqrt(2*pi)) * exp( -0.5*s^2 ) * -0.5 * 2*s
+             = 1/(sqrt(2*pi)) * exp( -0.5*s^2 ) * -s
+             = pdf_std(s) * -s
+
+            Continuing on d/d_std pdf(x | mean, std):
+            d/d_std pdf(x | mean, std) =
+             = (pdf_std'((x - mean)/std_dev) * -(x - mean)/std_dev - pdf_std((x - mean)/std)) / std_dev^2
+             = (pdf_std((x - mean)/std_dev) * -(x - mean)/std_dev * -(x - mean)/std_dev - pdf_std((x - mean)/std)) / std_dev^2
+             = (pdf_std((x - mean)/std_dev) * ((x - mean)/std_dev)^2 - pdf_std((x - mean)/std)) / std_dev^2
+             = pdf_std((x - mean)/std_dev) * ( ((x - mean)/std_dev)^2 - 1 ) / std_dev^2
+             = pdf_std((x - mean)/std_dev) / std_dev * (((x - mean)/std_dev)^2 - 1) / std_dev
+             = pdf(x | mean, std) * (((x - mean)/std_dev)^2 - 1) / std_dev
+
+            Wich is identical for the solution we found in the normal derivation :)
+
+            *********************************
+            ### Check:
+
+            d/dx ln(f(x)) = f'(x)/f(x)  =>  f(x) * d/dx ln(f(x)) = f'(x)
+            d/d_std ln(pdf(x | mean, std)) = 1/std * (-1 + ((x - mean)/std)^2 )
+
+            pdf(x | mean, std) * d/d_std ln(pdf(x | mean, std)) =
+             = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) * 1/std * (-1 + ((x - mean)/std)^2 )
+             = 1/(std^2 * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) * (-1 + ((x - mean)/std)^2 )
+             = 1/(std^2 * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ) * (((x - mean)/std)^2 - 1)
+
+            Wich is identical to 1 of the results we obtained for d/d_std pdf(x | mean, std).
+
+            */
+            // pdf(x | mean, std) * (((x - mean)/std)^2 - 1)/std
+
+            let input: f64 = x - parameters[0];
+            let inv_std_dev: f64 = 1.0 / parameters[1];
+            let s: f64 = input * inv_std_dev;
+
+            let inv_sqrt_2_pi: f64 = 1.0 / (2.0 * PI).sqrt();
+
+            // pdf(x | mean, std)
+            let pdf: f64 = inv_sqrt_2_pi * inv_std_dev * (-0.5 * s * s).exp();
+
+            // = (((x - mean)/std)^2 - 1)/std
+            let term: f64 = (s * s - 1.0) * inv_std_dev;
+
+            ret.push(pdf * term);
+        }
+
+        return ret;
+    }
+
+    fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+
+        // pdf(x | mean, std) = 1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) )
+        // ln(pdf(x | mean, std)) = ln(1/(std * sqrt(2*pi)) * exp( -(x - mean)^2 / (2*std^2) ))
+        // ln(pdf(x | mean, std)) = ln(1/(std * sqrt(2*pi)) + -(x - mean)^2 / (2*std^2)
+        // ln(pdf(x | mean, std)) = -ln(std * sqrt(2*pi) + -(x - mean)^2 / (2*std^2)
+        // ln(pdf(x | mean, std)) = -ln(std) -ln(sqrt(2*pi)) - (x - mean)^2 / (2*std^2)
+        // ln(pdf(x | mean, std)) = -ln(std) -0.5*ln(2*pi) - (x - mean)^2 / (2*std^2)
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        {
+            //## Log derivative respect to x:
+            /*
+               d/dx ln(pdf(x | mean, std)) = d/dx -ln(std) -0.5*ln(2*pi) - (x - mean)^2 / (2*std^2)
+                = 0 + 0 - d/dx (x - mean)^2 / (2*std^2)
+                = - 1/(2*std^2) * d/dx (x - mean)^2
+                = - 1/(2*std^2) * 2 * (x - mean) * 1
+                = - 1/(std^2) * (x - mean)
+                = - (x - mean)/(std^2)
+                = (mean - x)/(std^2)
+                let s = (x - mean)/std
+                d/dx ln(pdf(x | mean, std)) = -(x - mean)/(std^2)
+                 = -s/std
+
+                We will use the result: -(x - mean)/(std^2)
+            */
+
+            let input: f64 = x - parameters[0];
+            let inv_std_dev: f64 = 1.0 / parameters[1];
+
+            ret.push(-input * inv_std_dev * inv_std_dev);
+        }
+
+        {
+            //## Log derivative respect to mean:
+            /*
+               d/d_mean ln(pdf(x | mean, std)) = d/d_mean -ln(std) -0.5*ln(2*pi) - (x - mean)^2 / (2*std^2)
+                = 0 + 0 - d/d_mean (x - mean)^2 / (2*std^2)
+                = -d/d_mean (x - mean)^2 / (2*std^2)
+                = -1/(2*std^2) * d/d_mean (x - mean)^2
+                = -1/(2*std^2) * 2*(x - mean) * -1
+                = -1/(std^2) * (x - mean) * -1
+                = 1/(std^2) * (x - mean)
+                = (x - mean)/(std^2)
+
+                Note that (similarly with the normal derivatives), this reuslt is
+                the same as the negated prevous one:
+
+                d/d_mean ln(pdf(x | mean, std)) = -d/dx ln(pdf(x | mean, std))
+            */
+
+            ret.push(-ret[0]);
+        }
+
+        {
+            //## Log derivative respect to std:
+            /*
+                d/d_std ln(pdf(x | mean, std)) = d/d_std -ln(std) -0.5*ln(2*pi) - (x - mean)^2 / (2*std^2)
+                = -1/std + 0 - (x - mean)^2 * d/d_std 1 / (2*std^2)
+                = -1/std + 0 - (x - mean)^2 * 0.5 * d/d_std 1 / (std^2)
+                = -1/std + 0 - (x - mean)^2 * 0.5 * d/d_std std^-2
+                = -1/std + 0 - (x - mean)^2 * 0.5 * -2 * std^-3
+                = -1/std - (x - mean)^2 * -1 * std^-3
+                = -1/std + (x - mean)^2 * std^-3
+                = -1/std + ((x - mean)/std)^2 * 1/std
+                = 1/std * (-1 + ((x - mean)/std)^2 )
+                let s = (x - mean)/std
+                d/d_std ln(pdf(x | mean, std)) = 1/std * (-1 + s^2 )
+                = 1/std * ( s^2 - 1 )
+
+                We will use the result: = 1/std * (-1 + ((x - mean)/std)^2 )
+            */
+
+            let input: f64 = x - parameters[0];
+            let inv_std_dev: f64 = 1.0 / parameters[1];
+
+            let log_der: f64 = inv_std_dev * (input * input * inv_std_dev * inv_std_dev - 1.0);
+            ret.push(log_der);
+        }
+
+        return ret;
+    }
+
+    fn parameter_restriction(&self, parameters: &mut [f64]) {
+        parameters[1] = parameters[1].max(f64::MIN_POSITIVE);
+        // std cannot be 0 or negative
+    }
+
+    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(2);
+
+        /*
+                Maximum likelyhood estimation:
+
+            Assuming n samples.
+
+            ### For mean:
+
+            0 = sumatory{x_i} d/d_mean ln(pdf(x_i | mean, std_dev))
+            0 = sumatory{x_i} (x_i - mean)/(std_dev^2)
+            0 = 1/std_dev^2 * sumatory{x_i} x_i - mean
+            0 = sumatory{x_i} x_i - mean
+            0 = -mean * n + sumatory{x_i} x_i
+            mean * n = sumatory{x_i} x_i
+            mean = 1/m * sumatory{x_i} x_i
+            mean = mean[x_i]
+
+            //(wow, what a surprise)
+
+            ### For std_dev:
+
+            0 = sumatory{x_i} d/d_std ln(pdf(x_i | mean, std_dev))
+            0 = sumatory{x_i} 1/std * (-1 + ((x - mean)/std)^2 )
+            0 = 1/std * sumatory{x_i} (-1 + ((x - mean)/std)^2 )
+            0 = sumatory{x_i} -1 + ((x - mean)/std)^2
+            0 = -n + sumatory{x_i} ((x - mean)/std)^2
+            n = sumatory{x_i} ((x - mean)/std)^2
+            n = sumatory{x_i} (x - mean)^2/std^2
+            n = 1/std^2 * sumatory{x_i} (x - mean)^2
+            n * std^2 = sumatory{x_i} (x - mean)^2
+            std^2 = 1/n * sumatory{x_i} (x - mean)^2
+            std = sqrt(1/n * sumatory{x_i} (x - mean)^2 )
+
+            // The biased definition of std_dev
+
+            ## Conclusion:
+
+            To estimate the mean we will use:
+
+            mean = mean[x_i]
+
+            But for std we will use the **UNBIASED** formula instead of the obtained one.
+            std = sqrt(1/(n-1) * sumatory{x_i} (x - mean)^2 )
+
+            If there are not enough samples for the computation, the deafults are:
+             - mean: 0
+             - std_dev: 1
+
+        */
+
+        let mean: f64 = data.mean().unwrap_or(0.0);
+        let std_dev: f64 = data.variance().map(|v| v.sqrt()).unwrap_or(1.0);
+        // note that .variance() uses the unbiased extimator
+
+        ret.push(mean);
+        ret.push(std_dev);
 
         return ret;
     }

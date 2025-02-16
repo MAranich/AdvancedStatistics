@@ -3,7 +3,6 @@ use std::usize;
 use rand::Rng;
 
 use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
-use crate::distributions::Normal::StdNormal;
 use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::{self, *};
