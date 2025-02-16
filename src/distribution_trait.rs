@@ -1603,19 +1603,19 @@ pub trait Parametric {
     /// (Probability Density function) of the distribution at point `x` with
     /// the given `parameters`.
     ///
-    /// If follows the same constraits as the normal [Distribution::pdf] 
+    /// If follows the same constraits as the normal [Distribution::pdf]
     /// (or [DiscreteDistribution::pmf]) but taking the parameters into account.
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64;
 
     /// Returns the gradient of the pdf in respect to the parameters and the point `x`.
     ///
-    /// The returned vector has the derivative respect `x` in the first position 
-    /// (at index 0), the derivative respect to the first parameter at the second position 
-    /// (at index 1), the derivative respect to the second parameter at the third position 
-    /// (at index 2) and so on. 
-    /// 
-    /// If a parameter is discrete (for example can only be a natural number) then the 
-    /// derivative will be `0.0`. 
+    /// The returned vector has the derivative respect `x` in the first position
+    /// (at index 0), the derivative respect to the first parameter at the second position
+    /// (at index 1), the derivative respect to the second parameter at the third position
+    /// (at index 2) and so on.
+    ///
+    /// If a parameter is discrete (for example can only be a natural number) then the
+    /// derivative will be `0.0`.
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -1630,13 +1630,13 @@ pub trait Parametric {
     /// The natural logarithm of [derivative_pdf_parameters]. The logarithm
     /// of the elements of the gradient of the pdf in respect to the parameters.
     ///
-    /// The returned vector has the derivative respect `x` in the first position 
-    /// (at index 0), the derivative respect to the first parameter at the second position 
-    /// (at index 1), the derivative respect to the second parameter at the third position 
-    /// (at index 2) and so on. 
-    /// 
-    /// If a parameter is discrete (for example can only be a natural number) then the 
-    /// derivative will be `-inf` or a NaN. 
+    /// The returned vector has the derivative respect `x` in the first position
+    /// (at index 0), the derivative respect to the first parameter at the second position
+    /// (at index 1), the derivative respect to the second parameter at the third position
+    /// (at index 2) and so on.
+    ///
+    /// If a parameter is discrete (for example can only be a natural number) then the
+    /// derivative will be `-inf` or a NaN.
     ///
     /// See: [logarithmic derivative](https://en.wikipedia.org/wiki/Logarithmic_derivative)
     /// `d/dx ln(f(x)) = f'(x)/f(x)`
@@ -1660,12 +1660,12 @@ pub trait Parametric {
     /// approaches that AdvancedStatistics does not focus on.
     fn number_of_parameters() -> u16;
 
-    /// Writes the parameters of the model in order in the given 
-    /// slice. 
-    /// 
-    /// The caller must fullfill or the slice will be accessed out of bounds: 
+    /// Writes the parameters of the model in order in the given
+    /// slice.
+    ///
+    /// The caller must fullfill or the slice will be accessed out of bounds:
     /// `self.number_of_parameters() <= parameters.len()`
-    fn get_parameters(&self, parameters: & mut [f64]); 
+    fn get_parameters(&self, parameters: &mut [f64]);
 
     /// Restrict the parameters if necessary.
     ///
@@ -1688,7 +1688,7 @@ pub trait Parametric {
     /// (MLE) with [Gradient Descent](https://en.wikipedia.org/wiki/Gradient_descent).
     fn fit(&self, data: &mut Samples) -> Vec<f64> {
         let d: usize = Self::number_of_parameters() as usize;
-        let mut parameters: Vec<f64> = vec![0.0; d]; 
+        let mut parameters: Vec<f64> = vec![0.0; d];
         self.get_parameters(&mut parameters);
 
         self.parameter_restriction(&mut parameters);
@@ -1698,15 +1698,14 @@ pub trait Parametric {
         let conv_diff_criteria: f64 = unsafe {
             configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
         };
-        let max_iterations: u32 = unsafe {
-            configuration::maximum_likelihood_estimation::MAX_ITERATIONS
-        };
+        let max_iterations: u32 =
+            unsafe { configuration::maximum_likelihood_estimation::MAX_ITERATIONS };
 
         let inv_n: f64 = 1.0 / (data.peek_data().len() as f64);
 
         let mut gradient: Vec<f64> = vec![0.0; d];
         for i in 0..max_iterations {
-            println!("{}: Parameters: {:?}", i, parameters); 
+            // println!("{}: Parameters: {:?}", i, parameters);
 
             // set gradient to 0
             gradient = gradient.iter_mut().map(|_| 0.0).collect::<Vec<f64>>();

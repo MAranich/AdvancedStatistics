@@ -8,7 +8,7 @@
 
 use rand::Rng;
 
-use crate::{distribution_trait::Distribution, domain::ContinuousDomain};
+use crate::{distribution_trait::{Distribution, Parametric}, domain::ContinuousDomain};
 
 pub struct Uniform {
     domain: ContinuousDomain,
@@ -326,5 +326,155 @@ impl Distribution for Uniform {
         }; 
     
         return new_uniform.sample_multiple(n);
+    }
+}
+
+impl Parametric for Uniform {
+    /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
+    /// (Probability Density function) of the distribution at point `x` with
+    /// the given `parameters`.
+    ///
+    /// If follows the same constraits as the normal [Distribution::pdf]
+    /// (or [DiscreteDistribution::pmf]) but taking the parameters into account.
+    /// 
+    /// ### Parameters for Uniform: 
+    /// 
+    /// The uniform has 2 parameters that determine the domain size. We use `a` and `b`, 
+    /// where `a < b`. The ordering is: 
+    /// 
+    /// > \[a, b\]
+    /// 
+    fn general_pdf(&self, _x: f64, parameters: &[f64]) -> f64 {
+        // it is **oviously** assumed that the pdf is evaluated inside the domain. 
+        // pdf(x) = 1/(b-a)
+        return 1.0 / (parameters[1] - parameters[0]); 
+    }
+
+    fn number_of_parameters() -> u16 {
+        2
+    }
+
+    fn get_parameters(&self, parameters: &mut [f64]) {
+        parameters[0] = self.a; 
+        parameters[1] = self.b; 
+    }
+    
+    fn derivative_pdf_parameters(&self, _x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+        // => f(x) * d/dx ln(f(x)) = f'(x)
+    
+        // pdf(x) = 1/(b-a)
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        // derivative for `x` is 0
+        ret.push(0.0);
+
+        // b - a
+        let range: f64 = parameters[1] - parameters[0]; 
+        {
+            // ## Derivative respect to a: 
+            /*
+                d/da pdf(x) = d/da 1/(b-a) = d/da (b-a)^-1
+                 = -1 * (b-a)^-2 * -1
+                 = (b-a)^-2
+                 = 1/(b-a)^2
+             */
+            ret.push(1.0 / (range * range));
+        }
+
+        {
+            // ## Derivative respect to b: 
+            /*
+                d/db pdf(x) = d/db 1/(b-a) = d/db (b-a)^-1
+                 = -1 * (b-a)^-2
+                 = -1 * 1/(b-a)^2
+                 = -1/(b-a)^2
+             */
+            ret.push(-1.0 / (range * range));
+        }
+
+        return ret; 
+    }
+    
+    fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+        // => f(x) * d/dx ln(f(x)) = f'(x)
+    
+        // pdf(x) = 1/(b-a)
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        // derivative for `x` is 0
+        ret.push(0.0);
+
+        // b - a
+        let range: f64 = parameters[1] - parameters[0]; 
+        {
+            // ## Derivative respect to a: 
+            /*
+                d/da ln(pdf(x)) = d/da ln(1/(b-a)) = d/da -ln(b-a)
+                 = 1/(b-a)
+             */
+            ret.push(1.0 / range);
+        }
+
+        {
+            // ## Derivative respect to b: 
+            /*
+                d/db ln(pdf(x)) = d/db ln(1/(b-a)) = d/db -ln(b-a)
+                 = -1/(b-a)
+             */
+            ret.push(-1.0 / range);
+        }
+
+        return ret; 
+    }
+    
+    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+        /*
+            The uniform is a special case since the d/dab pdf does not have a maximum. 
+            For this reason we will use: 
+             - max and min (maximum likelyhood)
+             - the Minimum-variance unbiased estimator (iff self.a == 0 and min < 0.0)
+
+         */
+
+        // Reserve vector for exacly 2 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(2);
+
+        // number of samples
+        let n: usize = data.peek_data().len(); 
+        if n == 0 {
+            ret.push(0.0);
+            ret.push(1.0);
+            return ret; 
+        }
+
+        // min and max exist
+
+        let min: f64 = data.minimum().unwrap(); 
+        let max: f64 = data.maximum().unwrap(); 
+
+        if self.a == 0.0 && 0.0 <= min {
+            // We will assume that a = 0, therefore we can use
+            // the Minimum-variance unbiased estimator for b
+
+            let n_f: f64 = n as f64; 
+            let b: f64 = ((n_f + 1.0) / n_f) * max; 
+
+            ret.push(0.0);
+            ret.push(b);
+        }
+
+        ret.push(min);
+        ret.push(max);
+
+        return ret;
     }
 }

@@ -125,10 +125,16 @@ impl Distribution for Exponential {
 }
 
 impl Parametric for Exponential {
+    /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
+    /// (Probability Density function) of the distribution at point `x` with
+    /// the given `parameters`.
+    ///
+    /// If follows the same constraits as the normal [Distribution::pdf]
+    /// (or [DiscreteDistribution::pmf]) but taking the parameters into account.
+    /// 
+    /// ### Parameters for Exponential: 
+    /// 
     /// The exponential distribution has only 1 parameter, lambda.
-    ///
-    /// pdf( x | lambda ) = lambda * exp(-lambda * x)
-    ///
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
         let lambda: f64 = parameters[0];
@@ -236,7 +242,7 @@ impl Parametric for Exponential {
     fn parameter_restriction(&self, parameters: &mut [f64]) {
         // lambda must be stricly positive
         // epsilon cubed is arround `1.0947644252537633e-47` and should be enough for most puposes.
-        let ep: f64 = f64::EPSILON; 
+        let ep: f64 = f64::EPSILON;
         parameters[0] = parameters[0].max(ep * ep * ep);
     }
 
