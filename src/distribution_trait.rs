@@ -1574,7 +1574,7 @@ pub trait DiscreteDistribution {
     }
 }
 
-/// This trait controls [Distribution]s with parameters.
+/// This trait controls [Distributions](Distribution) with parameters.
 ///
 /// This trait is uscefull to find the best fit from some data to
 /// the given distribution. The parameters must be floats ([f64]).

@@ -12,9 +12,14 @@
 //!
 //!
 
+use core::f64;
+
 use rand::Rng;
 
-use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain};
+use crate::{
+    distribution_trait::{DiscreteDistribution, Parametric},
+    domain::DiscreteDomain,
+};
 
 pub const BERNOULLI_DOMAIN: DiscreteDomain = DiscreteDomain::Range(0, 1);
 
@@ -53,9 +58,11 @@ impl Bernoulli {
 
 impl DiscreteDistribution for Bernoulli {
     fn pmf(&self, x: f64) -> f64 {
-        let mut ret: f64 = self.p;
-        if x == 0.0 {
-            ret = 1.0 - ret;
+        let mut ret: f64 = 0.0;
+        if x == 1.0 {
+            ret = self.p;
+        } else if x == 0.0 {
+            ret = 1.0 - self.p;
         }
         return ret;
     }
@@ -176,7 +183,8 @@ impl DiscreteDistribution for Bernoulli {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
-        let max_steps: u64 = unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
+        let max_steps: u64 =
+            unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
         let moment: f64 =
@@ -231,5 +239,195 @@ impl DiscreteDistribution for Bernoulli {
         }
 
         return ret;
+    }
+}
+
+impl Parametric for Bernoulli {
+    /// Evaluates the [Bernoulli::pmf] in a general way taking into account
+    /// the parameter.
+    ///
+    /// > pmf(x | p) = {1-p if x == 0.0; p if x == 1.0; 0.0 otherwise}
+    ///
+    /// ### Parameters for [Bernoulli]:
+    ///
+    /// The [Bernoulli] distribution has 1 parameter: `p`
+    /// (**p**robability of success (get 1))
+    fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
+        let mut ret: f64 = 0.0;
+        let p: f64 = parameters[0];
+        if x == 1.0 {
+            ret = p;
+        } else if x == 0.0 {
+            ret = 1.0 - p;
+        }
+        return ret;
+    }
+
+    fn number_of_parameters() -> u16 {
+        1
+    }
+
+    fn get_parameters(&self, parameters: &mut [f64]) {
+        parameters[0] = self.p;
+    }
+
+    fn derivative_pdf_parameters(&self, x: f64, _parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+        // => f(x) * d/dx ln(f(x)) = f'(x)
+
+        // pmf(x | p) = {1-p if x == 0.0; p if x == 1.0; 0.0 otherwise}
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        {
+            //## Derivative respect to x:
+            /*
+               d/dx pmf(x | p) = d/dx {1-p if x == 0.0; p if x == 1.0; 0.0 otherwise}
+
+               The pmf of the bernoulli is not defined for values that are not 1.0 or 0.0,
+               therefore the derivative of the pmf respect to x should be undefinied.
+
+               We will return 0.0.
+
+            */
+
+            ret.push(0.0);
+        }
+
+        {
+            //## Derivative respect to p:
+            /*
+               d/dp pmf(x | p) = d/dp {1-p if x == 0.0; p if x == 1.0; 0.0 otherwise}
+                = {d/dp[1-p] if x == 0.0; d/dp[p] if x == 1.0; d/dp[0.0] otherwise}
+                = {-1 if x == 0.0; 1 if x == 1.0; 0 otherwise}
+
+            */
+
+            let mut der: f64 = 0.0;
+            if x == 1.0 {
+                der = 1.0;
+            } else if x == 0.0 {
+                der = -1.0;
+            }
+
+            ret.push(der);
+        }
+
+        return ret;
+    }
+
+    fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
+        // d/dx ln(f(x)) = f'(x)/f(x)
+
+        // pmf(x | p) = {1-p if x == 0.0; p if x == 1.0; 0.0 otherwise}
+        // ln(pmf(x | p)) = {ln(1-p) if x == 0.0; ln(p) if x == 1.0; ln(0.0) otherwise}
+
+        // Reserve a vector with exacly 3 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(3);
+
+        {
+            //## Derivative respect to x:
+            /*
+               d/dx ln(pmf(x | p)) = d/dx {ln(1-p) if x == 0.0; ln(p) if x == 1.0; ln(0.0) otherwise}
+
+               The pmf of the bernoulli is not defined for values that are not 1.0 or 0.0,
+               therefore the derivative of the pmf respect to x should be undefinied.
+
+               We will return 0.0 -> -inf.
+
+            */
+
+            ret.push(f64::NEG_INFINITY);
+        }
+
+        {
+            //## Derivative respect to p:
+            /*
+               d/dp ln(pmf(x | p)) = d/dp {ln(1-p) if x == 0.0; ln(p) if x == 1.0; ln(0.0) otherwise}
+                = {d/dp[ln(1-p)] if x == 0.0; d/dp[ln(p)] if x == 1.0; d/dp[ln(0.0)] otherwise}
+                = {-1/(1-p) if x == 0.0; 1/p if x == 1.0; 0.0 otherwise}
+                = {1/(p-1) if x == 0.0; 1/p if x == 1.0; 0.0 otherwise}
+
+                We decided to let d/dp[ln(0.0)] = 0
+            */
+
+            let mut der: f64 = 0.0;
+            let p: f64 = parameters[0];
+            if x == 1.0 {
+                der = 1.0 / p;
+            } else if x == 0.0 {
+                der = 1.0 / (p - 1.0);
+            }
+
+            ret.push(der);
+        }
+
+        return ret;
+    }
+
+    fn parameter_restriction(&self, parameters: &mut [f64]) {
+        parameters[0] = parameters[0].clamp(0.0, 1.0);
+    }
+
+    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+
+        // Reserve a vector with exacly 1 elements
+        let mut ret: Vec<f64> = Vec::new();
+        ret.reserve_exact(1);
+
+        // ln(pmf(x | p)) = {ln(1-p) if x == 0.0; ln(p) if x == 1.0; ln(0.0) otherwise}
+
+        /*
+                Maximum likelyhood estimation:
+
+            Assuming `n` samples, wich `a` of them are 0, `b` are 1 and `c` are 
+            anything else. It is true that: `n = a + b + c`. 
+            Since all samples SHOULD come from the Bernoulli distribution `c` = 0 
+            and `n = a + b`
+
+            ### For mean:
+
+            0 = sumatory{x_i} d/d_mean ln(pdf(x_i | p))
+            0 = sumatory{x_i} {1/(p-1) if x == 0.0; 1/p if x == 1.0; 0.0 otherwise}
+            0 = a/(p-1) + b/p + c*0.0
+            0 = a/(p-1) + b/p 
+            -a/(p-1) = b/p 
+            a/(1-p) = b/p 
+            a/b = (1-p)/p 
+            a/b = 1/p - 1 
+            a/b + 1 = 1/p 
+            (a + b)/b = 1/p 
+            b/(a + b) = p 
+            b/n = p 
+
+
+            ## Conclusion:
+
+            To estimate the mean we will use:
+
+            mean = mean[x_i]
+
+            But for std we will use the **UNBIASED** formula instead of the obtained one.
+            std = sqrt(1/(n-1) * sumatory{x_i} (x - mean)^2 )
+
+            ## Deafult values: 
+            If there are not enough samples for the computation, the deafults are:
+             - p: 0.5
+
+        */
+
+        let mut num_ones: u32 = 0; 
+        for observation in data.peek_data().iter() {
+            if *observation == 0.0 {
+                num_ones += 1; 
+            }
+        }
+
+        ret.push((num_ones as f64) / (data.peek_data().len() as f64));
+
+        return ret; 
     }
 }
