@@ -168,7 +168,7 @@ impl Parametric for Exponential {
 
             */
 
-            ret[0] = -lambda * lambda * (-lambda * x).exp();
+            ret.push(-lambda * lambda * (-lambda * x).exp());
         }
 
         {
@@ -183,7 +183,7 @@ impl Parametric for Exponential {
             */
 
             let aux: f64 = -x * lambda;
-            ret[1] = (1.0 + aux) * aux.exp();
+            ret.push((1.0 + aux) * aux.exp());
         }
 
         return ret;
@@ -251,15 +251,15 @@ impl Parametric for Exponential {
 
         /*
             If we want to maximize f(x), we should find f'(x) = 0.
-            Assuming k samples:
+            Assuming n samples:
 
-            sumatory{x_i} d/dp ln(P(x_i)) = sumatory{x_i} 1/lambda - x_i
+            sumatory{x_i} d/d_lambda ln(P(x_i)) = sumatory{x_i} 1/lambda - x_i
             0 = sumatory{x_i} 1/lambda - x_i
-              = k/lambda + sumatory{x_i} - x_i
-              = -k/lambda + sumatory{x_i} x_i
+              = n/lambda + sumatory{x_i} - x_i
+              = -n/lambda + sumatory{x_i} x_i
 
-            k/lambda = sumatory{x_i} x_i
-            1/lambda = sumatory{x_i}[x_i] / k
+            n/lambda = sumatory{x_i} x_i
+            1/lambda = sumatory{x_i}[x_i] / n
             1/lambda = mean[x_i]
             lambda = 1/mean[x_i]
 
