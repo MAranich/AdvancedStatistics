@@ -62,7 +62,7 @@
 //!
 //!  - [x] [Bernoulli](distributions::Bernoulli) ([Wiki](https://en.wikipedia.org/wiki/Bernoulli_distribution))
 //!  - [x] [Binomial](distributions::Binomial) ([Wiki](https://en.wikipedia.org/wiki/Binomial_distribution))
-//!  - [ ] [Uniform](https://en.wikipedia.org/wiki/Discrete_uniform_distribution) (discrete)
+//!  - [x] [Discrete Uniform](distributions::DiscreteUniform) ([Wiki](https://en.wikipedia.org/wiki/Discrete_uniform_distribution)) 
 //!  - [ ] [Geometric distribution](https://en.wikipedia.org/wiki/Geometric_distribution)
 //!  - [ ] [Negative binomial distribution](https://en.wikipedia.org/wiki/Negative_binomial_distribution)
 //!  - [ ] [Poisson distribution](https://en.wikipedia.org/wiki/Poisson_distribution)

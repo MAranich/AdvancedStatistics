@@ -55,12 +55,12 @@ impl Uniform {
 
     /// Return `a` (minimum value).
     pub fn get_a(&self) -> f64 {
-        return self.a.clone();
+        return self.a;
     }
 
     /// Return `b` (maximum value).
     pub fn get_b(&self) -> f64 {
-        return self.b.clone();
+        return self.b;
     }
 }
 

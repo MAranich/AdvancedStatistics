@@ -5,4 +5,5 @@ pub mod Bernoulli;
 pub mod Binomial;
 pub mod Exponential;
 pub mod Uniform; 
+pub mod DiscreteUniform; 
 pub mod Normal;
