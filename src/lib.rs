@@ -56,6 +56,7 @@
 //!  - [ ] [Laplace distribution](https://en.wikipedia.org/wiki/Laplace_distribution)
 //!  - [ ] [Logistic distribution](https://en.wikipedia.org/wiki/Logistic_distribution)
 //!  - [ ] [Quantile parameterized distribution](https://en.wikipedia.org/wiki/Quantile-parameterized_distribution) (?)
+//!  - [ ] [Dirac distribution](distributions::Dirac) ([Wiki](...todo...))
 //!  - [ ] ... (more to come (?))
 //!
 //! ### Discrete distributions:
@@ -66,7 +67,7 @@
 //!  - [x] [Geometric distribution](distributions::Geometric) ([Wiki](https://en.wikipedia.org/wiki/Geometric_distribution))
 //!  - [ ] [Negative binomial distribution](https://en.wikipedia.org/wiki/Negative_binomial_distribution)
 //!  - [ ] [Poisson distribution](https://en.wikipedia.org/wiki/Poisson_distribution)
-//!  - [ ] [Degenerate distribution](https://en.wikipedia.org/wiki/Degenerate_distribution) (aka. Dirac distribution)
+//!  - [x] [Degenerate distribution](distributions::Degenerate) ([Wiki](https://en.wikipedia.org/wiki/Degenerate_distribution)) (Continuous version is [Dirac](distributions::Dirac))
 //!  - [ ] ... (more to come (?))
 //!
 //!

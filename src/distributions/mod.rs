@@ -6,6 +6,7 @@ pub mod Bernoulli;
 pub mod Binomial;
 pub mod DiscreteUniform;
 pub mod Geometric;
+pub mod Degenerate; 
 
 // Continuous
 pub mod Exponential;
