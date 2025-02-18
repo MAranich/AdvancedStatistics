@@ -23,7 +23,8 @@ pub trait Distribution {
     //Requiered method:
 
     /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
-    /// (Probability Density function) of the distribution at point `x`.
+    /// (Probability Density function) of the distribution at point `x`. The function 
+    /// should not be evaluated outside the domain (because it should return 0.0 anyway).
     ///
     /// The PDF is assumed to be a valid probability distribution. It is must fullfill:
     ///  - `0.0 <= pdf(x)`
@@ -1007,14 +1008,23 @@ pub trait Distribution {
 pub trait DiscreteDistribution {
     //Requiered method:
 
+
+    /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
+    /// (Probability Density function) of the distribution at point `x`.
+    ///
+
+
     /// Evaluates the [PMF](https://en.wikipedia.org/wiki/Probability_density_function)
     /// (Probability Mass Function) of the distribution at point x.
     /// The function should not be evaluated outside the domain (because it
     /// should return 0.0 anyway).
     ///
-    /// The PMF is assumed to be a valid probability distribution. If you are not sure
-    /// if the PMF is normalized to have a 1 unit of area under the curve of the pdf, you
-    /// can use [crate::euclid::discrete_integration].
+    /// The PMF is assumed to be a valid probability distribution. It is must fullfill:
+    ///  - `0.0 <= pmf(x)`
+    ///  - It is normalized: `1.0 = sumatory{x} pmf(x)` for all `x` in the domain. 
+    ///      - If you are not sure if the PDF is normalized, you can use
+    /// [crate::euclid::discrete_integration].
+    ///  - The function must be real valued (no `+-inf` or NaNs)
     fn pmf(&self, x: f64) -> f64;
 
     /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
@@ -1079,9 +1089,13 @@ pub trait DiscreteDistribution {
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
 
-    /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
-    /// It may provide a computational advantage.  
+    /// `cdf_multiple` allows to evaluate the [Distribution::cdf] at multiple points.
+    /// It *may* provide a computational advantage over calling [Distribution::cdf] 
+    /// in a loop.  
     ///
+    /// ***
+    /// ***
+    /// 
     /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1194,12 +1208,16 @@ pub trait DiscreteDistribution {
         return ret;
     }
 
-    /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample]
-    /// at multiple points. It may provide a computational advantage in comparasion to [Distribution::sample].
+    /// `sample_multiple` allows to evaluate the [Distribution::sample]
+    /// at multiple points. It *may* provide a computational advantage in 
+    /// comparasion to calling [Distribution::sample] in a loop.
     ///
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
     /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible.
     ///
+    /// ***
+    /// ***
+    /// 
     /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1217,27 +1235,29 @@ pub trait DiscreteDistribution {
         return ret;
     }
 
-    /// quantile_multiple acts the same as [Distribution::quantile] but on multiple points.
-    /// It provides a computational advantage over calling the normal [Distribution::quantile]
-    /// multiple times.
+    /// `quantile_multiple` allows to evaluate the [Distribution::quantile] on multiple points.
+    /// It *may* provide a computational advantage over calling [Distribution::quantile] 
+    /// in a loop. 
     ///
-    /// If there is any NaN in points, an error will be returned. If a value in points
-    /// is less (or equal) to 0, the minimum value in the domain will be returned.
-    /// If a value in points is greater (or equal) to 1, the maximum value in the
+    /// Notes: 
+    ///  - It **panics** if any value is a NaN. 
+    ///  - If a value in points is less (or equal) to 0, the minimum value 
+    /// in the domain will be returned.
+    ///  - If a value in points is greater (or equal) to 1, the maximum value in the
     /// domain will be returned.
     ///
+    /// ***
+    /// ***
+    /// 
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
     /// ```
-    /// fn quantile_multiple(&self, points: &[f64]) -> Result<Vec<f64>, crate::errors::AdvStatError> {
+    /// fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
     ///     let list: Vec<f64> = points
     ///         .iter()
-    ///         .map(|x| match self.quantile(*x) {
-    ///             Ok(v) => v,
-    ///             Err(_) => panic!("There has been an error! "),
-    ///         })
+    ///         .map(|x| self.quantile(*x))
     ///         .collect::<Vec<f64>>();
-    ///     Ok(list)
+    ///     return list; 
     /// }
     /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
@@ -1662,7 +1682,8 @@ pub trait Parametric {
     /// Writes the parameters of the model in order in the given
     /// slice.
     ///
-    /// The caller must fullfill or the slice will be accessed out of bounds:
+    /// **IMPORTANT**: The caller must fullfill or the slice will be 
+    /// accessed out of bounds:
     /// `self.number_of_parameters() <= parameters.len()`
     fn get_parameters(&self, parameters: &mut [f64]);
 

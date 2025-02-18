@@ -1,3 +1,5 @@
+//! # Bernoulli distribution
+//! 
 //! The [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution).
 //!
 //! It represents a value that can eiter take the value `1` with probability `p` or `0`
@@ -50,7 +52,7 @@ impl Bernoulli {
 
     /// Return `p` (probability of success).
     pub fn get_p(&self) -> f64 {
-        return self.p.clone();
+        return self.p;
     }
 }
 

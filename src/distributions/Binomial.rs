@@ -1,3 +1,5 @@
+//! # Binomial distribution
+//! 
 //! The [Binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution)
 //! is the distribution that models the number of successes of `n`
 //! [Bernoulli trials](crate::distributions::Bernoulli) with succes probability `p`.

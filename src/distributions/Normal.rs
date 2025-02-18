@@ -1,3 +1,5 @@
+//! # Normal distribution
+//! 
 //! The [Normal distribution](https://en.wikipedia.org/wiki/Normal_distribution)
 //! ia a very important continuous probability distribution.
 //!

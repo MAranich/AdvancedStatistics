@@ -1,3 +1,16 @@
+//! # Exponential distribution
+//! 
+//! The [Exponential distribution](https://en.wikipedia.org/wiki/Exponential_distribution)
+//! is a continuous distribution very important on statistics that measures 
+//! the time to the next poission event. 
+//! 
+//! A poission event does not have memory. Mathematically, if `e` follows 
+//! an Exponential distribution and `t_1 < t_2`
+//! `P(t_1 < e) = P(t_1 < e | t_2 < e)`
+//! 
+//! The Exponential distribution has a parameter: the rate `lambda` wich determines 
+//! how fast do events happen. 
+
 use rand::Rng;
 
 use crate::{

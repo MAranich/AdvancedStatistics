@@ -1,3 +1,5 @@
+//! # Discrete uniform
+//! 
 //! The [discrete uniform distribution](https://en.wikipedia.org/wiki/Discrete_uniform_distribution)
 //! is a discrete distribution where all possible outcomes are integers in the
 //! interval `[a, b]` have equal chance of happening.
@@ -9,7 +11,7 @@
 use rand::Rng;
 
 use crate::{
-    distribution_trait::{DiscreteDistribution, Distribution, Parametric},
+    distribution_trait::DiscreteDistribution,
     domain::DiscreteDomain,
 };
 

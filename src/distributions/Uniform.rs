@@ -1,3 +1,5 @@
+//! # Uniform distribution
+//! 
 //! The [uniform distribution](https://en.wikipedia.org/wiki/Continuous_uniform_distribution)
 //! is a continuous distributions where all possible outcomes in the interval `[a, b]` have
 //! equal likelyhood of happening.
