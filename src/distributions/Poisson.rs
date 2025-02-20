@@ -19,7 +19,9 @@ use std::num::NonZero;
 use rand::Rng;
 
 use crate::{
-    distribution_trait::{DiscreteDistribution, Parametric}, domain::DiscreteDomain, euclid::ln_gamma_int,
+    distribution_trait::{DiscreteDistribution, Parametric},
+    domain::DiscreteDomain,
+    euclid::ln_gamma_int,
 };
 
 pub const POISSON_DOMAIN: DiscreteDomain = DiscreteDomain::From(0);
@@ -313,13 +315,12 @@ impl Parametric for Poisson {
     ///
     /// If follows the same constraits as the normal [Distribution::pdf]
     /// (or [DiscreteDistribution::pmf]) but taking the parameters into account.
-    /// 
-    /// ### Parameters for Poisson: 
-    /// 
+    ///
+    /// ### Parameters for Poisson:
+    ///
     /// The Poisson distribution has only 1 parameter, `lambda`.
     fn general_pdf(&self, mut x: f64, parameters: &[f64]) -> f64 {
-
-        /* 
+        /*
          > P(x | lambda) = exp(-lambda) * lambda^x / x!
          > P(x | lambda) = exp( x * ln(lambda) - lambda - ln(Gamma(k + 1)) )
         */
@@ -338,9 +339,9 @@ impl Parametric for Poisson {
     }
 
     fn get_parameters(&self, parameters: &mut [f64]) {
-        parameters[0] = self.lambda; 
+        parameters[0] = self.lambda;
     }
-    
+
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -353,10 +354,9 @@ impl Parametric for Poisson {
         let lambda: f64 = parameters[0];
 
         //## Derivative respect to lambda:
-        // there is no derivative for non-continuous functions: 
+        // there is no derivative for non-continuous functions:
 
         ret.push(0.0);
-
 
         {
             //## Derivative respect to lambda:
@@ -369,8 +369,8 @@ impl Parametric for Poisson {
                  = 1.0 / x! * (exp(-lambda) * -lambda^x + x*lambda^(x-1) * exp(-lambda))
                  = 1.0 / x! * exp(-lambda) * (-lambda^x + x*lambda^(x-1))
                  = exp(-lambda) * (x*lambda^(x-1) - lambda^x) / x!
-                 
-                ### Confirmation: 
+
+                ### Confirmation:
 
                 f(x) * d/dx ln(f(x)) = f'(x)
 
@@ -380,23 +380,22 @@ impl Parametric for Poisson {
                  = exp(-lambda) / x! * (lambda^x * x/lambda - lambda^x)
                  = exp(-lambda) * (x*lambda^(x-1) - lambda^x) / x!
 
-                Wich is identical to the solution we got for the normal derivative. 
+                Wich is identical to the solution we got for the normal derivative.
 
                 ### Conclusion
 
-                I think that for this case it will be simpler to just perform: 
+                I think that for this case it will be simpler to just perform:
                  > exp(-lambda) * lambda^x / x! * (x/lambda - 1)
                  > = pdf(x | lambda) * (x/lambda - 1)
             */
 
-            let term: f64 = x/lambda - 1.0;
+            let term: f64 = x / lambda - 1.0;
             ret.push(self.general_pdf(x, parameters) * term);
-
         }
 
-        return ret; 
+        return ret;
     }
-    
+
     fn log_derivative_pdf_parameters(&self, mut x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -406,12 +405,11 @@ impl Parametric for Poisson {
         // ln(P(x | lambda)) = -lambda + x*ln(lambda) + -ln(x!)
         // ln(P(x | lambda)) = -lambda + x*ln(lambda) + -ln(gamma(x + 1)!)
 
-    
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(2);
 
         let lambda: f64 = parameters[0];
-        x = x.floor(); 
+        x = x.floor();
 
         // ## Log derivative respect x:
         ret[0] = 0.0;
@@ -425,28 +423,27 @@ impl Parametric for Poisson {
 
             */
 
-            ret[1] = x/lambda - 1.0;
+            ret[1] = x / lambda - 1.0;
         }
 
         return ret;
     }
-    
+
     fn parameter_restriction(&self, parameters: &mut [f64]) {
-        let ep: f64 = f64::EPSILON; 
+        let ep: f64 = f64::EPSILON;
         parameters[0] = parameters[0].max(ep * ep * ep)
     }
-    
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
 
-        let mut parameters: Vec<f64> = Vec::new(); 
+    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+        let mut parameters: Vec<f64> = Vec::new();
         parameters.reserve_exact(1);
 
-        /* 
-                Estimation of p: 
+        /*
+                Estimation of p:
 
-            Using Maximum Likelyhood estimation: 
-            Assuming k samples. 
-            
+            Using Maximum Likelyhood estimation:
+            Assuming k samples.
+
             pmf(x | lambda) = exp(-lambda) * lambda^x / x!
             d/d_lambda ln(pdf(x | lambda)) = x/lambda - 1
             0 = sumatory{x_i} x_i/lambda - 1
@@ -455,11 +452,11 @@ impl Parametric for Poisson {
             lambda * k = sumatory{x_i} x_i
             lambda = 1/k * sumatory{x_i} x_i
             lambda = mean{x_i}
-                    
-                ### Deafult values: 
 
-            If there are not enough samples to compute the estimators, then 
-            this method will return the following deafult probabilities: 
+                ### Deafult values:
+
+            If there are not enough samples to compute the estimators, then
+            this method will return the following deafult probabilities:
              - `lambda`: 1.0
 
         */
@@ -469,25 +466,11 @@ impl Parametric for Poisson {
             None => {
                 // early return deafult lambda = 1.0
                 parameters.push(1.0);
-                return parameters; 
-            },
-        }; 
+                return parameters;
+            }
+        };
 
         parameters.push(mean);
-        return parameters; 
+        return parameters;
     }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
