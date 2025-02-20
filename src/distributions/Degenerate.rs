@@ -82,7 +82,7 @@ impl DiscreteDistribution for Degenerate {
     }
     
     fn variance(&self) -> Option<f64> {
-        // Only distribution with 0 varaince! 
+        // Only discrete distribution with 0 varaince! 
         return Some(0.0);
     }
     

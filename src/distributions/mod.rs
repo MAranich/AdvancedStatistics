@@ -13,3 +13,4 @@ pub mod Poisson;
 pub mod Exponential;
 pub mod Normal;
 pub mod Uniform;
+pub mod Dirac; 
