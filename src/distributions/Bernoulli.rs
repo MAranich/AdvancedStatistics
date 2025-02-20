@@ -34,7 +34,7 @@ impl Bernoulli {
     ///  - `p` indicates the probability of success (returning `1.0`).
     ///     - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
     pub fn new(p: f64) -> Result<Bernoulli, ()> {
-        if p.is_infinite() || p.is_nan() {
+        if !p.is_finite() {
             return Err(());
         }
         if !(0.0 <= p && p <= 1.0) {

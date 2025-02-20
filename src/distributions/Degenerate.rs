@@ -1,3 +1,5 @@
+//! # Degenerate distribution
+//! 
 //! The degenerate distribution is a distribution that has probability of `1.0` for 
 //! the value `0.0` and `0.0` everywhere else. For this reason it always returns the 
 //! same value, `0.0`. 

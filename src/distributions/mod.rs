@@ -4,9 +4,10 @@
 // Discrete
 pub mod Bernoulli;
 pub mod Binomial;
+pub mod Degenerate;
 pub mod DiscreteUniform;
 pub mod Geometric;
-pub mod Degenerate; 
+pub mod Poisson;
 
 // Continuous
 pub mod Exponential;

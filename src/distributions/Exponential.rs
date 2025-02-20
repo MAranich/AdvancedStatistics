@@ -26,9 +26,12 @@ pub struct Exponential {
 }
 
 impl Exponential {
-    /// Creates a new [Exponential] distribution. it is requiered that `0.0 < lambda` or an
+    /// Creates a new [Exponential] distribution. It is requiered that `0.0 < lambda` or an
     /// error will be returned.
     pub fn new(_lambda: f64) -> Result<Exponential, ()> {
+        if !_lambda.is_finite() {
+            return Err(());
+        }
         if _lambda <= 0.0 {
             return Err(());
         }
@@ -147,7 +150,7 @@ impl Parametric for Exponential {
     /// 
     /// ### Parameters for Exponential: 
     /// 
-    /// The exponential distribution has only 1 parameter, lambda.
+    /// The exponential distribution has only 1 parameter, `lambda`.
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
         let lambda: f64 = parameters[0];

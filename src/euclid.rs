@@ -1,7 +1,7 @@
 //! Euclid contains uscefull math functions
 
 use rand::Rng;
-use std::usize;
+use std::{num::NonZero, usize};
 
 use crate::{
     configuration::integration::{
@@ -465,4 +465,114 @@ pub mod combinatorics {
 
         return Ok(ret);
     }
+}
+
+
+/// Evaluetes the natural logarithm of gamma of `x` when `x` is an integer. 
+/// 
+/// O(input)
+pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
+    // full continuous case implementation: https://www.netlib.org/fdlibm/e_lgamma_r.c
+
+
+    /*
+        ln(gamma(x)) = ln(gamma(x + 1)) - ln(x)
+        ln(gamma(x + 1)) = ln(gamma(x)) + ln(x)
+
+        Gamma(x) = (x-1)!
+        Gamma(x) = productory{i: 1 -> x-1} i
+        ln(Gamma(x)) = sumatory{i: 1 -> x-1} ln(i)
+
+        Therefore: 
+        ln(gamma(x + 1)) = ln(gamma(x - 1)) + ln(x - 1) + ln(x)
+        ln(gamma(x + 1)) = ln(gamma(x - 2)) + ln(x - 2) + ln(x - 1) + ln(x)
+        [...]
+        ln(gamma(x + 1)) = sumatory{i: 2 -> x} ln(x)
+        ln(gamma(x)) = sumatory{i: 2 -> x-1} ln(x)
+
+        ***
+        To reduce the computational cost we will precompute the some awnsers in 
+        order to have some boost in speed (particularly for larger inputs. )
+
+        Note: `ln(f64::MAX) = 709.7827`, therefore if the result is greater than 
+        this number, an overflow will ocurr if exponentiation is attempted. 
+
+        ***
+
+        # Better way to do this: 
+
+        x! = x*(x-1)*(x-2)*(x-1)*[...]*4*3*2*1
+
+        This basic formula essentially gives us someting **REALLY** close to the 
+        factoritzation of x!. Therefore, if we can make a function `prime_factors(k)`
+        that is very fast **up to x**, then we can do: 
+
+        x! = 2^a * 3^b * 5^c * 7^d * 11^e * 13^f [...]
+        ln(x!) = ln(2^a * 3^b * 5^c * 7^d * 11^e * 13^f [...])
+        ln(x!) = ln(2^a) + ln(3^b) + ln(5^c) + ln(7^d) + ln(11^e) + ln(13^f) + [...]
+        ln(x!) = a*ln(2) + b*ln(3) + c*ln(5) + d*ln(7) + e*ln(11) + f*ln(13) + [...]
+
+        Wich should be very effitient assuming we have precompute the ln() of the furst prime
+        numbers. This could be implemented (aprox.) as:  
+
+        ```
+        //list_primes = [2, 3, 5, 7, 11, 13, ...]
+        list_ln_primes = [ln(2), ln(3), ln(5), ln(7), ln(11), ln(13), ...]
+
+        let prime_factor_decomp = (2..=x)
+            .iter().
+            .map(|k| prime_factors(k))
+            .reduce(|fact, acc| acc + fact); 
+        // acc + fact is done element-wise onto the largest vector
+
+        let mut ret = 0.0; 
+        for (ln_prime, pow) in list_ln_primes.iter().zip(prime_factor_decomp.iter()) {
+            ret += pow * ln_prime; 
+        }
+
+        return ret; 
+        ```
+      */
+
+    let x: u64 = input.get(); 
+
+    // numberical values obtained by [WorframAlpha](https://www.wolframalpha.com/input?i=lngamma%283%29)
+    let (mut accumulator, mut i): (f64, f64)  = match x {
+        0 => unreachable!(), 
+        1 | 2 => return 0.0, 
+        3 => return 0.69314718055994530941723212145817656807550, 
+        4 => return 1.79175946922805500081247735838070227272299, 
+        5 => return 3.17805383034794561964694160129705540887399, 
+        6 => return 4.78749174278204599424770093452324304839959, 
+        7 => return 6.57925121201010099506017829290394532112258, 
+        8 => return 8.52516136106541430016553103634712505075966, 
+        9 => return 10.6046029027452502284172274007216547549861, 
+        10 => return 12.8018274800814696112077178745667061642811, 
+        11 => return 15.1044125730755152952257093292510703718822, 
+        12 => return 17.5023078458738858392876529072161996717039, 
+        13 => return 19.9872144956618861495173623870550785125024, 
+        14 => return 22.5521638531234228855708498286203971173077, 
+        15 => return 25.1912211827386815000934346935217534150203, 
+        16 => return 27.8992713838408915660894392636704667591933, 
+        17..=31 => (27.8992713838408915660894392636704667591933, 17.0), 
+        32..=63 => (78.092223553315310631416808058720323846721783, 32.0), 
+        64..=95 => (201.0093163992815266792820391565502964125081888, 64.0), 
+        96..=127 => (340.8150588707990178689655113342148226173214543, 96.0), 
+        128..=191 => (491.553448223298003498872193835691609891142996, 128.0), 
+        192..=255 => (815.7297363039101614174116323592750280049309917, 192.0), 
+        _ => (1161.712101118400650788039632401011094238739485, 256.0), 
+    }; 
+
+    
+
+    let x: f64 = x as f64; 
+
+    while i < x {
+
+        accumulator += i.ln(); 
+        i += 1.0; 
+    }
+
+
+    return accumulator; 
 }

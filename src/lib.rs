@@ -66,7 +66,7 @@
 //!  - [x] [Discrete Uniform](distributions::DiscreteUniform) ([Wiki](https://en.wikipedia.org/wiki/Discrete_uniform_distribution)) 
 //!  - [x] [Geometric distribution](distributions::Geometric) ([Wiki](https://en.wikipedia.org/wiki/Geometric_distribution))
 //!  - [ ] [Negative binomial distribution](https://en.wikipedia.org/wiki/Negative_binomial_distribution)
-//!  - [ ] [Poisson distribution](https://en.wikipedia.org/wiki/Poisson_distribution)
+//!  - [x] [Poisson distribution](https://en.wikipedia.org/wiki/Poisson_distribution)
 //!  - [x] [Degenerate distribution](distributions::Degenerate) ([Wiki](https://en.wikipedia.org/wiki/Degenerate_distribution)) (Continuous version is [Dirac](distributions::Dirac))
 //!  - [ ] ... (more to come (?))
 //!
