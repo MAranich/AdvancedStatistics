@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 ///! General testing section
 use distribution_trait::{DiscreteDistribution, Distribution};
 use distributions::{Binomial::Binomial, Exponential::Exponential};
@@ -351,4 +353,65 @@ fn deafult_methods_comparasion_discrete_binomial() {
     println!("\n\n================================\n\n");
 
     panic!("Show me the results. ");
+}
+
+#[test]
+fn ln_gamma_precision() {
+
+    /*
+        we know that ln_gamma_int is correct because ti's derivated from it's definition, 
+        but it may be slow O(n) and only works for integers. 
+    */
+    // maximum absolute error allowed
+    let max_diff: f64 = 0.000045; 
+    // maximum relative error allowed
+    let max_rel: f64 = 0.0000000000001; 
+
+
+    for i in 1..=260 {
+        let ground: f64 = euclid::ln_gamma_int(NonZero::new(i as u64).unwrap()); 
+        let alternative: f64 = euclid::ln_gamma(i as f64); 
+        let abs_diff: f64 = (ground-alternative).abs(); 
+        let rel_err: f64 = abs_diff/ground; 
+
+        println!("{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}", i, ground, alternative, abs_diff, rel_err); 
+        assert!(abs_diff < max_diff); 
+        assert!(rel_err < max_rel || !rel_err.is_finite()); 
+        // relative error when the true value is 0 explodes to inf
+    }
+
+    println!("**************************************************************************"); 
+    println!("**************************************************************************"); 
+
+    for i in 18..=52 {
+        let ground: f64 = euclid::ln_gamma_int(NonZero::new((i * i) as u64).unwrap()); 
+        let alternative: f64 = euclid::ln_gamma((i * i) as f64); 
+        let abs_diff: f64 = (ground-alternative).abs(); 
+        let rel_err: f64 = abs_diff/ground; 
+
+        println!("{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}", i*i, ground, alternative, abs_diff, rel_err); 
+        assert!(abs_diff < max_diff); 
+        assert!(rel_err < max_rel); 
+    }
+
+    println!("**************************************************************************"); 
+    println!("**************************************************************************"); 
+    println!("**************************************************************************"); 
+
+    // doing powers of 1.5 so it does not syncronize with the ground impl. 
+    // max: 50 => 31.24s
+    //      48 => 13.81s
+    for i in 20..=48 {
+        let x: f64 = 1.5_f64.powi(i).floor(); 
+        let ground: f64 = euclid::ln_gamma_int(NonZero::new(x as u64).unwrap()); 
+        let alternative: f64 = euclid::ln_gamma(x); 
+        let abs_diff: f64 = (ground-alternative).abs(); 
+        let rel_err: f64 = abs_diff/ground; 
+
+        println!("{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}", x, ground, alternative, abs_diff, rel_err); 
+        assert!(abs_diff < max_diff); 
+        assert!(rel_err < max_rel); 
+    }
+
+    // panic!("Show results! "); 
 }

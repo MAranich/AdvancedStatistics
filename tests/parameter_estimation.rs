@@ -3,9 +3,8 @@
 //!
 //!
 
-use distribution_trait::{DiscreteDistribution, Distribution};
-use distributions::{Binomial::Binomial, Exponential::Exponential};
-use domain::*;
+use distribution_trait::Distribution;
+use distributions::Exponential::Exponential;
 use AdvancedStatistics::{distribution_trait::Parametric, Samples::Samples, *};
 
 #[test]

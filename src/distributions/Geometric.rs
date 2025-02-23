@@ -324,7 +324,7 @@ impl Parametric for Geometric {
             Assuming k samples.
 
             pmf(x | p) = (1 - p)^x.floor() * p
-            d/dp ln(pmf(x | p)) = d/dp ln(pmf(x | p)) = -(x.floor() - 1)/(1 - p) + 1/p
+            d/dp ln(pmf(x | p)) = -(x.floor() - 1)/(1 - p) + 1/p
             0 = sumatory{x_i} -(x_i.floor() - 1)/(1 - p) + 1/p
 
             Since we assume all samples come from [Geometric],

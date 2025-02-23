@@ -14,3 +14,4 @@ pub mod Exponential;
 pub mod Normal;
 pub mod Uniform;
 pub mod Dirac; 
+pub mod Beta; 

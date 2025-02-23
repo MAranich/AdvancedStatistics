@@ -2,7 +2,8 @@
 //!
 //! The Dirac distribution is a distribution that has probability of `1.0` for
 //! the value `0.0` and `0.0` everywhere else. For this reason it always returns the
-//! same value, `0.0`.
+//! same value, `0.0`. It is the limit of the normal distribution if `mean = 0` when 
+//! the standard deviation approaches to 0.0. 
 //!
 //! If you want the discrete version of this distribution, use
 //! [Degenerate](crate::distributions::Degenerate).

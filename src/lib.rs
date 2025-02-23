@@ -56,7 +56,7 @@
 //!  - [ ] [Laplace distribution](https://en.wikipedia.org/wiki/Laplace_distribution)
 //!  - [ ] [Logistic distribution](https://en.wikipedia.org/wiki/Logistic_distribution)
 //!  - [ ] [Quantile parameterized distribution](https://en.wikipedia.org/wiki/Quantile-parameterized_distribution) (?)
-//!  - [ ] [Dirac distribution](distributions::Dirac) ([Wiki](...todo...))
+//!  - [ ] [Dirac distribution](distributions::Dirac) ([Wiki](https://en.wikipedia.org/wiki/Dirac_delta_function))
 //!  - [ ] ... (more to come (?))
 //!
 //! ### Discrete distributions:

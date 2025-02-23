@@ -1,5 +1,6 @@
 //! Euclid contains uscefull math functions
 
+use core::f64;
 use rand::Rng;
 use std::{num::NonZero, usize};
 
@@ -11,6 +12,15 @@ use crate::{
     },
     domain::{ContinuousDomain, DiscreteDomain},
 };
+
+/// Constant value for `ln(pi)`
+pub const LN_PI: f64 = 1.1447298858494001741434273513530587116472948129153;
+
+/// Constant value for `ln(2 * sqrt(e / pi))`
+pub const LN_2_SQRT_E_OVER_PI: f64 = 0.6207822376352452223455184457816472122518527279025978;
+
+/// Auxiliary variable when evaluating the `gamma_ln` function
+const GAMMA_R: f64 = 10.900511;
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
 /// are some values that provide information about the shape of the function.
@@ -538,7 +548,10 @@ pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
     let x: u64 = input.get();
 
     // numberical values obtained by [WorframAlpha](https://www.wolframalpha.com/input?i=lngamma%283%29)
-    let (mut accumulator, mut i): (f64, f64) = match x {
+    // This precomputation trick gives constatnt time for x < 16, improves precision
+    // on larger values and cuts the execution time in half in the worst case
+    // (even faster if x is near after a power of 2)
+    let (mut i, mut accumulator): (f64, f64) = match x {
         0 => unreachable!(),
         1 | 2 => return 0.0,
         3 => return 0.69314718055994530941723212145817656807550,
@@ -554,14 +567,67 @@ pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
         13 => return 19.9872144956618861495173623870550785125024,
         14 => return 22.5521638531234228855708498286203971173077,
         15 => return 25.1912211827386815000934346935217534150203,
-        16 => return 27.8992713838408915660894392636704667591933,
-        17..=31 => (27.8992713838408915660894392636704667591933, 17.0),
-        32..=63 => (78.092223553315310631416808058720323846721783, 32.0),
-        64..=95 => (201.0093163992815266792820391565502964125081888, 64.0),
-        96..=127 => (340.8150588707990178689655113342148226173214543, 96.0),
-        128..=191 => (491.553448223298003498872193835691609891142996, 128.0),
-        192..=255 => (815.7297363039101614174116323592750280049309917, 192.0),
-        _ => (1161.712101118400650788039632401011094238739485, 256.0),
+        16 => return 27.8992713838408915660894392636704667591933931455662043400299833003440305808,
+        17..=31 => (
+            16.0,
+            27.8992713838408915660894392636704667591933931455662043400299833003440305808,
+        ),
+        32..=63 => (
+            32.0,
+            78.0922235533153106314168080587203238467217837316160917204369449733031439452,
+        ),
+        64..=95 => (
+            64.0,
+            201.009316399281526679282039156550296412508188866456622214073143661324853519,
+        ),
+        96..=127 => (
+            96.0,
+            340.815058870799017868965511334214822617321454390240027987571047639202043975,
+        ),
+        128..=191 => (
+            128.0,
+            491.553448223298003498872193835691609891142996409845010366122290177784815261,
+        ),
+        192..=255 => (
+            192.0,
+            815.729736303910161417411632359275028004930991738896022223385680976004264343,
+        ),
+        256..=511 => (
+            256.0,
+            1161.71210111840065078803963240101109423873948588454911861929265421905177514,
+        ),
+        512..=1023 => (
+            512.0,
+            2679.82214700130887527601823794629781670844017682761830619344162927789146709,
+        ),
+        1024..=2047 => (
+            1024.0,
+            6071.28041294445066095403761953514563636919669762920935078223510512080532586,
+        ),
+        2048..=4095 => (
+            2048.0,
+            13564.3263533846767473821855164677127379727201815537696870859107270262616598,
+        ),
+        4096..=8191 => (
+            4096.0,
+            29970.3302946773288922724174471721082886858628476477649862937319402318663234,
+        ),
+        8192..=16383 => (
+            8192.0,
+            65621.8156329440267365420386727525789016600839007539328703646063539372538714,
+        ),
+        16384..=32767 => (
+            16384.0,
+            142603.394601473563368664634587584621730955647315697970646410973519264736056,
+        ),
+        32768..=65535 => (
+            32768.0,
+            307923.422526046455078016800901773857108104081949673503481432298691330821781,
+        ),
+        65536.. => (
+            65536.0,
+            661276.871765185503632948496147119903908065540178771477608228928367553458264,
+        ),
     };
 
     let x: f64 = x as f64;
@@ -572,4 +638,158 @@ pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
     }
 
     return accumulator;
+}
+
+const GAMMA_DK: &[f64] = &[
+    2.48574089138753565546e-5,
+    1.05142378581721974210,
+    -3.45687097222016235469,
+    4.51227709466894823700,
+    -2.98285225323576655721,
+    1.05639711577126713077,
+    -1.95428773191645869583e-1,
+    1.70970543404441224307e-2,
+    -5.71926117404305781283e-4,
+    4.63399473359905636708e-6,
+    -2.71994908488607703910e-9,
+];
+
+/// An implementation of the logarithmic gamma function:
+///
+/// `ln_gamma(x) = ln(gamma(x))` => `ln_gamma(x).exp() = gamma(x)`
+///
+/// This implementation was taken from the library
+/// [statsrs](https://docs.rs/statrs/latest/src/statrs/function/gamma.rs.html#54-78).
+/// All credit to their respective creators.
+/// [Github repository](https://github.com/statrs-dev/statrs).
+///
+/// See also: [gamma]
+pub fn ln_gamma(x: f64) -> f64 {
+    /*
+        This gamma implementation was obtained from the library
+        [statrs](https://docs.rs/statrs/latest/statrs/index.html),
+        wich is shared under the MIT license.
+        [Github repository](https://github.com/statrs-dev/statrs).
+
+
+        Original documentation:
+
+        Computes the logarithm of the gamma function
+        with an accuracy of 16 floating point digits.
+        The implementation is derived from
+        "An Analysis of the Lanczos Gamma Approximation",
+        Glendon Ralph Pugh, 2004 p. 116
+    */
+
+    if x < 0.5 {
+        let s: f64 = GAMMA_DK
+            .iter()
+            .enumerate()
+            .skip(1)
+            .fold(GAMMA_DK[0], |s: f64, t: (usize, &f64)| {
+                s + t.1 / (t.0 as f64 - x)
+            });
+
+        LN_PI
+            - (f64::consts::PI * x).sin().ln()
+            - s.ln()
+            - LN_2_SQRT_E_OVER_PI
+            - (0.5 - x) * ((0.5 - x + GAMMA_R) / f64::consts::E).ln()
+    } else {
+        let s: f64 = GAMMA_DK
+            .iter()
+            .enumerate()
+            .skip(1)
+            .fold(GAMMA_DK[0], |s: f64, t: (usize, &f64)| {
+                s + t.1 / (x + t.0 as f64 - 1.0)
+            });
+
+        s.ln() + LN_2_SQRT_E_OVER_PI + (x - 0.5) * ((x - 0.5 + GAMMA_R) / f64::consts::E).ln()
+    }
+}
+
+/// The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).
+///
+/// Diverges at negative integers.
+pub fn gamma(x: f64) -> f64 {
+    return ln_gamma(x).exp();
+}
+
+
+/// An implementation of the digamma function. 
+/// The [digamma function](https://en.wikipedia.org/wiki/Digamma_function) 
+/// is defined as the logarithmic derivative of the [gamma] function: 
+/// 
+/// `d/dx ln(Gamma(x)) = Digamma(x)`
+/// 
+/// Wich is also equivalent to the [polygamma function](https://en.wikipedia.org/wiki/Polygamma_function) 
+/// of order 0. 
+///
+/// This implementation was taken from the library
+/// [statsrs](https://docs.rs/statrs/latest/src/statrs/function/gamma.rs.html#373-412).
+/// All credit to their respective creators.
+/// [Github repository](https://github.com/statrs-dev/statrs).
+///
+/// See also: [gamma], [ln_gamma]. 
+pub fn digamma(x: f64) -> f64 {
+
+    /*
+        This digamma implementation was obtained from the library
+        [statrs](https://docs.rs/statrs/latest/statrs/index.html),
+        wich is shared under the MIT license.
+        [Github repository](https://github.com/statrs-dev/statrs).
+
+        We have made some very minor changes to the implemetation. 
+
+        Original documentation:
+
+        Computes the Digamma function which is defined as the derivative of
+        the log of the gamma function. The implementation is based on
+        "Algorithm AS 103", Jose Bernardo, Applied Statistics, Volume 25, Number 3
+        1976, pages 315 - 317
+    
+    */
+
+    let c: f64 = 12.0;
+    let d1: f64 = -0.57721566490153286;
+    let d2: f64 = 1.6449340668482264365;
+    let s: f64 = 1e-6;
+    let s3: f64 = 1.0 / 12.0;
+    let s4: f64 = 1.0 / 120.0;
+    let s5: f64 = 1.0 / 252.0;
+    let s6: f64 = 1.0 / 240.0;
+    let s7: f64 = 1.0 / 132.0;
+
+    if x == f64::NEG_INFINITY || x.is_nan() {
+        return f64::NAN;
+    }
+
+    if x <= 0.0 && (x.floor() - x).abs() < 0.0000001 {
+        return f64::NEG_INFINITY;
+    }
+
+    if x < 0.0 {
+        return digamma(1.0 - x) + f64::consts::PI / (-f64::consts::PI * x).tan();
+    }
+
+    if x <= s {
+        return d1 - 1.0 / x + d2 * x;
+    }
+
+    let mut result: f64 = 0.0;
+    let mut z: f64 = x;
+
+    while z < c {
+        result -= 1.0 / z;
+        z += 1.0;
+    }
+
+    if z >= c {
+        let mut r: f64 = 1.0 / z;
+        result += z.ln() - 0.5 * r;
+        r *= r;
+        result -= r * (s3 - r * (s4 - r * (s5 - r * (s6 - r * s7))));
+    }
+
+    result
 }

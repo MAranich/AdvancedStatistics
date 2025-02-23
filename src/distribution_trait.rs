@@ -1734,8 +1734,9 @@ pub trait Parametric {
                 let local_log_grad: Vec<f64> =
                     self.log_derivative_pdf_parameters(*sample, &parameters);
 
-                for i in 0..d {
-                    gradient[i] += local_log_grad[i];
+                for j in 0..d {
+                    // ignore derivative respect x
+                    gradient[j] += local_log_grad[j + 1];
                 }
             }
 
