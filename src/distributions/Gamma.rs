@@ -38,6 +38,17 @@ pub struct Gamma {
     normalitzation_constant: f64,
 }
 
+pub struct GammaGenerator {
+    rng: rand::prelude::ThreadRng,
+    exp: crate::distributions::Exponential::ExponentialGenerator,
+    norm: crate::distributions::Normal::StdNormalGenerator,
+    alpha: f64,
+    theta: f64,
+    inv_a: f64,
+    b: f64,
+    c: f64,
+}
+
 impl Gamma {
     /// Creates a new [Gamma] distribution with parameters `alpha` and `theta`.
     ///
@@ -108,6 +119,28 @@ impl Gamma {
 
     pub fn get_theta(&self) -> f64 {
         return self.theta;
+    }
+
+    /// Returns an iterator that can generate [Gamma] samples even faster
+    /// than normally calling [Gamma::sample] many times. Uscefull if you don't
+    /// know exacly how many values you want for [Gamma::sample_multiple].
+    ///
+    /// It avoids the heap allocation of [Gamma::sample_multiple] and
+    /// the repeated initialitzation processes in [Gamma::sample].
+    pub fn iter(&self) -> GammaGenerator {
+        let b: f64 = self.alpha - (1.0 / 3.0);
+        let c: f64 = 1.0 / (3.0 * b.sqrt());
+
+        return GammaGenerator {
+            rng: rand::thread_rng(),
+            exp: super::Exponential::Exponential::new(1.0).unwrap().iter(),
+            norm: super::Normal::StdNormal::new().iter(),
+            alpha: self.alpha,
+            theta: self.theta,
+            inv_a: 1.0 / self.alpha,
+            b,
+            c,
+        };
     }
 }
 
@@ -288,7 +321,7 @@ impl Distribution for Gamma {
                         }
                     }
                 };
-                ret.push(r);
+                ret.push(r * self.theta);
             }
         } else {
             let mut norm: crate::distributions::Normal::StdNormalGenerator =
@@ -318,7 +351,7 @@ impl Distribution for Gamma {
                         break 'gen b * v;
                     }
                 };
-                ret.push(r);
+                ret.push(r * self.theta);
             }
         };
 
@@ -1034,5 +1067,69 @@ impl Parametric for Gamma {
         parameters.push(t);
 
         return parameters;
+    }
+}
+
+impl Iterator for GammaGenerator {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<f64> {
+        // similar implenentation as [Gamma::sample] but better.
+        // removed comments
+
+        // https://en.wikipedia.org/wiki/Gamma_distribution#Random_variate_generation
+        // https://github.com/numpy/numpy/blob/main/numpy/random/src/distributions/distributions.c#L220
+
+        if self.alpha == 1.0 {
+            return self.exp.next();
+        }
+
+        assert!(self.alpha != 0.0 && self.alpha != 1.0);
+
+        let r: f64 = if 1.0 < self.alpha {
+            'gen: loop {
+                let u: f64 = self.rng.gen::<f64>();
+                let v: f64 = self.exp.next().unwrap();
+
+                if u <= self.alpha {
+                    let x: f64 = u.powf(self.inv_a);
+                    if x <= v {
+                        break 'gen x;
+                    }
+                } else {
+                    let y: f64 = -(u * self.inv_a).ln();
+                    let x: f64 = (1.0 - self.alpha + self.alpha * y).powf(self.inv_a);
+
+                    if x <= (v + y) {
+                        break 'gen x;
+                    }
+                }
+            }
+        } else {
+            'gen: loop {
+                let mut x: f64;
+                let mut v: f64;
+                's: loop {
+                    x = self.norm.next().unwrap();
+                    v = 1.0 + self.c * x;
+                    if v <= 0.0 {
+                        break 's;
+                    }
+                }
+                v = v * v * v;
+                let u: f64 = self.rng.gen::<f64>();
+
+                let x_sq: f64 = x * x;
+                if u < 1.0 - 0.0331 * x_sq * x_sq {
+                    break 'gen self.b * v;
+                }
+
+                if u.ln() < 0.5 * x_sq + self.b * (1.0 - v + v.ln()) {
+                    break 'gen self.b * v;
+                }
+            }
+        };
+
+        return Some(r * self.theta);
     }
 }
