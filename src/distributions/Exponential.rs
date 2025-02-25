@@ -26,7 +26,7 @@ pub struct Exponential {
 }
 
 /// An iterator that generates infinites samples form the exponential distribution
-/// faster than than normally calling [Exponential::sample] many times. 
+/// faster than than normally calling [Exponential::sample] many times.
 pub struct ExponentialGenerator {
     inv_lambda: f64,
     rng: rand::prelude::ThreadRng,
@@ -56,12 +56,12 @@ impl Exponential {
         return self.lambda;
     }
 
-    /// Returns an iterator that can generate [Exponential] samples even faster 
-    /// than normally calling [Exponential::sample] many times. Uscefull if you don't 
-    /// know exacly how many values you want for [Exponential::sample_multiple]. 
-    /// 
-    /// It avoids the heap allocation of [Exponential::sample_multiple] and 
-    /// the repeated initialitzation processes in [Exponential::sample]. 
+    /// Returns an iterator that can generate [Exponential] samples even faster
+    /// than normally calling [Exponential::sample] many times. Uscefull if you don't
+    /// know exacly how many values you want for [Exponential::sample_multiple].
+    ///
+    /// It avoids the heap allocation of [Exponential::sample_multiple] and
+    /// the repeated initialitzation processes in [Exponential::sample].
     pub fn iter(&self) -> ExponentialGenerator {
         return ExponentialGenerator {
             inv_lambda: 1.0 / self.lambda,

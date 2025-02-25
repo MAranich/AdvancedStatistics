@@ -10,9 +10,9 @@ pub mod Geometric;
 pub mod Poisson;
 
 // Continuous
+pub mod Beta;
+pub mod Dirac;
 pub mod Exponential;
+pub mod Gamma;
 pub mod Normal;
 pub mod Uniform;
-pub mod Dirac; 
-pub mod Beta; 
-pub mod Gamma; 

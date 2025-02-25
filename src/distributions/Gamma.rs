@@ -250,25 +250,23 @@ impl Distribution for Gamma {
             super::Exponential::Exponential::new(1.0).unwrap().iter();
 
         if self.alpha == 1.0 {
-            return exp.take(n).collect::<Vec<f64>>();         
+            return exp.take(n).collect::<Vec<f64>>();
         }
 
-        assert!(self.alpha != 0.0 && self.alpha != 1.0); 
+        assert!(self.alpha != 0.0 && self.alpha != 1.0);
 
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(n);
 
-    
-        let inv_a: f64 = 1.0 / self.alpha; 
+        let inv_a: f64 = 1.0 / self.alpha;
 
         if 1.0 < self.alpha {
             for _ in 0..n {
-
                 let r: f64 = 'gen: loop {
-                    let u: f64 = rng.gen::<f64>(); 
-                    let v: f64 = exp.next().unwrap(); 
-                
+                    let u: f64 = rng.gen::<f64>();
+                    let v: f64 = exp.next().unwrap();
+
                     /*
                         if u <= 1.0 - self.alpha {
                         if u - 1.0 <= - self.alpha {
@@ -277,46 +275,41 @@ impl Distribution for Gamma {
                         if self.alpha <= u {
                     */
                     if u <= self.alpha {
-                        let x: f64 = u.powf(inv_a); 
+                        let x: f64 = u.powf(inv_a);
                         if x <= v {
-                            break 'gen x; 
+                            break 'gen x;
                         }
                     } else {
-                        let y: f64 = -(u * inv_a).ln(); 
-                        let x: f64 = (1.0 - self.alpha + self.alpha * y).powf(inv_a); 
+                        let y: f64 = -(u * inv_a).ln();
+                        let x: f64 = (1.0 - self.alpha + self.alpha * y).powf(inv_a);
 
                         if x <= (v + y) {
-                            break 'gen x; 
+                            break 'gen x;
                         }
-
                     }
-                
-                }; 
-                ret.push(r); 
+                };
+                ret.push(r);
             }
-            
-
         } else {
-            let mut norm: crate::distributions::Normal::StdNormalGenerator = super::Normal::StdNormal::new().iter(); 
-            let b: f64 = self.alpha - (1.0 /3.0); 
-            let c: f64 = 1.0 / (3.0 * b.sqrt()); 
+            let mut norm: crate::distributions::Normal::StdNormalGenerator =
+                super::Normal::StdNormal::new().iter();
+            let b: f64 = self.alpha - (1.0 / 3.0);
+            let c: f64 = 1.0 / (3.0 * b.sqrt());
             for _ in 0..n {
-
                 let r: f64 = 'gen: loop {
-
-                    let mut x: f64; 
-                    let mut v: f64; 
+                    let mut x: f64;
+                    let mut v: f64;
                     's: loop {
-                        x = norm.next().unwrap(); 
-                        v = 1.0 + c * x; 
+                        x = norm.next().unwrap();
+                        v = 1.0 + c * x;
                         if v <= 0.0 {
                             break 's;
                         }
                     }
-                    v = v * v * v; 
-                    let u: f64 = rng.gen::<f64>(); 
+                    v = v * v * v;
+                    let u: f64 = rng.gen::<f64>();
 
-                    let x_sq: f64 = x * x;  
+                    let x_sq: f64 = x * x;
                     if u < 1.0 - 0.0331 * x_sq * x_sq {
                         break 'gen b * v;
                     }
@@ -324,12 +317,10 @@ impl Distribution for Gamma {
                     if u.ln() < 0.5 * x_sq + b * (1.0 - v + v.ln()) {
                         break 'gen b * v;
                     }
-                
-                }; 
-                ret.push(r); 
+                };
+                ret.push(r);
             }
-
-        }; 
+        };
 
         return ret;
     }

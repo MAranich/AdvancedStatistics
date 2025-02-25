@@ -23,7 +23,7 @@ pub trait Distribution {
     //Requiered method:
 
     /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
-    /// (Probability Density function) of the distribution at point `x`. The function 
+    /// (Probability Density function) of the distribution at point `x`. The function
     /// should not be evaluated outside the domain (because it should return 0.0 anyway).
     ///
     /// The PDF is assumed to be a valid probability distribution. It is must fullfill:
@@ -1008,11 +1008,9 @@ pub trait Distribution {
 pub trait DiscreteDistribution {
     //Requiered method:
 
-
     /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
     /// (Probability Density function) of the distribution at point `x`.
     ///
-
 
     /// Evaluates the [PMF](https://en.wikipedia.org/wiki/Probability_density_function)
     /// (Probability Mass Function) of the distribution at point x.
@@ -1021,7 +1019,7 @@ pub trait DiscreteDistribution {
     ///
     /// The PMF is assumed to be a valid probability distribution. It is must fullfill:
     ///  - `0.0 <= pmf(x)`
-    ///  - It is normalized: `1.0 = sumatory{x} pmf(x)` for all `x` in the domain. 
+    ///  - It is normalized: `1.0 = sumatory{x} pmf(x)` for all `x` in the domain.
     ///      - If you are not sure if the PDF is normalized, you can use
     /// [crate::euclid::discrete_integration].
     ///  - The function must be real valued (no `+-inf` or NaNs)
@@ -1090,12 +1088,12 @@ pub trait DiscreteDistribution {
     // provide a computational advantage.
 
     /// `cdf_multiple` allows to evaluate the [Distribution::cdf] at multiple points.
-    /// It *may* provide a computational advantage over calling [Distribution::cdf] 
+    /// It *may* provide a computational advantage over calling [Distribution::cdf]
     /// in a loop.  
     ///
     /// ***
     /// ***
-    /// 
+    ///
     /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1209,7 +1207,7 @@ pub trait DiscreteDistribution {
     }
 
     /// `sample_multiple` allows to evaluate the [Distribution::sample]
-    /// at multiple points. It *may* provide a computational advantage in 
+    /// at multiple points. It *may* provide a computational advantage in
     /// comparasion to calling [Distribution::sample] in a loop.
     ///
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
@@ -1217,7 +1215,7 @@ pub trait DiscreteDistribution {
     ///
     /// ***
     /// ***
-    /// 
+    ///
     /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1236,19 +1234,19 @@ pub trait DiscreteDistribution {
     }
 
     /// `quantile_multiple` allows to evaluate the [Distribution::quantile] on multiple points.
-    /// It *may* provide a computational advantage over calling [Distribution::quantile] 
-    /// in a loop. 
+    /// It *may* provide a computational advantage over calling [Distribution::quantile]
+    /// in a loop.
     ///
-    /// Notes: 
-    ///  - It **panics** if any value is a NaN. 
-    ///  - If a value in points is less (or equal) to 0, the minimum value 
+    /// Notes:
+    ///  - It **panics** if any value is a NaN.
+    ///  - If a value in points is less (or equal) to 0, the minimum value
     /// in the domain will be returned.
     ///  - If a value in points is greater (or equal) to 1, the maximum value in the
     /// domain will be returned.
     ///
     /// ***
     /// ***
-    /// 
+    ///
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1257,7 +1255,7 @@ pub trait DiscreteDistribution {
     ///         .iter()
     ///         .map(|x| self.quantile(*x))
     ///         .collect::<Vec<f64>>();
-    ///     return list; 
+    ///     return list;
     /// }
     /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
@@ -1622,9 +1620,9 @@ pub trait Parametric {
     /// (Probability Density function) of the distribution at point `x` with
     /// the given `parameters`.
     ///
-    /// If follows the same constraits as the normal 
+    /// If follows the same constraits as the normal
     /// [Distribution::pdf](crate::distribution_trait::Distribution::pdf)
-    /// (or [DiscreteDistribution::pmf](crate::distribution_trait::DiscreteDistribution::pmf)) 
+    /// (or [DiscreteDistribution::pmf](crate::distribution_trait::DiscreteDistribution::pmf))
     /// but also taking the parameters into account.
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64;
 
@@ -1684,7 +1682,7 @@ pub trait Parametric {
     /// Writes the parameters of the model in order in the given
     /// slice.
     ///
-    /// **IMPORTANT**: The caller must fullfill or the slice will be 
+    /// **IMPORTANT**: The caller must fullfill or the slice will be
     /// accessed out of bounds:
     /// `self.number_of_parameters() <= parameters.len()`
     fn get_parameters(&self, parameters: &mut [f64]);
@@ -1707,9 +1705,9 @@ pub trait Parametric {
     /// the data.
     ///
     /// The method used is [Maximum Likelihood Estimation](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation)
-    /// (MLE) with [Gradient Descent](https://en.wikipedia.org/wiki/Gradient_descent). 
-    /// 
-    /// If there has been an error, returns an empty vector. 
+    /// (MLE) with [Gradient Descent](https://en.wikipedia.org/wiki/Gradient_descent).
+    ///
+    /// If there has been an error, returns an empty vector.
     fn fit(&self, data: &mut Samples) -> Vec<f64> {
         let d: usize = Self::number_of_parameters() as usize;
         let mut parameters: Vec<f64> = vec![0.0; d];

@@ -1,5 +1,5 @@
 //! # Normal distribution
-//! 
+//!
 //! The [Normal distribution](https://en.wikipedia.org/wiki/Normal_distribution)
 //! ia a very important continuous probability distribution.
 //!
@@ -15,13 +15,17 @@
 //! but for fixed `mean = 0.0` and `std_dev = 1.0`.
 //!
 
-use std::{f64::consts::{E, PI}, path::Iter};
+use std::{
+    f64::consts::{E, PI},
+    path::Iter,
+};
 
 use rand::Rng;
 
 use crate::{
     distribution_trait::{Distribution, Parametric},
-    domain::ContinuousDomain, euclid,
+    domain::ContinuousDomain,
+    euclid,
 };
 
 // coefitients for the (aprox) computation of the inverse cdf of the std normal
@@ -57,7 +61,6 @@ const C_TWO_COEFITIENTS: [f64; 5] = [
     5.66479518878470764762,
     4.91396098895240075156,
 ];
-
 
 // The numbers are sorted from greatest power coef. to least for better caching.
 const SECTION_0_NUM: [f64; 7] = [
@@ -136,11 +139,10 @@ pub struct StdNormalGenerator {
 }
 
 pub struct NormalGenerator {
-    rng: StdNormalGenerator, 
-    minus_mean: f64, 
-    inv_std_dev: f64, 
+    rng: StdNormalGenerator,
+    minus_mean: f64,
+    inv_std_dev: f64,
 }
-
 
 impl StdNormal {
     /// Create a Standard normal distribution. Has a mean of `0.0` and a standard
@@ -151,18 +153,17 @@ impl StdNormal {
         };
     }
 
-    /// Returns an iterator that can generate [StdNormal] samples even faster 
-    /// than normally calling [StdNormal::sample] many times. Uscefull if you don't 
-    /// know exacly how many values you want for [StdNormal::sample_multiple]. 
-    /// 
-    /// It avoids the heap allocation of [StdNormal::sample_multiple] and 
-    /// the repeated initialitzation processes in [StdNormal::sample]. 
+    /// Returns an iterator that can generate [StdNormal] samples even faster
+    /// than normally calling [StdNormal::sample] many times. Uscefull if you don't
+    /// know exacly how many values you want for [StdNormal::sample_multiple].
+    ///
+    /// It avoids the heap allocation of [StdNormal::sample_multiple] and
+    /// the repeated initialitzation processes in [StdNormal::sample].
     pub fn iter(&self) -> StdNormalGenerator {
         StdNormalGenerator {
             rng: rand::thread_rng(),
         }
     }
-
 }
 
 impl Normal {
@@ -213,25 +214,23 @@ impl Normal {
         return self.standard_deviation.clone();
     }
 
-
-    /// Returns an iterator that can generate [Normal] samples even faster 
-    /// than normally calling [Normal::sample] many times. Uscefull if you don't 
-    /// know exacly how many values you want for [Normal::sample_multiple]. 
-    /// 
-    /// It avoids the heap allocation of [Normal::sample_multiple] and 
-    /// the repeated initialitzation processes in [Normal::sample]. 
+    /// Returns an iterator that can generate [Normal] samples even faster
+    /// than normally calling [Normal::sample] many times. Uscefull if you don't
+    /// know exacly how many values you want for [Normal::sample_multiple].
+    ///
+    /// It avoids the heap allocation of [Normal::sample_multiple] and
+    /// the repeated initialitzation processes in [Normal::sample].
     pub fn iter(&self) -> NormalGenerator {
         let std: StdNormalGenerator = StdNormalGenerator {
             rng: rand::thread_rng(),
-        }; 
+        };
 
         return NormalGenerator {
             rng: std,
             minus_mean: -self.mean,
-            inv_std_dev: 1.0/self.standard_deviation,
-        }; 
+            inv_std_dev: 1.0 / self.standard_deviation,
+        };
     }
-
 }
 
 impl Distribution for StdNormal {
@@ -298,8 +297,6 @@ impl Distribution for StdNormal {
         `x.mul_add(a, b) = x * a + b`
 
         */
-
-
 
         let mut ret: Vec<f64> = Vec::with_capacity(points.len());
         for pnt in points {
@@ -390,8 +387,6 @@ impl Distribution for StdNormal {
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
-
-
 
         for rand_q in &mut rand_quantiles {
             // just map r to the awnser
@@ -848,7 +843,7 @@ impl Distribution for StdNormal {
 
 impl Distribution for Normal {
     fn pdf(&self, x: f64) -> f64 {
-        let inv_std: f64 = 1.0 / self.standard_deviation; 
+        let inv_std: f64 = 1.0 / self.standard_deviation;
         return self.std_normal.pdf((x - self.mean) * inv_std) * inv_std;
     }
 
@@ -1504,12 +1499,10 @@ impl Iterator for StdNormalGenerator {
     type Item = f64;
 
     fn next(&mut self) -> Option<f64> {
-        
-        // similar implenentation as [StdNormal::sample] but better. 
+        // similar implenentation as [StdNormal::sample] but better.
         // removed comments
 
-
-        let rand_q: f64 = self.rng.gen(); 
+        let rand_q: f64 = self.rng.gen();
 
         // just map r to the awnser
 
@@ -1615,9 +1608,9 @@ impl Iterator for StdNormalGenerator {
                 break 'newton_loop if flipped { -r } else { r };
             }
             last = r;
-        }; 
+        };
 
-        return Some(ret); 
+        return Some(ret);
     }
 }
 
@@ -1625,8 +1618,7 @@ impl Iterator for NormalGenerator {
     type Item = f64;
 
     fn next(&mut self) -> Option<f64> {
-        let r: f64 = self.rng.next().unwrap(); 
-        return Some((r + self.minus_mean) * self.inv_std_dev); 
+        let r: f64 = self.rng.next().unwrap();
+        return Some((r + self.minus_mean) * self.inv_std_dev);
     }
 }
-
