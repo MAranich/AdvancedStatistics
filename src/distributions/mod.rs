@@ -15,3 +15,4 @@ pub mod Normal;
 pub mod Uniform;
 pub mod Dirac; 
 pub mod Beta; 
+pub mod Gamma; 

@@ -15,14 +15,109 @@
 //! but for fixed `mean = 0.0` and `std_dev = 1.0`.
 //!
 
-use std::f64::consts::{E, PI};
+use std::{f64::consts::{E, PI}, path::Iter};
 
 use rand::Rng;
 
 use crate::{
     distribution_trait::{Distribution, Parametric},
-    domain::ContinuousDomain,
+    domain::ContinuousDomain, euclid,
 };
+
+// coefitients for the (aprox) computation of the inverse cdf of the std normal
+const B_ZERO_COEFITIENT: f64 = 2.92678600515804815402;
+const B_ONE_COEFITIENTS: [f64; 5] = [
+    8.97280659046817350354,
+    10.27157061171363078863,
+    12.72323261907760928036,
+    16.88639562007936907786,
+    24.12333774572479110372,
+];
+
+const B_TWO_COEFITIENTS: [f64; 5] = [
+    5.81582518933527390512,
+    5.70347935898051436684,
+    5.51862483025707963145,
+    5.26184239579604207321,
+    4.92081346632882032881,
+];
+
+const C_ONE_COEFITIENTS: [f64; 5] = [
+    11.61511226260603247078,
+    18.25323235347346524796,
+    18.38871225773938486923,
+    18.61193318971775795045,
+    24.14804072812762821134,
+];
+
+const C_TWO_COEFITIENTS: [f64; 5] = [
+    3.83362947800146179416,
+    7.30756258553673541139,
+    8.42742300458043240405,
+    5.66479518878470764762,
+    4.91396098895240075156,
+];
+
+
+// The numbers are sorted from greatest power coef. to least for better caching.
+const SECTION_0_NUM: [f64; 7] = [
+    0.0003208627452884811,
+    0.0029441556362517027,
+    0.009257272344987084,
+    0.020003594190859522,
+    0.10840412072985979,
+    0.3989422804014327,
+    0.5,
+];
+const SECTION_0_DEN: [f64; 7] = [
+    0.0006417254905769622,
+    0.0,
+    0.01851454468997417,
+    0.0,
+    0.21680824145971958,
+    0.0,
+    1.0,
+];
+
+// setction near 2.5
+const SECTION_25_NUM: [f64; 7] = [
+    0.0004777055635740545,
+    0.004959895473075369,
+    0.02716949987611552,
+    0.1170167930359141,
+    0.33675493562026104,
+    0.6331862336229754,
+    0.99379,
+];
+const SECTION_25_DEN: [f64; 7] = [
+    0.0005150688335036621,
+    0.004518125531525654,
+    0.029528985481783798,
+    0.10980043913651164,
+    0.34997983988192594,
+    0.6195050600458603,
+    1.0,
+];
+
+// section near 4.0
+const SECTION_4_NUM: [f64; 7] = [
+    0.004050436501176754,
+    0.03868273057953287,
+    0.18470344342551243,
+    0.560398719825338,
+    1.138259393319791,
+    1.4781165616099314,
+    0.999968,
+];
+const SECTION_4_DEN: [f64; 7] = [
+    0.004051295899278642,
+    0.03867514518753098,
+    0.18473451563610907,
+    0.5603253380140956,
+    1.138365676762724,
+    1.4780300285708456,
+    1.0,
+];
 
 pub struct StdNormal {
     domain: ContinuousDomain,
@@ -36,6 +131,17 @@ pub struct Normal {
     standard_deviation: f64,
 }
 
+pub struct StdNormalGenerator {
+    rng: rand::prelude::ThreadRng,
+}
+
+pub struct NormalGenerator {
+    rng: StdNormalGenerator, 
+    minus_mean: f64, 
+    inv_std_dev: f64, 
+}
+
+
 impl StdNormal {
     /// Create a Standard normal distribution. Has a mean of `0.0` and a standard
     /// deviation of `1.0`.
@@ -44,6 +150,19 @@ impl StdNormal {
             domain: ContinuousDomain::Reals,
         };
     }
+
+    /// Returns an iterator that can generate [StdNormal] samples even faster 
+    /// than normally calling [StdNormal::sample] many times. Uscefull if you don't 
+    /// know exacly how many values you want for [StdNormal::sample_multiple]. 
+    /// 
+    /// It avoids the heap allocation of [StdNormal::sample_multiple] and 
+    /// the repeated initialitzation processes in [StdNormal::sample]. 
+    pub fn iter(&self) -> StdNormalGenerator {
+        StdNormalGenerator {
+            rng: rand::thread_rng(),
+        }
+    }
+
 }
 
 impl Normal {
@@ -93,12 +212,31 @@ impl Normal {
     pub fn get_standard_deviation(&self) -> f64 {
         return self.standard_deviation.clone();
     }
+
+
+    /// Returns an iterator that can generate [Normal] samples even faster 
+    /// than normally calling [Normal::sample] many times. Uscefull if you don't 
+    /// know exacly how many values you want for [Normal::sample_multiple]. 
+    /// 
+    /// It avoids the heap allocation of [Normal::sample_multiple] and 
+    /// the repeated initialitzation processes in [Normal::sample]. 
+    pub fn iter(&self) -> NormalGenerator {
+        let std: StdNormalGenerator = StdNormalGenerator {
+            rng: rand::thread_rng(),
+        }; 
+
+        return NormalGenerator {
+            rng: std,
+            minus_mean: -self.mean,
+            inv_std_dev: 1.0/self.standard_deviation,
+        }; 
+    }
+
 }
 
 impl Distribution for StdNormal {
     fn pdf(&self, x: f64) -> f64 {
-        let inv_sqrt_2_pi: f64 = 1.0 / (2.0 * PI).sqrt();
-        return inv_sqrt_2_pi * (-x * x * 0.5).exp();
+        return euclid::INV_SQRT_2_PI * (-x * x * 0.5).exp();
     }
 
     fn get_domain(&self) -> &ContinuousDomain {
@@ -161,38 +299,7 @@ impl Distribution for StdNormal {
 
         */
 
-        let b_zero_coefitient: f64 = 2.92678600515804815402;
-        let b_one_coefitients: [f64; 5] = [
-            8.97280659046817350354,
-            10.27157061171363078863,
-            12.72323261907760928036,
-            16.88639562007936907786,
-            24.12333774572479110372,
-        ];
 
-        let b_two_coefitients: [f64; 5] = [
-            5.81582518933527390512,
-            5.70347935898051436684,
-            5.51862483025707963145,
-            5.26184239579604207321,
-            4.92081346632882032881,
-        ];
-
-        let c_one_coefitients: [f64; 5] = [
-            11.61511226260603247078,
-            18.25323235347346524796,
-            18.38871225773938486923,
-            18.61193318971775795045,
-            24.14804072812762821134,
-        ];
-
-        let c_two_coefitients: [f64; 5] = [
-            3.83362947800146179416,
-            7.30756258553673541139,
-            8.42742300458043240405,
-            5.66479518878470764762,
-            4.91396098895240075156,
-        ];
 
         let mut ret: Vec<f64> = Vec::with_capacity(points.len());
         for pnt in points {
@@ -205,34 +312,34 @@ impl Distribution for StdNormal {
             // let term_zero: f64 = 1.0 / (point + b_zero_coefitient);
 
             let term_1_num: f64 =
-                (point + c_two_coefitients[0]).mul_add(point, c_one_coefitients[0]);
+                (point + C_TWO_COEFITIENTS[0]).mul_add(point, C_ONE_COEFITIENTS[0]);
             let term_1_den: f64 =
-                (point + b_two_coefitients[0]).mul_add(point, b_one_coefitients[0]);
+                (point + B_TWO_COEFITIENTS[0]).mul_add(point, B_ONE_COEFITIENTS[0]);
 
             let term_2_num: f64 =
-                (point + c_two_coefitients[1]).mul_add(point, c_one_coefitients[1]);
+                (point + C_TWO_COEFITIENTS[1]).mul_add(point, C_ONE_COEFITIENTS[1]);
             let term_2_den: f64 =
-                (point + b_two_coefitients[1]).mul_add(point, b_one_coefitients[1]);
+                (point + B_TWO_COEFITIENTS[1]).mul_add(point, B_ONE_COEFITIENTS[1]);
 
             let term_3_num: f64 =
-                (point + c_two_coefitients[2]).mul_add(point, c_one_coefitients[2]);
+                (point + C_TWO_COEFITIENTS[2]).mul_add(point, C_ONE_COEFITIENTS[2]);
             let term_3_den: f64 =
-                (point + b_two_coefitients[2]).mul_add(point, b_one_coefitients[2]);
+                (point + B_TWO_COEFITIENTS[2]).mul_add(point, B_ONE_COEFITIENTS[2]);
 
             let term_4_num: f64 =
-                (point + c_two_coefitients[3]).mul_add(point, c_one_coefitients[3]);
+                (point + C_TWO_COEFITIENTS[3]).mul_add(point, C_ONE_COEFITIENTS[3]);
             let term_4_den: f64 =
-                (point + b_two_coefitients[3]).mul_add(point, b_one_coefitients[3]);
+                (point + B_TWO_COEFITIENTS[3]).mul_add(point, B_ONE_COEFITIENTS[3]);
 
             let term_5_num: f64 =
-                (point + c_two_coefitients[4]).mul_add(point, c_one_coefitients[4]);
+                (point + C_TWO_COEFITIENTS[4]).mul_add(point, C_ONE_COEFITIENTS[4]);
             let term_5_den: f64 =
-                (point + b_two_coefitients[4]).mul_add(point, b_one_coefitients[4]);
+                (point + B_TWO_COEFITIENTS[4]).mul_add(point, B_ONE_COEFITIENTS[4]);
 
             let numerator: f64 = term_1_num * term_2_num * term_3_num * term_4_num * term_5_num;
             let denomiantor: f64 = term_1_den * term_2_den * term_3_den * term_4_den * term_5_den;
 
-            let m: f64 = numerator / (denomiantor * (point + b_zero_coefitient));
+            let m: f64 = numerator / (denomiantor * (point + B_ZERO_COEFITIENT));
             // `aproximation` = `1 - cdf(x)`
             let aproximation: f64 = m * self.pdf(point);
 
@@ -284,65 +391,7 @@ impl Distribution for StdNormal {
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
-        // The numbers are sorted from greatest power coef. to least for better caching.
-        let section_0_num: [f64; 7] = [
-            0.0003208627452884811,
-            0.0029441556362517027,
-            0.009257272344987084,
-            0.020003594190859522,
-            0.10840412072985979,
-            0.3989422804014327,
-            0.5,
-        ];
-        let section_0_den: [f64; 7] = [
-            0.0006417254905769622,
-            0.0,
-            0.01851454468997417,
-            0.0,
-            0.21680824145971958,
-            0.0,
-            1.0,
-        ];
 
-        // setction near 2.5
-        let section_25_num: [f64; 7] = [
-            0.0004777055635740545,
-            0.004959895473075369,
-            0.02716949987611552,
-            0.1170167930359141,
-            0.33675493562026104,
-            0.6331862336229754,
-            0.99379,
-        ];
-        let section_25_den: [f64; 7] = [
-            0.0005150688335036621,
-            0.004518125531525654,
-            0.029528985481783798,
-            0.10980043913651164,
-            0.34997983988192594,
-            0.6195050600458603,
-            1.0,
-        ];
-
-        // section near 4.0
-        let section_4_num: [f64; 7] = [
-            0.004050436501176754,
-            0.03868273057953287,
-            0.18470344342551243,
-            0.560398719825338,
-            1.138259393319791,
-            1.4781165616099314,
-            0.999968,
-        ];
-        let section_4_den: [f64; 7] = [
-            0.004051295899278642,
-            0.03867514518753098,
-            0.18473451563610907,
-            0.5603253380140956,
-            1.138365676762724,
-            1.4780300285708456,
-            1.0,
-        ];
 
         for rand_q in &mut rand_quantiles {
             // just map r to the awnser
@@ -350,7 +399,7 @@ impl Distribution for StdNormal {
             let (q, flipped): (f64, bool) = if *rand_q < 0.5 {
                 (1.0 - *rand_q, true)
             } else {
-                (*rand_q, true)
+                (*rand_q, false)
             };
 
             assert!(0.5 <= q && q <= 1.0);
@@ -366,21 +415,21 @@ impl Distribution for StdNormal {
                     // method 0
 
                     //Horner's rule
-                    let numerator: f64 = section_0_num[0]
-                        .mul_add(r, section_0_num[1])
-                        .mul_add(r, section_0_num[2])
-                        .mul_add(r, section_0_num[3])
-                        .mul_add(r, section_0_num[4])
-                        .mul_add(r, section_0_num[5])
-                        .mul_add(r, section_0_num[6]);
+                    let numerator: f64 = SECTION_0_NUM[0]
+                        .mul_add(r, SECTION_0_NUM[1])
+                        .mul_add(r, SECTION_0_NUM[2])
+                        .mul_add(r, SECTION_0_NUM[3])
+                        .mul_add(r, SECTION_0_NUM[4])
+                        .mul_add(r, SECTION_0_NUM[5])
+                        .mul_add(r, SECTION_0_NUM[6]);
 
-                    let denominator: f64 = section_0_den[0]
-                        .mul_add(r, section_0_den[1])
-                        .mul_add(r, section_0_den[2])
-                        .mul_add(r, section_0_den[3])
-                        .mul_add(r, section_0_den[4])
-                        .mul_add(r, section_0_den[5])
-                        .mul_add(r, section_0_den[6]);
+                    let denominator: f64 = SECTION_0_DEN[0]
+                        .mul_add(r, SECTION_0_DEN[1])
+                        .mul_add(r, SECTION_0_DEN[2])
+                        .mul_add(r, SECTION_0_DEN[3])
+                        .mul_add(r, SECTION_0_DEN[4])
+                        .mul_add(r, SECTION_0_DEN[5])
+                        .mul_add(r, SECTION_0_DEN[6]);
 
                     numerator / denominator
                 } else if r < 3.0 {
@@ -388,21 +437,21 @@ impl Distribution for StdNormal {
                     // method 2.5
 
                     //Horner's rule
-                    let numerator: f64 = section_25_num[0]
-                        .mul_add(r, section_25_num[1])
-                        .mul_add(r, section_25_num[2])
-                        .mul_add(r, section_25_num[3])
-                        .mul_add(r, section_25_num[4])
-                        .mul_add(r, section_25_num[5])
-                        .mul_add(r, section_25_num[6]);
+                    let numerator: f64 = SECTION_25_NUM[0]
+                        .mul_add(r, SECTION_25_NUM[1])
+                        .mul_add(r, SECTION_25_NUM[2])
+                        .mul_add(r, SECTION_25_NUM[3])
+                        .mul_add(r, SECTION_25_NUM[4])
+                        .mul_add(r, SECTION_25_NUM[5])
+                        .mul_add(r, SECTION_25_NUM[6]);
 
-                    let denominator: f64 = section_25_den[0]
-                        .mul_add(r, section_25_den[1])
-                        .mul_add(r, section_25_den[2])
-                        .mul_add(r, section_25_den[3])
-                        .mul_add(r, section_25_den[4])
-                        .mul_add(r, section_25_den[5])
-                        .mul_add(r, section_25_den[6]);
+                    let denominator: f64 = SECTION_25_DEN[0]
+                        .mul_add(r, SECTION_25_DEN[1])
+                        .mul_add(r, SECTION_25_DEN[2])
+                        .mul_add(r, SECTION_25_DEN[3])
+                        .mul_add(r, SECTION_25_DEN[4])
+                        .mul_add(r, SECTION_25_DEN[5])
+                        .mul_add(r, SECTION_25_DEN[6]);
 
                     numerator / denominator
                 } else if r < 8.0 {
@@ -411,21 +460,21 @@ impl Distribution for StdNormal {
                     // remember that we will still use this method up to 8.0
                     // even if it doen not retain as much precision.
                     //Horner's rule
-                    let numerator: f64 = section_4_num[0]
-                        .mul_add(r, section_4_num[1])
-                        .mul_add(r, section_4_num[2])
-                        .mul_add(r, section_4_num[3])
-                        .mul_add(r, section_4_num[4])
-                        .mul_add(r, section_4_num[5])
-                        .mul_add(r, section_4_num[6]);
+                    let numerator: f64 = SECTION_4_NUM[0]
+                        .mul_add(r, SECTION_4_NUM[1])
+                        .mul_add(r, SECTION_4_NUM[2])
+                        .mul_add(r, SECTION_4_NUM[3])
+                        .mul_add(r, SECTION_4_NUM[4])
+                        .mul_add(r, SECTION_4_NUM[5])
+                        .mul_add(r, SECTION_4_NUM[6]);
 
-                    let denominator: f64 = section_4_den[0]
-                        .mul_add(r, section_4_den[1])
-                        .mul_add(r, section_4_den[2])
-                        .mul_add(r, section_4_den[3])
-                        .mul_add(r, section_4_den[4])
-                        .mul_add(r, section_4_den[5])
-                        .mul_add(r, section_4_den[6]);
+                    let denominator: f64 = SECTION_4_DEN[0]
+                        .mul_add(r, SECTION_4_DEN[1])
+                        .mul_add(r, SECTION_4_DEN[2])
+                        .mul_add(r, SECTION_4_DEN[3])
+                        .mul_add(r, SECTION_4_DEN[4])
+                        .mul_add(r, SECTION_4_DEN[5])
+                        .mul_add(r, SECTION_4_DEN[6]);
 
                     numerator / denominator
                 } else {
@@ -1450,3 +1499,134 @@ impl Parametric for Normal {
         return ret;
     }
 }
+
+impl Iterator for StdNormalGenerator {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<f64> {
+        
+        // similar implenentation as [StdNormal::sample] but better. 
+        // removed comments
+
+
+        let rand_q: f64 = self.rng.gen(); 
+
+        // just map r to the awnser
+
+        let (q, flipped): (f64, bool) = if rand_q < 0.5 {
+            (1.0 - rand_q, true)
+        } else {
+            (rand_q, false)
+        };
+
+        assert!(0.5 <= q && q <= 1.0);
+
+        // [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
+
+        let mut r: f64 = 4.0 * q - 2.2;
+        let mut last: f64 = -128.0; // arbitrary number, just far away from r
+                                    // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
+        let ret: f64 = 'newton_loop: loop {
+            let cdf: f64 = if r < 1.4 {
+                // covers 83.8487 % of cases
+                // method 0
+
+                //Horner's rule
+                let numerator: f64 = SECTION_0_NUM[0]
+                    .mul_add(r, SECTION_0_NUM[1])
+                    .mul_add(r, SECTION_0_NUM[2])
+                    .mul_add(r, SECTION_0_NUM[3])
+                    .mul_add(r, SECTION_0_NUM[4])
+                    .mul_add(r, SECTION_0_NUM[5])
+                    .mul_add(r, SECTION_0_NUM[6]);
+
+                let denominator: f64 = SECTION_0_DEN[0]
+                    .mul_add(r, SECTION_0_DEN[1])
+                    .mul_add(r, SECTION_0_DEN[2])
+                    .mul_add(r, SECTION_0_DEN[3])
+                    .mul_add(r, SECTION_0_DEN[4])
+                    .mul_add(r, SECTION_0_DEN[5])
+                    .mul_add(r, SECTION_0_DEN[6]);
+
+                numerator / denominator
+            } else if r < 3.0 {
+                // covers 99.73% of cases
+                // method 2.5
+
+                //Horner's rule
+                let numerator: f64 = SECTION_25_NUM[0]
+                    .mul_add(r, SECTION_25_NUM[1])
+                    .mul_add(r, SECTION_25_NUM[2])
+                    .mul_add(r, SECTION_25_NUM[3])
+                    .mul_add(r, SECTION_25_NUM[4])
+                    .mul_add(r, SECTION_25_NUM[5])
+                    .mul_add(r, SECTION_25_NUM[6]);
+
+                let denominator: f64 = SECTION_25_DEN[0]
+                    .mul_add(r, SECTION_25_DEN[1])
+                    .mul_add(r, SECTION_25_DEN[2])
+                    .mul_add(r, SECTION_25_DEN[3])
+                    .mul_add(r, SECTION_25_DEN[4])
+                    .mul_add(r, SECTION_25_DEN[5])
+                    .mul_add(r, SECTION_25_DEN[6]);
+
+                numerator / denominator
+            } else if r < 8.0 {
+                // covers 99.99999999999987558078851456431752968% of cases (according to wolframalpha)
+                // method 4
+                // remember that we will still use this method up to 8.0
+                // even if it doen not retain as much precision.
+                //Horner's rule
+                let numerator: f64 = SECTION_4_NUM[0]
+                    .mul_add(r, SECTION_4_NUM[1])
+                    .mul_add(r, SECTION_4_NUM[2])
+                    .mul_add(r, SECTION_4_NUM[3])
+                    .mul_add(r, SECTION_4_NUM[4])
+                    .mul_add(r, SECTION_4_NUM[5])
+                    .mul_add(r, SECTION_4_NUM[6]);
+
+                let denominator: f64 = SECTION_4_DEN[0]
+                    .mul_add(r, SECTION_4_DEN[1])
+                    .mul_add(r, SECTION_4_DEN[2])
+                    .mul_add(r, SECTION_4_DEN[3])
+                    .mul_add(r, SECTION_4_DEN[4])
+                    .mul_add(r, SECTION_4_DEN[5])
+                    .mul_add(r, SECTION_4_DEN[6]);
+
+                numerator / denominator
+            } else {
+                // numbers greater than 8.0 are mapped to 0.0 to avoid prolems
+                // this is **extremly** unlikely anyway. probability of ending
+                // in this region: 0.00000000000012441921148543568247032% (according to wolframalpha)
+                r = 0.0;
+                break 'newton_loop 0.0;
+            };
+
+            // Newton's method
+            //r_n+1 = r_n + (q - cdf(r_n)) * sqrt(2*pi) * exp(0.5 * r_n * r_n)
+
+            // Instead of computing 1/pdf; compute a modified version of pdf
+            let inv_pdf: f64 = euclid::SQRT_2_PI * (0.5 * r * r).exp();
+            r = r + (q - cdf) * inv_pdf;
+
+            if (r - last).abs() < 0.00001 {
+                // since we are using Newton's method, this shoud be rather fast
+                // (3 iters or less for over 99% of cases)
+                break 'newton_loop if flipped { -r } else { r };
+            }
+            last = r;
+        }; 
+
+        return Some(ret); 
+    }
+}
+
+impl Iterator for NormalGenerator {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<f64> {
+        let r: f64 = self.rng.next().unwrap(); 
+        return Some((r + self.minus_mean) * self.inv_std_dev); 
+    }
+}
+

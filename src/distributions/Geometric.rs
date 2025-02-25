@@ -152,7 +152,7 @@ impl DiscreteDistribution for Geometric {
     ///
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
-    /// evaluating the [Distribution::quantile] function at `0.5`.
+    /// evaluating the [DiscreteDistribution::quantile] function at `0.5`.
     ///
     /// ### Geometric:
     ///

@@ -1,15 +1,15 @@
 //! # Exponential distribution
-//! 
+//!
 //! The [Exponential distribution](https://en.wikipedia.org/wiki/Exponential_distribution)
-//! is a continuous distribution very important on statistics that measures 
-//! the time to the next poission event. 
-//! 
-//! A poission event does not have memory. Mathematically, if `e` follows 
+//! is a continuous distribution very important on statistics that measures
+//! the time to the next poission event.
+//!
+//! A poission event does not have memory. Mathematically, if `e` follows
 //! an Exponential distribution and `t_1 < t_2`
 //! `P(t_1 < e) = P(t_1 < e | t_2 < e)`
-//! 
-//! The Exponential distribution has a parameter: the rate `lambda` wich determines 
-//! how fast do events happen. 
+//!
+//! The Exponential distribution has a parameter: the rate `lambda` wich determines
+//! how fast do events happen.
 
 use rand::Rng;
 
@@ -23,6 +23,13 @@ use crate::{
 pub struct Exponential {
     lambda: f64,
     domain: ContinuousDomain,
+}
+
+/// An iterator that generates infinites samples form the exponential distribution
+/// faster than than normally calling [Exponential::sample] many times. 
+pub struct ExponentialGenerator {
+    inv_lambda: f64,
+    rng: rand::prelude::ThreadRng,
 }
 
 impl Exponential {
@@ -47,6 +54,19 @@ impl Exponential {
 
     pub fn get_lambda(&self) -> f64 {
         return self.lambda;
+    }
+
+    /// Returns an iterator that can generate [Exponential] samples even faster 
+    /// than normally calling [Exponential::sample] many times. Uscefull if you don't 
+    /// know exacly how many values you want for [Exponential::sample_multiple]. 
+    /// 
+    /// It avoids the heap allocation of [Exponential::sample_multiple] and 
+    /// the repeated initialitzation processes in [Exponential::sample]. 
+    pub fn iter(&self) -> ExponentialGenerator {
+        return ExponentialGenerator {
+            inv_lambda: 1.0 / self.lambda,
+            rng: rand::thread_rng(),
+        };
     }
 }
 
@@ -145,11 +165,13 @@ impl Parametric for Exponential {
     /// (Probability Density function) of the distribution at point `x` with
     /// the given `parameters`.
     ///
-    /// If follows the same constraits as the normal [Distribution::pdf]
-    /// (or [DiscreteDistribution::pmf]) but taking the parameters into account.
-    /// 
-    /// ### Parameters for Exponential: 
-    /// 
+    /// If follows the same constraits as the normal
+    /// [Distribution::pdf]
+    /// (or [DiscreteDistribution::pmf](crate::distribution_trait::DiscreteDistribution::pmf))
+    /// but also taking the parameters into account.
+    ///
+    /// ### Parameters for Exponential:
+    ///
     /// The exponential distribution has only 1 parameter, `lambda`.
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
@@ -290,5 +312,14 @@ impl Parametric for Exponential {
         // returns lambda = 1.0 if no samples
 
         return ret;
+    }
+}
+
+impl Iterator for ExponentialGenerator {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<f64> {
+        let r: f64 = self.rng.gen();
+        return Some(-r.ln() * self.inv_lambda);
     }
 }

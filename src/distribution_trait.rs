@@ -1422,7 +1422,7 @@ pub trait DiscreteDistribution {
     ///
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
-    /// evaluating the [Distribution::quantile] function at `0.5`.
+    /// evaluating the [DiscreteDistribution::quantile] function at `0.5`.
     fn median(&self) -> f64 {
         return self.quantile(0.5);
     }
@@ -1622,8 +1622,10 @@ pub trait Parametric {
     /// (Probability Density function) of the distribution at point `x` with
     /// the given `parameters`.
     ///
-    /// If follows the same constraits as the normal [Distribution::pdf]
-    /// (or [DiscreteDistribution::pmf]) but taking the parameters into account.
+    /// If follows the same constraits as the normal 
+    /// [Distribution::pdf](crate::distribution_trait::Distribution::pdf)
+    /// (or [DiscreteDistribution::pmf](crate::distribution_trait::DiscreteDistribution::pmf)) 
+    /// but also taking the parameters into account.
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64;
 
     /// Returns the gradient of the pdf in respect to the parameters and the point `x`.
@@ -1646,7 +1648,7 @@ pub trait Parametric {
             .collect::<Vec<f64>>();
     }
 
-    /// The natural logarithm of [derivative_pdf_parameters]. The logarithm
+    /// The natural logarithm of [Parametric::derivative_pdf_parameters]. The logarithm
     /// of the elements of the gradient of the pdf in respect to the parameters.
     ///
     /// The returned vector has the derivative respect `x` in the first position
@@ -1705,7 +1707,9 @@ pub trait Parametric {
     /// the data.
     ///
     /// The method used is [Maximum Likelihood Estimation](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation)
-    /// (MLE) with [Gradient Descent](https://en.wikipedia.org/wiki/Gradient_descent).
+    /// (MLE) with [Gradient Descent](https://en.wikipedia.org/wiki/Gradient_descent). 
+    /// 
+    /// If there has been an error, returns an empty vector. 
     fn fit(&self, data: &mut Samples) -> Vec<f64> {
         let d: usize = Self::number_of_parameters() as usize;
         let mut parameters: Vec<f64> = vec![0.0; d];

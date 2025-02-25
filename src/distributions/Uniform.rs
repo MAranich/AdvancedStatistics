@@ -336,8 +336,10 @@ impl Parametric for Uniform {
     /// (Probability Density function) of the distribution at point `x` with
     /// the given `parameters`.
     ///
-    /// If follows the same constraits as the normal [Distribution::pdf]
-    /// (or [DiscreteDistribution::pmf]) but taking the parameters into account.
+    /// If follows the same constraits as the normal 
+    /// [Distribution::pdf]
+    /// (or [DiscreteDistribution::pmf](crate::distribution_trait::DiscreteDistribution::pmf)) 
+    /// but also taking the parameters into account.
     /// 
     /// ### Parameters for Uniform: 
     /// 

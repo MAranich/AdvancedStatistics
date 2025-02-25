@@ -31,6 +31,9 @@ pub struct SampleProperties {
     pub minimum: Option<f64>,
     /// Determines if the data is sorted
     pub is_sorted: bool,
+    /// Expected logarithmic value, 
+    /// the estimator for `E(ln(x))`
+    pub log_mean: Option<f64>,  
 }
 
 #[bon]
@@ -522,6 +525,33 @@ impl Samples {
         return Some(quantile);
     }
 
+    /// Returns the mean of the logarithm
+    /// 
+    /// It is the estimatior for `E(ln(x))`. 
+    /// 
+    /// It will return [None] under any of the following conditions: 
+    ///  - There are 0 samples in [Samples]
+    ///  - If any of the samples is negative. 
+    /// 
+    /// Also, if any sample is exacly 0, `Some(-inf)` is returned. 
+    pub fn log_mean(&mut self) -> Option<f64> {
+
+        let mut acc: f64 = 0.0; 
+
+        for &sample in &self.data {
+            if sample.is_sign_negative() {
+                // Value in properties should already be None, so no need to set it. 
+                return None; 
+            }
+
+            acc += sample.ln(); 
+        }
+
+        let mean_ln: f64 = acc / (self.data.len() as f64); 
+        self.properties.log_mean = Some(mean_ln); 
+        return Some(mean_ln);
+    }
+
     /// Compute multiple properties in bulk.
     ///
     /// Returns a reference to the updated [SampleProperties]
@@ -539,6 +569,7 @@ impl Samples {
         #[builder(default)] maximum: bool,
         #[builder(default)] minimum: bool,
         #[builder(default)] sort: bool,
+        #[builder(default)] log_mean: bool,
     ) -> &SampleProperties {
         if !quantiles.is_empty() || sort {
             self.sort_data();
@@ -571,7 +602,25 @@ impl Samples {
             self.sort_dedup_quantiles();
         }
 
+        if log_mean {
+            let _ = self.log_mean();
+        }
+
         return &self.properties;
+    }
+
+    /// Returns the number of elements in [Samples]
+    /// 
+    /// Identical to [Samples::count]
+    pub fn len(&self) -> usize {
+        return self.data.len(); 
+    }
+
+    /// Returns the number of elements in [Samples]
+    /// 
+    /// Identical to [Samples::len]
+    pub fn count(&self) -> usize {
+        return self.data.len(); 
     }
 }
 
@@ -586,6 +635,7 @@ impl SampleProperties {
             maximum: None,
             minimum: None,
             is_sorted: false,
+            log_mean: None, 
         }
         // is_sorted: data MAY be actually sorted but we cannot assume it is.
     }

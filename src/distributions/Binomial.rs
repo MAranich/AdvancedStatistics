@@ -469,7 +469,7 @@ impl Parametric for Binomial {
         return ret;
     }
 
-    /// The natural logarithm of [derivative_pdf_parameters]. The logarithm
+    /// The natural logarithm of [Parametric::derivative_pdf_parameters]. The logarithm
     /// of the elements of the gradient of the pdf in respect to the parameters.
     ///
     /// The returned vector has the derivative respect `x` in the first position
