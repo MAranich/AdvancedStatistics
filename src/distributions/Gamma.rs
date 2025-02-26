@@ -207,8 +207,6 @@ impl Distribution for Gamma {
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let integration_type: euclid::IntegrationType =
-            euclid::IntegrationType::from_bounds(bounds);
         let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
@@ -910,7 +908,7 @@ impl Parametric for Gamma {
         return ret;
     }
 
-    fn parameter_restriction(&self, parameters: &mut [f64]) {}
+    fn parameter_restriction(&self, _parameters: &mut [f64]) {}
 
     fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
         /*

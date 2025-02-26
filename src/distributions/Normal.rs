@@ -15,12 +15,8 @@
 //! but for fixed `mean = 0.0` and `std_dev = 1.0`.
 //!
 
-use std::{
-    f64::consts::{E, PI},
-    path::Iter,
-};
-
 use rand::Rng;
+use std::f64::consts::{E, PI};
 
 use crate::{
     distribution_trait::{Distribution, Parametric},
@@ -1591,7 +1587,6 @@ impl Iterator for StdNormalGenerator {
                 // numbers greater than 8.0 are mapped to 0.0 to avoid prolems
                 // this is **extremly** unlikely anyway. probability of ending
                 // in this region: 0.00000000000012441921148543568247032% (according to wolframalpha)
-                r = 0.0;
                 break 'newton_loop 0.0;
             };
 

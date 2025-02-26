@@ -16,10 +16,8 @@ use crate::{
 /// Constant value for `sqrt(2*pi)`
 pub const SQRT_2_PI: f64 = 2.50662827463100050241576528481104525300698674060993831662992357634229365460784197494659583837805726611600997266520387964486632361812673618095786;
 
-
 /// Constant value for `1/sqrt(2*pi)`
 pub const INV_SQRT_2_PI: f64 = 0.398942280401432677939946059934381868475858631164934657665925829670657925899301838501252333907306936430302558862635182685510991954555837242996213;
-
 
 /// Constant value for `ln(pi)`
 pub const LN_PI: f64 = 1.1447298858494001741434273513530587116472948129153;
@@ -29,6 +27,20 @@ pub const LN_2_SQRT_E_OVER_PI: f64 = 0.62078223763524522234551844578164721225185
 
 /// Auxiliary variable when evaluating the `gamma_ln` function
 const GAMMA_R: f64 = 10.900511;
+
+const GAMMA_DK: &[f64] = &[
+    2.48574089138753565546e-5,
+    1.05142378581721974210,
+    -3.45687097222016235469,
+    4.51227709466894823700,
+    -2.98285225323576655721,
+    1.05639711577126713077,
+    -1.95428773191645869583e-1,
+    1.70970543404441224307e-2,
+    -5.71926117404305781283e-4,
+    4.63399473359905636708e-6,
+    -2.71994908488607703910e-9,
+];
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
 /// are some values that provide information about the shape of the function.
@@ -69,146 +81,85 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
        [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
        (change of variable)
 
-           For a (const) to infinite:
+            For a (const) to infinite:
         integral {a -> inf} f(x) dx =
-                    integral {0 -> 1} f(a + t/(1 - t))  /  (1 - t)^2  dt
-        let u = 1/(1-t);
-                    integral {0 -> 1} f(a + t * u) * u * u   dt
+        integral {0 -> 1} f(a + t/(1 - t))  /  (1 - t)^2  dt
+            let u = 1/(1-t);
+        integral {0 -> 1} f(a + t * u) * u * u   dt
 
-           For -infinite to a (const):
+            For -infinite to a (const):
         integral {-inf -> a} f(x) dx =
-                    integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-        let u = 1/t;
-                    integral {0 -> 1} f(a - (1 - t) * u) * u * u  dt
+        integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
+            let u = 1/t;
+        integral {0 -> 1} f(a - (1 - t) * u) * u * u  dt
+        integral {0 -> 1} f(a + (t - 1) * u) * u * u  dt
 
-           For -infinite to infinite:
+
+            For -infinite to infinite:
         integral {-inf -> inf} f(x) dx =
-                   integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-        let u = 1/(1-t^2);
-                   integral {-1 -> 1} f( t * u ) ) * (1 + t^2) * u * u  dt
+        integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
+            let u = 1/(1-t^2);
+        integral {-1 -> 1} f( t * u ) ) * (1 + t^2) * u * u  dt
 
     */
-    let mut ret: f64 = -0.0;
 
     let bounds: (f64, f64) = domain.get_bounds();
     let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
-    let (step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds);
-    let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
+    let (_step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds);
 
-    let mut num_step: f64 = 0.0;
-
-    // estimate the bound value with the next 2 values
-    let mut last_pdf_evaluation: f64 = match integration_type {
-        IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-            let middle: f64 = pdf(bounds.0 + half_step_length);
-            let end: f64 = pdf(bounds.0 + step_length);
-            2.0 * middle - end
+    let integral: f64 = match integration_type {
+        IntegrationType::Finite => {
+            let func = pdf;
+            numerical_integration_finite(func, bounds, max_iters as u64)
+        }
+        IntegrationType::ConstToInfinite => {
+            /*
+                    For a (const) to infinite:
+                integral {a -> inf} f(x) dx =
+                integral {0 -> 1} f(a + t/(1 - t))  /  (1 - t)^2  dt
+                    let u = 1/(1-t);
+                integral {0 -> 1} f(a + t * u) * u * u   dt
+            */
+            let func = |t: f64| {
+                let u: f64 = 1.0 / (1.0 - t);
+                pdf(bounds.0 + t * u) * u * u
+            };
+            numerical_integration_finite(func, (0.0, 1.0), max_iters as u64)
         }
         IntegrationType::InfiniteToConst => {
-            let middle: f64 = pdf(bounds.1 - half_step_length);
-            let end: f64 = pdf(bounds.1 - step_length);
-            2.0 * middle - end
+            /*
+                    For -infinite to a (const):
+                integral {-inf -> a} f(x) dx =
+                integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
+                    let u = 1/t;
+                integral {0 -> 1} f(a - (1 - t) * u) * u * u  dt
+                integral {0 -> 1} f(a + (t - 1) * u) * u * u  dt
+            */
+
+            let func = |t: f64| {
+                let u: f64 = 1.0 / t;
+                pdf(bounds.1 + (t - 1.0) * u) * u * u
+            };
+            numerical_integration_finite(func, (0.0, 1.0), max_iters as u64)
         }
-        IntegrationType::FullInfinite => 0.0,
+        IntegrationType::FullInfinite => {
+            /*
+                    For -infinite to infinite:
+                integral {-inf -> inf} f(x) dx =
+                integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
+                    let u = 1/(1-t^2);
+                integral {-1 -> 1} f( t * u ) ) * (1 + t^2) * u * u  dt
+            */
+
+            let func = |t: f64| {
+                let u: f64 = 1.0 / (1.0 - t * t);
+                pdf(t * u) * (1.0 + t * t) * u * u
+            };
+            numerical_integration_finite(func, (-1.0, 1.0), max_iters as u64)
+        }
     };
 
-    for _i in 0..max_iters {
-        let current_position: f64;
-
-        let (middle, end): (f64, f64) = match integration_type {
-            IntegrationType::Finite => {
-                current_position = bounds.0 + step_length * num_step;
-                let _middle: f64 = pdf(current_position + half_step_length);
-                let _end: f64 = pdf(current_position + step_length);
-                (_middle, _end)
-            }
-            IntegrationType::ConstToInfinite => {
-                // integral {a -> inf} f(x) dx = integral {0 -> 1} f(a + t/(1 - t))  /  (1 - t)^2  dt
-
-                current_position = step_length * num_step;
-
-                let _middle: f64 = 'mid: {
-                    let t: f64 = current_position + half_step_length;
-                    let e: f64 = 1.0 - t;
-                    if e.abs() < f64::EPSILON {
-                        break 'mid 0.0;
-                        // todo: implement something better here
-                    }
-                    let u: f64 = 1.0 / e; // 1/(1-t)
-                    pdf(bounds.0 + t * u) * u * u
-                };
-                let _end: f64 = 'end: {
-                    let t: f64 = current_position + step_length;
-                    let e: f64 = 1.0 - t;
-                    if e.abs() < f64::EPSILON {
-                        break 'end 0.0;
-                        // todo: implement something better here
-                    }
-                    let u: f64 = 1.0 / e; // = 1/(1 - t)
-                    pdf(bounds.0 + t * u) * u * u
-                };
-                (_middle, _end)
-            }
-            IntegrationType::InfiniteToConst => {
-                // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-                // this integral is done in "reverse". Form 1 to 0.
-
-                current_position = 1.0 - step_length * num_step;
-
-                let _middle: f64 = 'mid: {
-                    let t: f64 = current_position - half_step_length;
-                    let u: f64 = 1.0 / t;
-                    if u.is_infinite() {
-                        break 'mid 0.0;
-                        // todo: implement something better here
-                    }
-                    pdf(bounds.1 - (1.0 - t) * u) * u * u
-                };
-                let _end: f64 = 'end: {
-                    let t: f64 = current_position - step_length;
-                    let u: f64 = 1.0 / t;
-                    if u.is_infinite() {
-                        break 'end 0.0;
-                        // todo: implement something better here
-                    }
-                    pdf(bounds.1 - (1.0 - t) * u) * u * u
-                };
-                (_middle, _end)
-            }
-            IntegrationType::FullInfinite => {
-                // integral {-inf -> inf} f(x) dx = integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-
-                current_position = -1.0 + step_length * num_step;
-
-                let _middle: f64 = {
-                    let t: f64 = current_position + half_step_length;
-                    let u: f64 = 1.0 / (1.0 - t * t);
-                    let v: f64 = 1.0 + t * t;
-                    pdf(t * u) * v * u * u
-                };
-                let _end: f64 = {
-                    let t: f64 = current_position + step_length;
-                    let e: f64 = 1.0 - t * t;
-                    if e.abs() < f64::EPSILON {
-                        0.0
-                    } else {
-                        let u: f64 = 1.0 / e; // =1/(1-t^2)
-                        let v: f64 = 1.0 + t * t;
-                        pdf(t * u) * v * u * u
-                    }
-                };
-                (_middle, _end)
-            }
-        };
-
-        ret += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-    }
-
-    return ret;
+    return integral;
 }
 
 /// Sum all the discrete values in a distribution.
@@ -257,29 +208,46 @@ pub fn numerical_integration_finite(
     integration_range: (f64, f64),
     num_steps: u64,
 ) -> f64 {
+    // using composite simpson's rule:
+    // https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule
     let mut ret: f64 = -0.0;
 
     let bounds: (f64, f64) = integration_range;
     let step_length: f64 = (bounds.1 - bounds.0) / num_steps as f64;
     let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
 
     let mut num_step: f64 = 0.0;
 
-    let mut last_pdf_evaluation: f64 = func(bounds.0 + f64::EPSILON);
+    let first_pdf_evaluation: f64 = {
+        let middle: f64 = func(bounds.0 + half_step_length);
+        let end: f64 = func(bounds.0 + step_length);
+        2.0 * middle - end
+    };
+    //  ^todo substitute
+    ret += first_pdf_evaluation;
 
-    for _ in 0..num_steps {
-        let current_position: f64 = bounds.0 + step_length * num_step;
+    for i in 1..(2 * num_steps - 1) {
+        let current_position: f64 = bounds.0 + half_step_length * num_step;
+        let evaluation: f64 = func(current_position);
 
-        let middle: f64 = func(current_position + half_step_length);
-        let end: f64 = func(current_position + step_length);
+        let multiplier: f64 = if (i & 1) == 0 { 4.0 } else { 2.0 };
+        //let multiplier: f64 = core::intrinsics::select_unpredictable((i & 1) == 0, 4.0, 2.0);
+        // todo: use sekect unpredictable when stabilized
 
-        ret += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
+        ret += multiplier * evaluation;
 
-        last_pdf_evaluation = end;
         num_step += 1.0;
     }
 
+    let last_pdf_evaluation: f64 = {
+        let middle: f64 = func(bounds.1 - half_step_length);
+        let end: f64 = func(bounds.1 - step_length);
+        2.0 * middle - end
+    };
+
+    ret += last_pdf_evaluation;
+
+    ret = ret * (step_length / 3.0);
     return ret;
 }
 
@@ -648,20 +616,6 @@ pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
     return accumulator;
 }
 
-const GAMMA_DK: &[f64] = &[
-    2.48574089138753565546e-5,
-    1.05142378581721974210,
-    -3.45687097222016235469,
-    4.51227709466894823700,
-    -2.98285225323576655721,
-    1.05639711577126713077,
-    -1.95428773191645869583e-1,
-    1.70970543404441224307e-2,
-    -5.71926117404305781283e-4,
-    4.63399473359905636708e-6,
-    -2.71994908488607703910e-9,
-];
-
 /// An implementation of the logarithmic gamma function:
 ///
 /// `ln_gamma(x) = ln(gamma(x))` => `ln_gamma(x).exp() = gamma(x)`
@@ -723,31 +677,29 @@ pub fn gamma(x: f64) -> f64 {
     return ln_gamma(x).exp();
 }
 
-
-/// An implementation of the digamma function. 
-/// The [digamma function](https://en.wikipedia.org/wiki/Digamma_function) 
-/// is defined as the logarithmic derivative of the [gamma] function: 
-/// 
+/// An implementation of the digamma function.
+/// The [digamma function](https://en.wikipedia.org/wiki/Digamma_function)
+/// is defined as the logarithmic derivative of the [gamma] function:
+///
 /// `d/dx ln(Gamma(x)) = Digamma(x)`
-/// 
-/// Wich is also equivalent to the [polygamma function](https://en.wikipedia.org/wiki/Polygamma_function) 
-/// of order 0. 
+///
+/// Wich is also equivalent to the [polygamma function](https://en.wikipedia.org/wiki/Polygamma_function)
+/// of order 0.
 ///
 /// This implementation was taken from the library
 /// [statsrs](https://docs.rs/statrs/latest/src/statrs/function/gamma.rs.html#373-412).
 /// All credit to their respective creators.
 /// [Github repository](https://github.com/statrs-dev/statrs).
 ///
-/// See also: [gamma], [ln_gamma]. 
+/// See also: [gamma], [ln_gamma].
 pub fn digamma(x: f64) -> f64 {
-
     /*
         This digamma implementation was obtained from the library
         [statrs](https://docs.rs/statrs/latest/statrs/index.html),
         wich is shared under the MIT license.
         [Github repository](https://github.com/statrs-dev/statrs).
 
-        We have made some very minor changes to the implemetation. 
+        We have made some very minor changes to the implemetation.
 
         Original documentation:
 
@@ -755,7 +707,7 @@ pub fn digamma(x: f64) -> f64 {
         the log of the gamma function. The implementation is based on
         "Algorithm AS 103", Jose Bernardo, Applied Statistics, Volume 25, Number 3
         1976, pages 315 - 317
-    
+
     */
 
     let c: f64 = 12.0;

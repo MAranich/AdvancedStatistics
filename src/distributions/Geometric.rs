@@ -8,8 +8,6 @@
 //! This distribution *should not be confused* with the **shifted exponential**.
 //!
 
-use rand::Rng;
-
 use crate::{
     distribution_trait::{DiscreteDistribution, Parametric},
     domain::DiscreteDomain,

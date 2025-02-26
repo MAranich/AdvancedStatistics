@@ -1726,7 +1726,7 @@ pub trait Parametric {
         let inv_n: f64 = 1.0 / (data.peek_data().len() as f64);
 
         let mut gradient: Vec<f64> = vec![0.0; d];
-        for i in 0..max_iterations {
+        for _ in 0..max_iterations {
             // println!("{}: Parameters: {:?}", i, parameters);
 
             // set gradient to 0
