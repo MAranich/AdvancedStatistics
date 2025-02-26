@@ -266,13 +266,30 @@ impl Distribution for Beta {
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
-        rng.fill(rand_quantiles.as_mut_slice());
+        // https://en.wikipedia.org/wiki/Beta_distribution#Random_variate_generation
 
-        let ret: Vec<f64> = self.quantile_multiple(&rand_quantiles);
+        let mut gamma_alpha_samples: Vec<f64> = {
+            let gamma_alpha: super::Gamma::Gamma =
+                super::Gamma::Gamma::new(self.alpha, 1.0).unwrap();
+            gamma_alpha.sample_multiple(n)
+        };
+        let gamma_beta_samples: Vec<f64> = {
+            let gamma_beta: super::Gamma::Gamma = super::Gamma::Gamma::new(self.beta, 1.0).unwrap();
+            gamma_beta.sample_multiple(n)
+        };
 
-        return ret;
+        // all unsafe accesses are safe because of the following assert
+        // wew will reuse the vector `gamma_alpha_samples` so we don't do an extra allocation
+        assert!(gamma_alpha_samples.len() == n && gamma_beta_samples.len() == n);
+        for i in 0..n {
+            let a: f64 = unsafe { *gamma_alpha_samples.get_unchecked(i) };
+            let b: f64 = unsafe { *gamma_beta_samples.get_unchecked(i) };
+            let reference: &mut f64 = unsafe { gamma_alpha_samples.get_unchecked_mut(i) };
+
+            *reference = a / (a + b);
+        }
+
+        return gamma_alpha_samples;
     }
 
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
