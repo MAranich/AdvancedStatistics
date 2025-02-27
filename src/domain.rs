@@ -138,12 +138,23 @@ impl DiscreteDomain {
         }
     }
 
+    /// Returns an iteratior that iterates trough all the elements in the domain.
+    ///
+    /// Warning: the iterator may be infinite.
     pub fn iter(&self) -> DiscreteDomainIterator {
         // current_value being a NaN sybmolyzes that no values have been given yet
         DiscreteDomainIterator {
             domain: &self,
             current_value: f64::NAN,
             custom_domain_index: 0,
+        }
+    }
+
+    /// Returns true if the domain contains a finite number of elements.
+    pub fn contains_finite_elements(&self) -> bool {
+        match self {
+            DiscreteDomain::Range(_, _) | DiscreteDomain::Custom(_) => true,
+            DiscreteDomain::Integers | DiscreteDomain::From(_) | DiscreteDomain::To(_) => false,
         }
     }
 }

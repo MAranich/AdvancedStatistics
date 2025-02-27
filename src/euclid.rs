@@ -42,6 +42,14 @@ const GAMMA_DK: &[f64] = &[
     -2.71994908488607703910e-9,
 ];
 
+/// When doing a discrete integration of a pmf (discrete) with infinite domain,
+/// we will conly integrate up to the this area.
+///
+/// For example, if we are computing `integral{x: -inf->inf} pmf(x) * x dx`
+/// then we will integrate until we have acummulated enough mass from the pmf
+/// to be equal or greater tho this value.
+pub static mut PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION: f64 = 0.99999;
+
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
 /// are some values that provide information about the shape of the function.
 /// If the function is a valid pdf, the mean, variance, skewness and other values
@@ -196,6 +204,83 @@ pub fn discrete_integration(
     }
 
     return ret;
+}
+
+/// Integrates the function `func` along it's whole domain.
+/// Returns the value of the integration and the accumulated value of the pmf.
+/// `(integral, accumulated_pmf)`
+///
+/// If `domain` contains infinitely many values, the integration
+/// is restricted to the interval that contains most of the probability
+/// of the `pmf`.
+pub fn discrete_integration_with_acumulation(
+    func: impl Fn(f64) -> f64,
+    pmf: impl Fn(f64) -> f64,
+    domain: &DiscreteDomain,
+) -> (f64, f64) {
+    // todo: maybe rename fn?
+
+    let finite_elemtents: bool = domain.contains_finite_elements();
+
+    let domain_iter: crate::domain::DiscreteDomainIterator<'_> = domain.iter();
+
+    let mut ret: f64 = 0.0;
+    let mut accumulator: f64 = 0.0;
+
+    if finite_elemtents {
+        for point in domain_iter {
+            ret += func(point);
+            accumulator += pmf(point);
+        }
+    } else {
+        let area_threhold: f64 = unsafe { PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
+
+        // let relevant_refion: (f64, f64) = discrete_region_with_area(pmf, domain, area_threhold);
+
+        for point in domain_iter {
+            ret += func(point);
+            accumulator += pmf(point);
+
+            if area_threhold <= accumulator {
+                break;
+            }
+        }
+    }
+
+    return (ret, accumulator);
+}
+
+/// Returns an interval where the pmf contains at least `area` units.
+///
+/// This can be used it there is a distribution with a domain `[-inf, inf]`
+/// and we want to find the value of the cdf at some point. This function
+/// will give the interval that we need to integrate.
+pub fn discrete_region_with_area(
+    pmf: impl Fn(f64) -> f64,
+    domain: &DiscreteDomain,
+    area: f64,
+) -> (f64, f64) {
+    let mut iterator: crate::domain::DiscreteDomainIterator<'_> = domain.iter();
+    let mut value: f64 = match iterator.next() {
+        Some(v) => v,
+        None => panic!("Called discrete_region_with_area with empty discrete domain. \n"),
+    };
+    let mut min: f64 = value;
+    let mut max: f64 = value;
+    let mut acumulative_sum: f64 = pmf(value);
+
+    while acumulative_sum < area {
+        value = match iterator.next() {
+            Some(v) => v,
+            None => return (min, max),
+        };
+        min = min.min(value);
+        max = max.max(value);
+        acumulative_sum += pmf(value);
+    }
+    // we have dound an interval that contains a total of `area` units.
+
+    return (min, max);
 }
 
 /// Numerical integration but for a finite range.

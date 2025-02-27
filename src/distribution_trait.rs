@@ -1102,6 +1102,22 @@ pub trait DiscreteDistribution {
     /// }
     /// ```
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
+        /*
+                Plan:
+            Similarly to the continuous case, we will sort the points
+            to avoid redundant computation (Check [Distribution::cdf_multiple]
+            comment for better info).
+
+            However if we have a domain with a full infinite domain `[-inf, inf]`
+            then there is not a trivial way to compute the cdf in the general case.
+            To solve this we will use an aproximation. We will find the range that
+            contains most of the area (0.99999 by deafult when this was written),
+            an we will update `bounds` to match these values. Then we can
+            perform the discrete integration as if it was a finite range. We won't
+            be able to caputre the full mass of the distribution but should be
+            close enough for most cases.
+        */
+
         if points.is_empty() {
             return Vec::new();
         }
@@ -1115,11 +1131,12 @@ pub trait DiscreteDistribution {
 
         let mut ret: Vec<f64> = vec![0.0; points.len()];
         let domain: &DiscreteDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
+        let mut bounds: (f64, f64) = domain.get_bounds();
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
+
         if let IntegrationType::FullInfinite = integration_type {
-            panic!("Cannot evaluate the cdf of a Discrete distribution wich also has an infinite domain. ")
-            // Todo: find somenthing to do here
+            let max_area: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
+            bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area)
         }
 
         let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
@@ -1144,7 +1161,9 @@ pub trait DiscreteDistribution {
         let mut accumulator: f64 = 0.0;
 
         match integration_type {
-            IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+            IntegrationType::Finite
+            | IntegrationType::ConstToInfinite
+            | IntegrationType::FullInfinite => {
                 while current_cdf_point <= bounds.0 {
                     ret[current_index] = 0.0;
                     match idx_iter.next() {
@@ -1164,12 +1183,13 @@ pub trait DiscreteDistribution {
                     current_cdf_point = points[current_index];
                 }
             }
-            IntegrationType::FullInfinite => unreachable!(),
         }
 
         for x in domain.iter() {
             match integration_type {
-                IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                IntegrationType::Finite
+                | IntegrationType::ConstToInfinite
+                | IntegrationType::FullInfinite => {
                     while current_cdf_point <= x {
                         ret[current_index] = accumulator;
                         match idx_iter.next() {
@@ -1189,7 +1209,6 @@ pub trait DiscreteDistribution {
                         current_cdf_point = points[current_index];
                     }
                 }
-                IntegrationType::FullInfinite => unreachable!(),
             }
 
             accumulator += self.pmf(x);
@@ -1259,6 +1278,22 @@ pub trait DiscreteDistribution {
     /// }
     /// ```
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
+        /*
+                Plan:
+            Similarly to the continuous case, we will sort the points
+            to avoid redundant computation (Check [Distribution::quantile_multiple]
+            comment for better info).
+
+            However if we have a domain with a full infinite domain `[-inf, inf]`
+            then there is not a trivial way to compute the quantile function
+            in the general case. To solve this we will use an aproximation.
+            We will find the range that contains most of the area (0.99999 by
+            deafult when this was written), an we will update `bounds` to match
+            these values. Then we can perform the discrete integration as if it
+            was a finite range. We won't be able to caputre the full mass of the
+            distribution but should be close enough for most cases.
+        */
+
         if points.is_empty() {
             return Vec::new();
         }
@@ -1272,11 +1307,12 @@ pub trait DiscreteDistribution {
 
         let mut ret: Vec<f64> = vec![0.0; points.len()];
         let domain: &DiscreteDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
+        let mut bounds: (f64, f64) = domain.get_bounds();
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
         if let IntegrationType::FullInfinite = integration_type {
-            panic!("Cannot evaluate the quantile function of a Discrete distribution wich also has an infinite domain. ")
-            // Todo: find somenthing to do here (?)
+            let max_area: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
+
+            bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
         }
 
         let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
@@ -1301,7 +1337,9 @@ pub trait DiscreteDistribution {
         let mut accumulator: f64 = 0.0;
 
         match integration_type {
-            IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+            IntegrationType::Finite
+            | IntegrationType::ConstToInfinite
+            | IntegrationType::FullInfinite => {
                 while current_quantile_point <= 0.0 {
                     ret[current_index] = bounds.0;
                     match idx_iter.next() {
@@ -1321,12 +1359,13 @@ pub trait DiscreteDistribution {
                     current_quantile_point = points[current_index];
                 }
             }
-            IntegrationType::FullInfinite => unreachable!(),
         }
 
         for x in domain.iter() {
             match integration_type {
-                IntegrationType::Finite | IntegrationType::ConstToInfinite => {
+                IntegrationType::Finite
+                | IntegrationType::ConstToInfinite
+                | IntegrationType::FullInfinite => {
                     while current_quantile_point <= accumulator {
                         ret[current_index] = x;
                         match idx_iter.next() {
@@ -1346,7 +1385,6 @@ pub trait DiscreteDistribution {
                         current_quantile_point = points[current_index];
                     }
                 }
-                IntegrationType::FullInfinite => unreachable!(),
             }
 
             accumulator += self.pmf(x);
@@ -1387,28 +1425,39 @@ pub trait DiscreteDistribution {
     ///
     /// Panics if the domain contains no values.
     fn mode(&self) -> f64 {
-        let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
-
         let domain: &DiscreteDomain = self.get_domain();
         let mut domain_iter: crate::domain::DiscreteDomainIterator<'_> = domain.iter();
-        let mut i: u64 = 0;
-        let (mut max, mut max_value) = match domain_iter.next() {
+
+        let (mut max, mut max_value): (f64, f64) = match domain_iter.next() {
             Some(v) => (v, self.pmf(v)),
             None => panic!("Attempted to compute the mode of a distribution with empty domain. (Domain contains no elements)"),
         };
 
-        for point in domain_iter {
-            if max_steps <= i {
-                break;
-            }
+        let finite_elemtents: bool = domain.contains_finite_elements();
 
-            let mass: f64 = self.pmf(point);
-            if max_value < mass {
-                max = point;
-                max_value = mass;
+        if finite_elemtents {
+            for point in domain_iter {
+                let mass: f64 = self.pmf(point);
+                if max_value < mass {
+                    max = point;
+                    max_value = mass;
+                }
             }
+        } else {
+            let area_treshold: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
+            let range: (f64, f64) =
+                euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, area_treshold);
 
-            i += 1;
+            for point in domain_iter {
+                if !(range.0 <= point && point <= range.0) {
+                    break;
+                }
+                let mass: f64 = self.pmf(point);
+                if max_value < mass {
+                    max = point;
+                    max_value = mass;
+                }
+            }
         }
 
         return max;
@@ -1434,6 +1483,7 @@ pub trait DiscreteDistribution {
     /// Returns the [kurtosis](https://en.wikipedia.org/wiki/Kurtosis)
     /// of the distribution.
     fn kurtosis(&self) -> Option<f64> {
+        // return self.kurtosis().map(|x| x + 3.0);
         return Some(self.moments(4, Moments::Standarized));
     }
 
@@ -1442,6 +1492,7 @@ pub trait DiscreteDistribution {
     ///
     /// The excess kurtosis is defined as `kurtosis - 3`.
     fn excess_kurtosis(&self) -> Option<f64> {
+        // return Some(self.moments(4, Moments::Standarized) - 3.0);
         return self.kurtosis().map(|x| x - 3.0);
     }
 
@@ -1455,14 +1506,18 @@ pub trait DiscreteDistribution {
         let (mean, std_dev): (f64, f64) = match mode {
             Moments::Raw => (0.0, 1.0),
             Moments::Central => (
-                self.expected_value()
-                    .expect("Tried to compute a central moment but the expected value is undefined. "),
+                self.expected_value().expect(
+                    "Tried to compute a central moment but the expected value is undefined. ",
+                ),
                 1.0,
             ),
             Moments::Standarized => (
-                self.expected_value()
-                    .expect("Tried to compute a central/standarized moment but the Expected value is undefined. "),
-                self.variance().expect("Tried to compute a standarized moment but the variance is undefined. "),
+                self.expected_value().expect(
+                    "Tried to compute a standarized moment but the Expected value is undefined. ",
+                ),
+                self.variance().expect(
+                    "Tried to compute a standarized moment but the variance is undefined. ",
+                ),
             ),
         };
 
@@ -1470,39 +1525,52 @@ pub trait DiscreteDistribution {
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
         let order_exp: i32 = order as i32;
-        let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
+        let (minus_mean, inv_std_dev): (f64, f64) = (-mean, 1.0 / std_dev.sqrt());
 
         let integration_fn = |x: f64| {
             let std_inp: f64 = (x + minus_mean) * inv_std_dev;
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
-        let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
-        let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
+        //let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
+        //let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
-        let moment: f64 = euclid::discrete_integration(integration_fn, domain, max_steps_opt);
+        //let moment: f64 = euclid::discrete_integration(integration_fn, domain, max_steps_opt);
 
-        return moment;
+        let moment: (f64, f64) = euclid::discrete_integration_with_acumulation(
+            integration_fn,
+            |x: f64| self.pmf(x),
+            domain,
+        );
+
+        return moment.0;
     }
 
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution. Measures how "uncertain" are the samples from the
     /// distribution.
     fn entropy(&self) -> f64 {
-        let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
-        let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
+        let domain: &DiscreteDomain = self.get_domain();
+        //let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
+        //let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
         // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
         // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
+        // In a more formal way, if `a << b` then `ln(a + b) ~= ln(b)`.
+        // Since we are choosing a to be the smallest possible value, we should always fullfil
+        // this criteria. When we do not is when `p = 0` but in that case
+        // `p * (p + f64::MIN_POSITIVE).ln() = 0.0` so it dosen't matter anyway.
 
-        let log_fn = |x| {
+        let log_fn = |x: f64| {
             let p: f64 = self.pmf(x);
             p * (p + f64::MIN_POSITIVE).ln()
         };
 
-        let entropy: f64 = euclid::discrete_integration(log_fn, self.get_domain(), max_steps_opt);
+        //let entropy: f64 = euclid::discrete_integration(log_fn, self.get_domain(), max_steps_opt);
+        let entropy: (f64, f64) =
+            euclid::discrete_integration_with_acumulation(log_fn, |x: f64| self.pmf(x), domain);
 
-        return -entropy;
+        return -entropy.0;
     }
 
     // Other provided methods:
