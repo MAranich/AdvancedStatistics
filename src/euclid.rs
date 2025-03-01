@@ -170,6 +170,61 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
     return integral;
 }
 
+
+/// Numerical integration but for a finite range.
+///
+/// Numerical integration for a function `func` within a finite range. The
+/// integration is performed with
+/// [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule).
+pub fn numerical_integration_finite(
+    func: impl Fn(f64) -> f64,
+    integration_range: (f64, f64),
+    num_steps: u64,
+) -> f64 {
+    // using composite simpson's rule:
+    // https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule
+    let mut ret: f64 = -0.0;
+
+    let bounds: (f64, f64) = integration_range;
+    let step_length: f64 = (bounds.1 - bounds.0) / num_steps as f64;
+    let half_step_length: f64 = 0.5 * step_length;
+
+    let mut num_step: f64 = 0.0;
+
+    let first_pdf_evaluation: f64 = {
+        let middle: f64 = func(bounds.0 + half_step_length);
+        let end: f64 = func(bounds.0 + step_length);
+        2.0 * middle - end
+    };
+    //  ^todo substitute
+    ret += first_pdf_evaluation;
+
+    for i in 1..(2 * num_steps - 1) {
+        let current_position: f64 = bounds.0 + half_step_length * num_step;
+        let evaluation: f64 = func(current_position);
+
+        let multiplier: f64 = if (i & 1) == 0 { 4.0 } else { 2.0 };
+        //let multiplier: f64 = core::intrinsics::select_unpredictable((i & 1) == 0, 4.0, 2.0);
+        // todo: use sekect unpredictable when stabilized
+
+        ret += multiplier * evaluation;
+
+        num_step += 1.0;
+    }
+
+    let last_pdf_evaluation: f64 = {
+        let middle: f64 = func(bounds.1 - half_step_length);
+        let end: f64 = func(bounds.1 - step_length);
+        2.0 * middle - end
+    };
+
+    ret += last_pdf_evaluation;
+
+    ret = ret * (step_length / 3.0);
+    return ret;
+}
+
+
 /// Sum all the discrete values in a distribution.
 /// Can be used to determine the total probability of a pmf.
 ///
@@ -283,58 +338,6 @@ pub fn discrete_region_with_area(
     return (min, max);
 }
 
-/// Numerical integration but for a finite range.
-///
-/// Numerical integration for a function `func` within a finite range. The
-/// integration is performed with
-/// [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule).
-pub fn numerical_integration_finite(
-    func: impl Fn(f64) -> f64,
-    integration_range: (f64, f64),
-    num_steps: u64,
-) -> f64 {
-    // using composite simpson's rule:
-    // https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule
-    let mut ret: f64 = -0.0;
-
-    let bounds: (f64, f64) = integration_range;
-    let step_length: f64 = (bounds.1 - bounds.0) / num_steps as f64;
-    let half_step_length: f64 = 0.5 * step_length;
-
-    let mut num_step: f64 = 0.0;
-
-    let first_pdf_evaluation: f64 = {
-        let middle: f64 = func(bounds.0 + half_step_length);
-        let end: f64 = func(bounds.0 + step_length);
-        2.0 * middle - end
-    };
-    //  ^todo substitute
-    ret += first_pdf_evaluation;
-
-    for i in 1..(2 * num_steps - 1) {
-        let current_position: f64 = bounds.0 + half_step_length * num_step;
-        let evaluation: f64 = func(current_position);
-
-        let multiplier: f64 = if (i & 1) == 0 { 4.0 } else { 2.0 };
-        //let multiplier: f64 = core::intrinsics::select_unpredictable((i & 1) == 0, 4.0, 2.0);
-        // todo: use sekect unpredictable when stabilized
-
-        ret += multiplier * evaluation;
-
-        num_step += 1.0;
-    }
-
-    let last_pdf_evaluation: f64 = {
-        let middle: f64 = func(bounds.1 - half_step_length);
-        let end: f64 = func(bounds.1 - step_length);
-        2.0 * middle - end
-    };
-
-    ret += last_pdf_evaluation;
-
-    ret = ret * (step_length / 3.0);
-    return ret;
-}
 
 /// Randomly permute a slice.
 ///

@@ -46,7 +46,7 @@
 //!  - [ ] [Chi squared distribution](https://en.wikipedia.org/wiki/Chi-squared_distribution)
 //!  - [ ] [Chi distribution](https://en.wikipedia.org/wiki/Chi_distribution)
 //!  - [ ] [F distribution](https://en.wikipedia.org/wiki/F-distribution)
-//!  - [ ] [Gamma distribution](crate::distributions::Gamma) ([Wiki](https://en.wikipedia.org/wiki/Gamma_distribution))
+//!  - [x] [Gamma distribution](crate::distributions::Gamma) ([Wiki](https://en.wikipedia.org/wiki/Gamma_distribution))
 //!  - [x] [Beta distribution](crate::distributions::Beta) ([Wiki](https://en.wikipedia.org/wiki/Beta_distribution))
 //!  - [ ] [Student's T distribution](https://en.wikipedia.org/wiki/Student%27s_t-distribution)
 //!  - [ ] [Hypergeometric](https://en.wikipedia.org/wiki/Hypergeometric_distribution) (?)
@@ -56,7 +56,7 @@
 //!  - [ ] [Laplace distribution](https://en.wikipedia.org/wiki/Laplace_distribution)
 //!  - [ ] [Logistic distribution](https://en.wikipedia.org/wiki/Logistic_distribution)
 //!  - [ ] [Quantile parameterized distribution](https://en.wikipedia.org/wiki/Quantile-parameterized_distribution) (?)
-//!  - [ ] [Dirac distribution](distributions::Dirac) ([Wiki](https://en.wikipedia.org/wiki/Dirac_delta_function))
+//!  - [x] [Dirac distribution](distributions::Dirac) ([Wiki](https://en.wikipedia.org/wiki/Dirac_delta_function))
 //!  - [ ] ... (more to come (?))
 //!
 //! ### Discrete distributions:

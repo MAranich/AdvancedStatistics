@@ -1,4 +1,5 @@
 use bon::bon;
+use rand::Rng;
 
 pub struct Samples {
     data: Vec<f64>,
@@ -620,6 +621,106 @@ impl Samples {
     /// Identical to [Samples::len]
     pub fn count(&self) -> usize {
         return self.data.len();
+    }
+
+    /// Get a resample of the data with repetition.
+    ///
+    /// A classical [bootstrap resample](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)).
+    ///
+    /// See also: [Samples::get_resample_multiple], [Samples::get_permutation]
+    pub fn get_resample(&self) -> Vec<f64> {
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let len: usize = self.data.len();
+        let mut resample: Vec<f64> = Vec::with_capacity(len);
+
+        for _ in 0..len {
+            let index: usize = rng.gen_range(0..len);
+            resample.push(unsafe { *self.data.get_unchecked(index) });
+            // Safety: it is safe because we generated an index
+            // that is specifically within the valid values.
+        }
+
+        return resample;
+    }
+
+    /// Get multiple resamples of the data with repetition.
+    ///
+    /// A classical [bootstrap resample](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)).
+    ///
+    /// See also: [Samples::get_resample_multiple], [Samples::get_permutation]
+    pub fn get_resample_multiple(&self, n: usize) -> Vec<Vec<f64>> {
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let len: usize = self.data.len();
+        let mut ret: Vec<Vec<f64>> = Vec::with_capacity(n);
+
+        for _ in 0..n {
+            let mut resample: Vec<f64> = Vec::with_capacity(len);
+
+            for _ in 0..len {
+                let index: usize = rng.gen_range(0..len);
+                resample.push(unsafe { *self.data.get_unchecked(index) });
+                // Safety: it is safe because we generated an index
+                // that is specifically within the valid values.
+            }
+            ret.push(resample);
+        }
+        return ret;
+    }
+
+    /// Returns a random permutation of the data.
+    ///
+    /// Identical to [random_permutation](crate::euclid::random_permutation).
+    /// Sorts in `O(n)` time using the [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle).
+    ///
+    /// See also: [Samples::get_resample], [Samples::get_permutation_multiple]
+    pub fn get_permutation(&self) -> Vec<f64> {
+        // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let len: usize = self.data.len();
+        let mut new_data: Vec<f64> = self.data.clone();
+
+        for i in (1..=(len - 1)).rev() {
+            let mut j: f64 = rng.gen::<f64>();
+            j = j * ((i + 1) as f64);
+            let j: usize = j as usize;
+            // k belongs to  [0, i - 1]
+
+            new_data.swap(i, j);
+        }
+
+        return new_data;
+    }
+
+    /// Returns a random permutation of the data.
+    ///
+    /// Same as [Samples::get_permutation] but for `n` samples at once.
+    /// Identical implementation to [random_permutation](crate::euclid::random_permutation).
+    /// Sorts in `O(n)` time using the [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle).
+    ///
+    /// See also: [Samples::get_permutation], [Samples::get_resample]
+    pub fn get_permutation_multiple(&self, n: usize) -> Vec<Vec<f64>> {
+        // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let len: usize = self.data.len();
+        let mut ret: Vec<Vec<f64>> = Vec::with_capacity(n);
+
+        for _ in 0..n {
+            let mut new_data: Vec<f64> = self.data.clone();
+
+            for i in (1..=(len - 1)).rev() {
+                let mut j: f64 = rng.gen::<f64>();
+                j = j * ((i + 1) as f64);
+                let j: usize = j as usize;
+                // k belongs to  [0, i - 1]
+
+                new_data.swap(i, j);
+            }
+            ret.push(new_data);
+        }
+
+        return ret;
     }
 }
 
