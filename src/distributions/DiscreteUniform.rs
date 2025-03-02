@@ -15,6 +15,7 @@ use crate::{
     domain::DiscreteDomain,
 };
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct DiscreteUniform {
     domain: DiscreteDomain,
     /// The minimum value
@@ -280,5 +281,11 @@ impl DiscreteDistribution for DiscreteUniform {
         let n: f64 = (self.b - self.a + 1) as f64;
         return n.ln(); 
 
+    }
+}
+
+impl Default for DiscreteUniform {
+    fn default() -> Self {
+        DiscreteUniform::new(0, 9).unwrap()
     }
 }

@@ -12,6 +12,7 @@ use rand::Rng;
 
 use crate::{distribution_trait::{Distribution, Parametric}, domain::ContinuousDomain};
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Uniform {
     domain: ContinuousDomain,
     /// The minimum value
@@ -482,3 +483,10 @@ impl Parametric for Uniform {
         return ret;
     }
 }
+
+impl Default for Uniform {
+    fn default() -> Self {
+        Uniform::new(0.0, 1.0).unwrap()
+    }
+}
+

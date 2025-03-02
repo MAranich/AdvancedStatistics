@@ -15,6 +15,7 @@ use crate::{
 
 pub const GEOMETRIC_DOMAIN: DiscreteDomain = DiscreteDomain::From(1);
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Geometric {
     p: f64,
 }
@@ -379,5 +380,11 @@ impl Parametric for Geometric {
         parameters.push(p);
 
         return parameters;
+    }
+}
+
+impl Default for Geometric {
+    fn default() -> Self {
+        Geometric::new(0.5).unwrap()
     }
 }

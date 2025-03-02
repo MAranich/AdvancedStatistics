@@ -30,6 +30,7 @@ use crate::{
 
 pub const GAMMA_DOMAIN: ContinuousDomain = ContinuousDomain::From(0.0);
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Gamma {
     /// alpha or shape
     alpha: f64,
@@ -1129,5 +1130,11 @@ impl Iterator for GammaGenerator {
         };
 
         return Some(r * self.theta);
+    }
+}
+
+impl Default for Gamma {
+    fn default() -> Self {
+        Gamma::new(1.0, 1.0).unwrap()
     }
 }

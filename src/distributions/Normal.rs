@@ -118,10 +118,12 @@ const SECTION_4_DEN: [f64; 7] = [
     1.0,
 ];
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct StdNormal {
     domain: ContinuousDomain,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Normal {
     std_normal: StdNormal,
     /// The mean of the distribution
@@ -1615,5 +1617,11 @@ impl Iterator for NormalGenerator {
     fn next(&mut self) -> Option<f64> {
         let r: f64 = self.rng.next().unwrap();
         return Some((r + self.minus_mean) * self.inv_std_dev);
+    }
+}
+
+impl Default for Normal {
+    fn default() -> Self {
+        Normal::new(0.0, 1.0).unwrap()
     }
 }

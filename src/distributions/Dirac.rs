@@ -15,6 +15,7 @@ use crate::{distribution_trait::Distribution, domain::ContinuousDomain};
 
 pub const DIRAC_DOMAIN: ContinuousDomain = ContinuousDomain::Range(0.0, 0.0);
 
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Dirac {}
 
 impl Distribution for Dirac {

@@ -15,6 +15,8 @@ use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain};
 
 
 pub const DEGENERATE_DISTRIBUTION_DOMAIN: DiscreteDomain = DiscreteDomain::Range(0, 0); 
+
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Degenerate {}
 
 impl Degenerate {

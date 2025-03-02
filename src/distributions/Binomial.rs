@@ -20,6 +20,7 @@ use crate::{
 
 use rand::Rng;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Binomial {
     domain: DiscreteDomain,
     p: f64,
@@ -610,3 +611,10 @@ impl Parametric for Binomial {
         return ret;
     }
 }
+
+impl Default for Binomial {
+    fn default() -> Self {
+        Binomial::new(0.5, 6).unwrap()
+    }
+}
+

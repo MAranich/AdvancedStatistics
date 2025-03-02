@@ -24,6 +24,7 @@ use crate::{
 pub const BERNOULLI_DOMAIN: DiscreteDomain = DiscreteDomain::Range(0, 1);
 
 /// Represnets a Bernoulli distribution.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Bernoulli {
     p: f64,
 }
@@ -429,5 +430,11 @@ impl Parametric for Bernoulli {
         ret.push((num_ones as f64) / (data.peek_data().len() as f64));
 
         return ret; 
+    }
+}
+
+impl Default for Bernoulli {
+    fn default() -> Self {
+        Self { p: 0.5 }
     }
 }

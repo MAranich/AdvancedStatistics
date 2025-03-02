@@ -26,6 +26,7 @@ use crate::{
 
 pub const POISSON_DOMAIN: DiscreteDomain = DiscreteDomain::From(0);
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Poisson {
     lambda: f64,
 }
@@ -313,9 +314,9 @@ impl Parametric for Poisson {
     /// (Probability Density function) of the distribution at point `x` with
     /// the given `parameters`.
     ///
-    /// If follows the same constraits as the normal 
+    /// If follows the same constraits as the normal
     /// [Distribution::pdf](crate::distribution_trait::Distribution::pdf)
-    /// (or [DiscreteDistribution::pmf]) 
+    /// (or [DiscreteDistribution::pmf])
     /// but also taking the parameters into account.
     ///
     /// ### Parameters for Poisson:
@@ -474,5 +475,11 @@ impl Parametric for Poisson {
 
         parameters.push(mean);
         return parameters;
+    }
+}
+
+impl Default for Poisson {
+    fn default() -> Self {
+        Poisson::new(1.0).unwrap()
     }
 }

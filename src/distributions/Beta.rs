@@ -22,7 +22,7 @@ use crate::{
 };
 
 pub const BETA_DOMAIN: ContinuousDomain = ContinuousDomain::Range(0.0, 1.0);
-
+#[derive(Debug, Clone, PartialEq)]
 pub struct Beta {
     alpha: f64,
     beta: f64,
@@ -1003,5 +1003,19 @@ impl Parametric for Beta {
         }
 
         return parameters;
+    }
+}
+
+impl Default for Beta {
+    fn default() -> Self {
+        // special case of https://en.wikipedia.org/wiki/Wigner_semicircle_distribution
+        // a sample from ([Beta::default] * 2 - 1) * r follows the Wigner semicircle distribution
+        let alpha: f64 = 1.5;
+        let beta: f64 = 1.5;
+        Self {
+            alpha,
+            beta,
+            normalitzation_constant: Beta::compute_normalitzation_constant(alpha, beta),
+        }
     }
 }

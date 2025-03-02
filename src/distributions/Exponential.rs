@@ -323,3 +323,9 @@ impl Iterator for ExponentialGenerator {
         return Some(-r.ln() * self.inv_lambda);
     }
 }
+
+impl Default for Exponential {
+    fn default() -> Self {
+        Exponential::new(1.0).unwrap()
+    }
+}
