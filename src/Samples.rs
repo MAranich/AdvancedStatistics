@@ -37,6 +37,21 @@ pub struct SampleProperties {
     pub log_mean: Option<f64>,
 }
 
+/// Decides wich Outlier detection algorithm use when calling [Samples::outlier_detection].
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutlierDetectionMethod {
+    /// Marks as outliers all elements that are outside `x` times the
+    /// [IQR](https://en.wikipedia.org/wiki/Interquartile_range) (**I**nter **Q**uartile **R**ange).
+    ///
+    /// The default for [OutlierDetectionMethod] is `OutlierDetectionMethod::IQR(1.5)`
+    IQR(f64),
+    /// Marks as outliers all elements with a [Z-Score](https://en.wikipedia.org/wiki/Standard_score)
+    /// greater in absolut value than the given value.
+    ZScore(f64),
+    /// Marks as outliers all values outside the provided range.
+    Range(f64, f64),
+}
+
 #[bon]
 impl Samples {
     /// Creates a new instance of [Samples] with the given `data`.
@@ -477,13 +492,11 @@ impl Samples {
     /// Forces to sort the internal data if it is not sorted already.
     #[inline]
     pub fn sort_data(&mut self) {
-        if self.properties.is_sorted {
-            return;
+        if !self.properties.is_sorted {
+            self.data
+                .sort_unstable_by(|a: &f64, b: &f64| a.partial_cmp(b).unwrap());
+            self.properties.is_sorted = true;
         }
-
-        self.data.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-
-        self.properties.is_sorted = true;
     }
 
     pub fn sort_dedup_quantiles(&mut self) {
@@ -501,7 +514,9 @@ impl Samples {
     /// Returns the [quantile](https://en.wikipedia.org/wiki/Quantile) of `q`.
     ///
     /// Sorts the data if it is not sorted already. Returns `None` if data
-    /// is empty. If `q <= 0.0` returns a the smallest value in data.
+    /// is empty.
+    ///
+    /// If `q <= 0.0` returns a the smallest value in data.
     /// If `1.0 <= q` returns a the greatest value in data.
     pub fn quantile(&mut self, mut q: f64) -> Option<f64> {
         // sort data if it has not been sorted already.
@@ -722,6 +737,81 @@ impl Samples {
 
         return ret;
     }
+
+    pub fn outlier_detection(&mut self, method: OutlierDetectionMethod) -> Vec<usize> {
+        let mut ret: Vec<usize> = Vec::new();
+
+        if self.count() < 3 {
+            return ret;
+        }
+
+        // safety: all unwrap unchecked are fine since we have at least 2 samples
+        match method {
+            OutlierDetectionMethod::IQR(m) => {
+
+                if m.is_nan() || m.is_sign_negative() {
+                    // return empty vector
+                    return ret; 
+                }
+
+                // Q1 − 1.5 IQR ////// Q3 + 1.5 IQR
+                let q1: f64 = unsafe {self.quantile(0.25).unwrap_unchecked()}; 
+                let q3: f64 = unsafe {self.quantile(0.75).unwrap_unchecked()}; 
+
+                let iqr: f64 = q3 - q1; 
+                let mult_iqr: f64 = m * iqr; 
+
+                let range: (f64, f64) = (q1 - mult_iqr, q3 + mult_iqr); 
+
+                for (i, &sampl) in self.data.iter().enumerate() {
+                    if !(range.0 <= sampl && sampl <= range.1) {
+                        ret.push(i);
+                    }
+                }
+            }
+            OutlierDetectionMethod::ZScore(s) => {
+
+                if s.is_nan() || s.is_sign_negative() {
+                    // return empty vector
+                    return ret; 
+                }
+
+                let mean: f64 = unsafe{self.mean().unwrap_unchecked()}; 
+                let variance: f64 = unsafe {self.variance().unwrap_unchecked()}; 
+            
+                let minus_mean: f64 = -mean; 
+                let inv_std_dev: f64 = 1.0/variance.sqrt(); 
+
+                for (i, &sampl) in self.data.iter().enumerate() {
+                    let score: f64 = (sampl + minus_mean) * inv_std_dev; 
+                    if s < score.abs() {
+                        ret.push(i);
+                    }
+                }
+
+            },
+            OutlierDetectionMethod::Range(min, max) => {
+
+                if min.is_nan() || max.is_nan() {
+                    // return empty vector
+                    return ret; 
+                }
+
+                if max <= min {
+                    // return full vector
+                    return (0..(self.count())).into_iter().collect::<Vec<usize>>(); 
+                }
+
+                for (i, &sampl) in self.data.iter().enumerate() {
+                    if !(min <= sampl && sampl <= max) {
+                        ret.push(i);
+                    }
+                }
+            },
+        }
+
+        return ret;
+    }
 }
 
 impl SampleProperties {
@@ -738,5 +828,12 @@ impl SampleProperties {
             log_mean: None,
         }
         // is_sorted: data MAY be actually sorted but we cannot assume it is.
+    }
+}
+
+impl Default for OutlierDetectionMethod {
+    fn default() -> Self {
+        // Default value of 1.5 for the IQR variant
+        OutlierDetectionMethod::IQR(1.5)
     }
 }
