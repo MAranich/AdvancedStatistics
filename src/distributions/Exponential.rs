@@ -18,11 +18,12 @@ use crate::{
     domain::ContinuousDomain,
 };
 
+pub const EXPONENTIAL_DOMAIN: ContinuousDomain = ContinuousDomain::From(0.0);
+
 /// An [Exponential distribution](https://en.wikipedia.org/wiki/Exponential_distribution).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Exponential {
     lambda: f64,
-    domain: ContinuousDomain,
 }
 
 /// An iterator that generates infinites samples form the exponential distribution
@@ -43,13 +44,7 @@ impl Exponential {
             return Err(());
         }
 
-        // for performance reasons, the domain will only include up to the quantile 99.99%
-        let max: f64 = -((1.0_f64 - 0.9999).ln()) / _lambda;
-
-        return Ok(Exponential {
-            lambda: _lambda,
-            domain: ContinuousDomain::Range(0.0, max),
-        });
+        return Ok(Exponential { lambda: _lambda });
     }
 
     pub fn get_lambda(&self) -> f64 {
@@ -76,7 +71,7 @@ impl Distribution for Exponential {
     }
 
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
-        &self.domain
+        return &EXPONENTIAL_DOMAIN;
     }
 
     fn cdf(&self, x: f64) -> f64 {
