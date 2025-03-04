@@ -111,7 +111,7 @@ impl DiscreteDistribution for Bernoulli {
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
@@ -204,7 +204,7 @@ impl DiscreteDistribution for Bernoulli {
     ///
     /// (Deafult implementation is used)
     fn rejection_sample_range(&self, n: usize, pmf_max: f64, range: (i64, i64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let range_f: (f64, f64);
 
         {
@@ -229,9 +229,9 @@ impl DiscreteDistribution for Bernoulli {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _i in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = range_f.0 + x * bound_range;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pmf_max < self.pmf(x) {
                     break x;
                 }

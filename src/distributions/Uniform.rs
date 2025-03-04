@@ -95,7 +95,8 @@ impl Distribution for Uniform {
     }
     
     fn sample(&self) -> f64 {
-        let ret: f64 = self.a + rand::prelude::random::<f64>() * (self.b - self.a);
+        let mut rng: rand::prelude::ThreadRng = rand::rng(); 
+        let ret: f64 = self.a + rng.random::<f64>() * (self.b - self.a);
         return ret;
     }
     
@@ -123,7 +124,7 @@ impl Distribution for Uniform {
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
     

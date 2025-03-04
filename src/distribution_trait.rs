@@ -343,7 +343,7 @@ pub trait Distribution {
     /// }
     /// ```
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
@@ -941,7 +941,7 @@ pub trait Distribution {
     /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
         let bound_range: f64 = bounds.1 - bounds.0;
@@ -949,9 +949,9 @@ pub trait Distribution {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _ in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = bounds.0 + x * bound_range;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pdf_max < self.pdf(x) {
                     break x;
                 }
@@ -977,7 +977,7 @@ pub trait Distribution {
     ///      - Can be computed with [Distribution::mode].
     ///  - `range`: the bounds of the region to be sampled from.
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
         let range_magnitude: f64 = range.1 - range.0;
@@ -990,9 +990,9 @@ pub trait Distribution {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _ in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = range.0 + x * range_magnitude;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pdf_max < self.pdf(x) {
                     break x;
                 }
@@ -1243,7 +1243,7 @@ pub trait DiscreteDistribution {
     /// }
     /// ```
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
@@ -1599,7 +1599,7 @@ pub trait DiscreteDistribution {
     ///  - `range`: the bounds of the region to be sampled from.
     ///      - Both values are inclusive.
     fn rejection_sample_range(&self, n: usize, pmf_max: f64, range: (i64, i64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let range_f: (f64, f64);
 
         {
@@ -1646,9 +1646,9 @@ pub trait DiscreteDistribution {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _i in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = range_f.0 + x * bound_range;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pmf_max < self.pmf(x) {
                     break x;
                 }

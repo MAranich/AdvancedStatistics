@@ -177,7 +177,7 @@ impl DiscreteDistribution for Poisson {
             Todo: search a better algorithm for bugger lambdas.
 
         */
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(n);
 
@@ -190,7 +190,7 @@ impl DiscreteDistribution for Poisson {
             k = 0.0;
             loop {
                 k += 1.0;
-                let u: f64 = rng.gen();
+                let u: f64 = rng.random();
                 p = p * u;
 
                 if p <= L {

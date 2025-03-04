@@ -133,7 +133,7 @@ impl Gamma {
         let c: f64 = 1.0 / (3.0 * b.sqrt());
 
         return GammaGenerator {
-            rng: rand::thread_rng(),
+            rng: rand::rng(),
             exp: super::Exponential::Exponential::new(1.0).unwrap().iter(),
             norm: super::Normal::StdNormal::new().iter(),
             alpha: self.alpha,
@@ -287,7 +287,7 @@ impl Distribution for Gamma {
 
         assert!(self.alpha != 0.0 && self.alpha != 1.0);
 
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(n);
 
@@ -296,7 +296,7 @@ impl Distribution for Gamma {
         if 1.0 < self.alpha {
             for _ in 0..n {
                 let r: f64 = 'gen: loop {
-                    let u: f64 = rng.gen::<f64>();
+                    let u: f64 = rng.random::<f64>();
                     let v: f64 = exp.next().unwrap();
 
                     /*
@@ -339,7 +339,7 @@ impl Distribution for Gamma {
                         }
                     }
                     v = v * v * v;
-                    let u: f64 = rng.gen::<f64>();
+                    let u: f64 = rng.random::<f64>();
 
                     let x_sq: f64 = x * x;
                     if u < 1.0 - 0.0331 * x_sq * x_sq {
@@ -1087,7 +1087,7 @@ impl Iterator for GammaGenerator {
 
         let r: f64 = if 1.0 < self.alpha {
             'gen: loop {
-                let u: f64 = self.rng.gen::<f64>();
+                let u: f64 = self.rng.random::<f64>();
                 let v: f64 = self.exp.next().unwrap();
 
                 if u <= self.alpha {
@@ -1116,7 +1116,7 @@ impl Iterator for GammaGenerator {
                     }
                 }
                 v = v * v * v;
-                let u: f64 = self.rng.gen::<f64>();
+                let u: f64 = self.rng.random::<f64>();
 
                 let x_sq: f64 = x * x;
                 if u < 1.0 - 0.0331 * x_sq * x_sq {

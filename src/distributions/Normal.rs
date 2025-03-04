@@ -159,7 +159,7 @@ impl StdNormal {
     /// the repeated initialitzation processes in [StdNormal::sample].
     pub fn iter(&self) -> StdNormalGenerator {
         StdNormalGenerator {
-            rng: rand::thread_rng(),
+            rng: rand::rng(),
         }
     }
 }
@@ -220,7 +220,7 @@ impl Normal {
     /// the repeated initialitzation processes in [Normal::sample].
     pub fn iter(&self) -> NormalGenerator {
         let std: StdNormalGenerator = StdNormalGenerator {
-            rng: rand::thread_rng(),
+            rng: rand::rng(),
         };
 
         return NormalGenerator {
@@ -382,7 +382,7 @@ impl Distribution for StdNormal {
            https://en.wikipedia.org/wiki/Polynomial_evaluation#Horner's_rule
 
         */
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
@@ -786,7 +786,7 @@ impl Distribution for StdNormal {
     fn rejection_sample(&self, n: usize, _pdf_max: f64) -> Vec<f64> {
         let pdf_max: f64 = 1.0 / (2.0 * PI).sqrt();
         // ^We know the correct value analytically, so there is no need for the user to put anything
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let domain: &ContinuousDomain = &ContinuousDomain::Range(-4.5, 4.5);
         //^contains essentially all density
         let bounds: (f64, f64) = domain.get_bounds();
@@ -795,9 +795,9 @@ impl Distribution for StdNormal {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _ in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = bounds.0 + x * bound_range;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pdf_max < self.pdf(x) {
                     break x;
                 }
@@ -814,7 +814,7 @@ impl Distribution for StdNormal {
             pdf_max = pdf_max.min(absolute_pdf_max);
         }
 
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let range_magnitude: f64 = range.1 - range.0;
 
         if range_magnitude.is_sign_negative() {
@@ -825,9 +825,9 @@ impl Distribution for StdNormal {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _ in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = range.0 + x * range_magnitude;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pdf_max < self.pdf(x) {
                     break x;
                 }
@@ -1123,7 +1123,7 @@ impl Distribution for Normal {
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         // Todo: this should be probably be put in terms of the [rejection_sample_range]
         // implemetation os StdNormal (like we did with [rejection_sample])
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let range_magnitude: f64 = range.1 - range.0;
 
         if range_magnitude.is_sign_negative() {
@@ -1134,9 +1134,9 @@ impl Distribution for Normal {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _ in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = range.0 + x * range_magnitude;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pdf_max * self.standard_deviation < self.std_normal.pdf(x - self.mean) {
                     // ^small optimitzation it avoid a division
                     break x;
@@ -1500,7 +1500,7 @@ impl Iterator for StdNormalGenerator {
         // similar implenentation as [StdNormal::sample] but better.
         // removed comments
 
-        let rand_q: f64 = self.rng.gen();
+        let rand_q: f64 = self.rng.random();
 
         // just map r to the awnser
 

@@ -595,13 +595,13 @@ impl Distribution for Beta {
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         // Small modifications for the information that we know of beta.
         // Should be very effitient if alpah and beta are greater or equal to 1.0
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
 
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _ in 0..n {
             let sample: f64 = loop {
-                let x: f64 = rng.gen();
-                let y: f64 = rng.gen();
+                let x: f64 = rng.random();
+                let y: f64 = rng.random();
                 if y * pdf_max < self.pdf(x) {
                     break x;
                 }
@@ -613,7 +613,7 @@ impl Distribution for Beta {
     }
 
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let range_magnitude: f64 = range.1 - range.0;
 
         if range_magnitude.is_sign_negative() || range.0 < 0.0 || 1.0 < range.1 {
@@ -624,9 +624,9 @@ impl Distribution for Beta {
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         for _ in 0..n {
             let sample: f64 = loop {
-                let mut x: f64 = rng.gen();
+                let mut x: f64 = rng.random();
                 x = range.0 + x * range_magnitude;
-                let y: f64 = rng.gen();
+                let y: f64 = rng.random();
                 if y * pdf_max < self.pdf(x) {
                     break x;
                 }

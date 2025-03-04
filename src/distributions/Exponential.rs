@@ -60,7 +60,7 @@ impl Exponential {
     pub fn iter(&self) -> ExponentialGenerator {
         return ExponentialGenerator {
             inv_lambda: 1.0 / self.lambda,
-            rng: rand::thread_rng(),
+            rng: rand::rng(),
         };
     }
 }
@@ -86,8 +86,8 @@ impl Distribution for Exponential {
     }
 
     fn sample(&self) -> f64 {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let r: f64 = rng.gen();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
+        let r: f64 = rng.random();
         return -r.ln() / self.lambda;
     }
 
@@ -314,7 +314,7 @@ impl Iterator for ExponentialGenerator {
     type Item = f64;
 
     fn next(&mut self) -> Option<f64> {
-        let r: f64 = self.rng.gen();
+        let r: f64 = self.rng.random();
         return Some(-r.ln() * self.inv_lambda);
     }
 }

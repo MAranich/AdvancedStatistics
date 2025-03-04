@@ -140,11 +140,11 @@ impl DiscreteDistribution for DiscreteUniform {
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
 
         let ret: Vec<f64> = (0..n)
             .into_iter()
-            .map(|_| rng.gen_range(self.a..=self.b))
+            .map(|_| rng.random_range(self.a..=self.b))
             .map(|q| q as f64)
             .collect::<Vec<f64>>();
 

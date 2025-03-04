@@ -191,7 +191,7 @@ impl DiscreteDistribution for Binomial {
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
 
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         let mut aux: Vec<f64> = Vec::with_capacity(self.n as usize);

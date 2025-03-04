@@ -644,12 +644,12 @@ impl Samples {
     ///
     /// See also: [Samples::get_resample_multiple], [Samples::get_permutation]
     pub fn get_resample(&self) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let len: usize = self.data.len();
         let mut resample: Vec<f64> = Vec::with_capacity(len);
 
         for _ in 0..len {
-            let index: usize = rng.gen_range(0..len);
+            let index: usize = rng.random_range(0..len);
             resample.push(unsafe { *self.data.get_unchecked(index) });
             // Safety: it is safe because we generated an index
             // that is specifically within the valid values.
@@ -664,7 +664,7 @@ impl Samples {
     ///
     /// See also: [Samples::get_resample_multiple], [Samples::get_permutation]
     pub fn get_resample_multiple(&self, n: usize) -> Vec<Vec<f64>> {
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let len: usize = self.data.len();
         let mut ret: Vec<Vec<f64>> = Vec::with_capacity(n);
 
@@ -672,7 +672,7 @@ impl Samples {
             let mut resample: Vec<f64> = Vec::with_capacity(len);
 
             for _ in 0..len {
-                let index: usize = rng.gen_range(0..len);
+                let index: usize = rng.random_range(0..len);
                 resample.push(unsafe { *self.data.get_unchecked(index) });
                 // Safety: it is safe because we generated an index
                 // that is specifically within the valid values.
@@ -691,12 +691,12 @@ impl Samples {
     pub fn get_permutation(&self) -> Vec<f64> {
         // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
 
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let len: usize = self.data.len();
         let mut new_data: Vec<f64> = self.data.clone();
 
         for i in (1..=(len - 1)).rev() {
-            let mut j: f64 = rng.gen::<f64>();
+            let mut j: f64 = rng.random::<f64>();
             j = j * ((i + 1) as f64);
             let j: usize = j as usize;
             // k belongs to  [0, i - 1]
@@ -717,7 +717,7 @@ impl Samples {
     pub fn get_permutation_multiple(&self, n: usize) -> Vec<Vec<f64>> {
         // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
 
-        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         let len: usize = self.data.len();
         let mut ret: Vec<Vec<f64>> = Vec::with_capacity(n);
 
@@ -725,7 +725,7 @@ impl Samples {
             let mut new_data: Vec<f64> = self.data.clone();
 
             for i in (1..=(len - 1)).rev() {
-                let mut j: f64 = rng.gen::<f64>();
+                let mut j: f64 = rng.random::<f64>();
                 j = j * ((i + 1) as f64);
                 let j: usize = j as usize;
                 // k belongs to  [0, i - 1]
