@@ -18,6 +18,7 @@
 //! - [ ] Multidimensional data support
 //! - [ ] ANOVA / MANOVA
 //! - [ ] Bayesian statistics
+//! - [ ] Update rust 2024 version
 //!
 //! ## Distributions
 //!
@@ -71,7 +72,7 @@
 //!  - [ ] ... (more to come (?))
 //!
 //!
-//!
+//! ***
 //!
 
 use distribution_trait::Distribution;
@@ -86,6 +87,12 @@ pub mod euclid;
 pub mod mixed_distribution;
 
 // Todo: Do this struct that allows to shift the location of a distribution
+/// This Structure is not implemented yet. It is currenly useless. 
+/// 
+/// In a future it will allow to "move" a Distribution. 
+/// For example, the pdf of an Exponential always starts at 0, but with this 
+/// Structure you can make it start at any value you desire while maintaining 
+/// the same interface. 
 pub struct Loation<D>
 where
     D: Distribution,
