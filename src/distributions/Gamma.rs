@@ -295,7 +295,7 @@ impl Distribution for Gamma {
 
         if 1.0 < self.alpha {
             for _ in 0..n {
-                let r: f64 = 'gen: loop {
+                let r: f64 = 'generate: loop {
                     let u: f64 = rng.random::<f64>();
                     let v: f64 = exp.next().unwrap();
 
@@ -309,14 +309,14 @@ impl Distribution for Gamma {
                     if u <= self.alpha {
                         let x: f64 = u.powf(inv_a);
                         if x <= v {
-                            break 'gen x;
+                            break 'generate x;
                         }
                     } else {
                         let y: f64 = -(u * inv_a).ln();
                         let x: f64 = (1.0 - self.alpha + self.alpha * y).powf(inv_a);
 
                         if x <= (v + y) {
-                            break 'gen x;
+                            break 'generate x;
                         }
                     }
                 };
@@ -328,7 +328,7 @@ impl Distribution for Gamma {
             let b: f64 = self.alpha - (1.0 / 3.0);
             let c: f64 = 1.0 / (3.0 * b.sqrt());
             for _ in 0..n {
-                let r: f64 = 'gen: loop {
+                let r: f64 = 'generate: loop {
                     let mut x: f64;
                     let mut v: f64;
                     's: loop {
@@ -343,11 +343,11 @@ impl Distribution for Gamma {
 
                     let x_sq: f64 = x * x;
                     if u < 1.0 - 0.0331 * x_sq * x_sq {
-                        break 'gen b * v;
+                        break 'generate b * v;
                     }
 
                     if u.ln() < 0.5 * x_sq + b * (1.0 - v + v.ln()) {
-                        break 'gen b * v;
+                        break 'generate b * v;
                     }
                 };
                 ret.push(r * self.theta);
@@ -1086,26 +1086,26 @@ impl Iterator for GammaGenerator {
         assert!(self.alpha != 0.0 && self.alpha != 1.0);
 
         let r: f64 = if 1.0 < self.alpha {
-            'gen: loop {
+            'generate: loop {
                 let u: f64 = self.rng.random::<f64>();
                 let v: f64 = self.exp.next().unwrap();
 
                 if u <= self.alpha {
                     let x: f64 = u.powf(self.inv_a);
                     if x <= v {
-                        break 'gen x;
+                        break 'generate x;
                     }
                 } else {
                     let y: f64 = -(u * self.inv_a).ln();
                     let x: f64 = (1.0 - self.alpha + self.alpha * y).powf(self.inv_a);
 
                     if x <= (v + y) {
-                        break 'gen x;
+                        break 'generate x;
                     }
                 }
             }
         } else {
-            'gen: loop {
+            'generate: loop {
                 let mut x: f64;
                 let mut v: f64;
                 's: loop {
@@ -1120,11 +1120,11 @@ impl Iterator for GammaGenerator {
 
                 let x_sq: f64 = x * x;
                 if u < 1.0 - 0.0331 * x_sq * x_sq {
-                    break 'gen self.b * v;
+                    break 'generate self.b * v;
                 }
 
                 if u.ln() < 0.5 * x_sq + self.b * (1.0 - v + v.ln()) {
-                    break 'gen self.b * v;
+                    break 'generate self.b * v;
                 }
             }
         };
