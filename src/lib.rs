@@ -72,6 +72,22 @@
 //!  - [ ] ... (more to come (?))
 //!
 //!
+//! ## Tests
+//! 
+//! We have provided some structures to simplify the computation of tests. 
+//! Collected data can be stored in [Samples](Samples::Samples), wich also 
+//! allows effitient computation of common statistics (mean, variance, median...). 
+//! 
+//! We also provided an implemetation of common tests: 
+//! 
+//!  - [x] [Z-test](hypotesys::z_test) ([Wiki](https://en.wikipedia.org/wiki/Z-test))
+//!  - [x] [General Z-test](hypotesys::z_test_general) ([Wiki](https://en.wikipedia.org/wiki/Z-test))
+//!  - [ ] [t test](hypotesys::t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#One-sample_t-test))
+//!  - [ ] [2 sample t test](hypotesys::two_sample_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests))
+//!  - [ ] [Test name](hypotesys::test_function) ([Wiki](wiki_link))
+//!  - [ ] ... (more to come (?))
+//! 
+//! 
 //! ***
 //!
 
@@ -84,15 +100,16 @@ pub mod distributions;
 pub mod domain;
 pub mod errors;
 pub mod euclid;
+pub mod hypotesys;
 pub mod mixed_distribution;
 
 // Todo: Do this struct that allows to shift the location of a distribution
-/// This Structure is not implemented yet. It is currenly useless. 
-/// 
-/// In a future it will allow to "move" a Distribution. 
-/// For example, the pdf of an Exponential always starts at 0, but with this 
-/// Structure you can make it start at any value you desire while maintaining 
-/// the same interface. 
+/// This Structure is not implemented yet. It is currenly useless.
+///
+/// In a future it will allow to "move" a Distribution.
+/// For example, the pdf of an Exponential always starts at 0, but with this
+/// Structure you can make it start at any value you desire while maintaining
+/// the same interface.
 pub struct Loation<D>
 where
     D: Distribution,

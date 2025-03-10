@@ -6,6 +6,7 @@ use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::{self, *};
+use crate::hypotesys::Hypothesis;
 use crate::Samples::Samples;
 
 /// The trait for any continuous distribution.
@@ -46,6 +47,8 @@ pub trait Distribution {
     /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
     /// (Cumulative distribution function).
     ///
+    ///  > F(x) = cdf(x) = P(X < x) = p
+    /// 
     /// The cdf includes the `x` itself. If the function is evaluated outside
     /// the domain of the pdf, it will either return either `0.0` or `1.0`.
     /// **Panicks** is `x` is a NaN.
@@ -78,7 +81,17 @@ pub trait Distribution {
     }
 
     /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function).
-    ///  - if `x` is outside the range [0.0, 1.0], the bounds of the domain will be returned.
+    /// 
+    /// If the cdf is: 
+    /// 
+    ///  > F(x) = cdf(x) = P(X <= x) = p
+    /// 
+    /// Then the quantile function is: 
+    /// 
+    ///  > Q(p) = x = F^-1(p)
+    /// 
+    ///  - if `x` is outside the range [0.0, 1.0], the respective bound of the domain 
+    /// will be returned.
     ///  - **Panicks** is `x` is a NaN.
     ///
     /// The quantile function is the inverse function of [Distribution::cdf]. Note that
@@ -1002,18 +1015,87 @@ pub trait Distribution {
 
         return ret;
     }
+
+    /// A [confidence interval](https://en.wikipedia.org/wiki/Confidence_interval)
+    /// is the region where the samples of the distribution fall with probability 
+    /// `1 - significance_level`. 
+    /// 
+    /// It returns two values `(lower, upper)` sich that 
+    ///  > P(lower <= theta <= upper) = 1 - significance_level = 1 - alpha
+    /// 
+    /// Special cases:
+    ///  - **Panics** if `significance_level` is `+-inf` or a NaN. 
+    ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS]. 
+    ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`. 
+    fn confidence_interval(&self, hypothesys: Hypothesis, significance_level: f64) -> (f64, f64) {
+        
+        if !significance_level.is_finite() {
+            panic!("Tried to call Distribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "); 
+        }
+        
+        let mut bounds: (f64, f64) = self.get_domain().get_bounds(); 
+        if significance_level <= 0.0 || bounds.1 - bounds.0 <= 0.0 {
+            return DEFAULT_EMPTY_DOMAIN_BOUNDS; 
+        }
+        
+        if 1.0 <= significance_level {
+            return bounds; 
+        }
+
+        // significance_level is a value within (0.0, 1.0). 
+        
+        match hypothesys {
+            Hypothesis::RightTail => {
+                let quantile: f64 = self.quantile(1.0 - significance_level); 
+                bounds.1 = quantile; 
+            },
+            Hypothesis::LeftTail => {
+                let quantile: f64 = self.quantile(significance_level); 
+                bounds.0 = quantile; 
+            },
+            Hypothesis::TwoTailed => {
+                let quantiles: Vec<f64> = self.quantile_multiple(&[significance_level, 1.0 - significance_level]); 
+                bounds.0 = quantiles[0]; 
+                bounds.1 = quantiles[1]; 
+            },
+        }
+
+        return bounds; 
+    }
+
+    /// The [P value](https://en.wikipedia.org/wiki/P-value) is the probability
+    /// of the null hypotesys having generated a statistic this *extreme* or more. 
+    fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
+        // https://en.wikipedia.org/wiki/P-value#Definition
+        let bounds: (f64, f64) = self.get_domain().get_bounds(); 
+        if bounds.1 - bounds.0 <= 0.0 {
+            return 0.0; 
+        }
+
+        let density: f64 = self.cdf(statistic); 
+        let p: f64 = match hypothesys {
+            Hypothesis::RightTail => {
+                1.0 - density
+            },
+            Hypothesis::LeftTail => {
+                density
+            },
+            Hypothesis::TwoTailed => {
+                2.0 * density.min(1.0 - density)
+            },
+        }; 
+
+        return p; 
+    }
+
 }
 
 /// The trait for any continuous distribution.
 pub trait DiscreteDistribution {
     //Requiered method:
 
-    /// Evaluates the [PDF](https://en.wikipedia.org/wiki/Probability_density_function)
-    /// (Probability Density function) of the distribution at point `x`.
-    ///
-
     /// Evaluates the [PMF](https://en.wikipedia.org/wiki/Probability_density_function)
-    /// (Probability Mass Function) of the distribution at point x.
+    /// (Probability Mass Function) of the distribution at point `x`.
     /// The function should not be evaluated outside the domain (because it
     /// should return 0.0 anyway).
     ///
@@ -1036,6 +1118,8 @@ pub trait DiscreteDistribution {
     /// (Cumulative distribution function).
     /// If the function is evaluated outside the domain of the pdf, it will either
     /// return either `0.0` or `1.0`. **Panicks** is `x` is a NaN.
+    /// 
+    ///  > F(x) = cdf(x) = P(X < x) = p
     ///
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
@@ -1064,6 +1148,15 @@ pub trait DiscreteDistribution {
     }
 
     /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function).
+    /// 
+    /// If the cdf is: 
+    /// 
+    ///  > F(x) = cdf(x) = P(X <= x) = p
+    /// 
+    /// Then the quantile function is: 
+    /// 
+    ///  > Q(p) = x = F^-1(p)
+    /// 
     ///  - if `x` is outside the range [0.0, 1.0], the bounds of the domain will be retruned.
     ///  - **Panicks** is `x` is a NaN.
     ///
@@ -1313,6 +1406,7 @@ pub trait DiscreteDistribution {
             let max_area: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
 
             bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
+            // Now treat the IntegrationType::FullInfinite the same as IntegrationType::Finite
         }
 
         let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
@@ -1657,6 +1751,85 @@ pub trait DiscreteDistribution {
         }
 
         return ret;
+    }
+
+    /// A [confidence interval](https://en.wikipedia.org/wiki/Confidence_interval)
+    /// is the region where the samples of the distribution fall with probability 
+    /// `1 - significance_level`. 
+    /// 
+    /// It returns two values `(lower, upper)` sich that 
+    ///  > P(lower <= theta <= upper) = 1 - significance_level = 1 - alpha
+    /// 
+    /// Special cases:
+    ///  - **Panics** if `significance_level` is `+-inf` or a NaN. 
+    ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS]. 
+    ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`. 
+    fn confidence_interval(&self, hypothesys: Hypothesis, significance_level: f64) -> (f64, f64) {
+        
+        if !significance_level.is_finite() {
+            panic!("Tried to call DiscreteDistribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "); 
+        }
+        
+        let mut bounds: (f64, f64) = self.get_domain().get_bounds(); 
+        if significance_level <= 0.0 || bounds.1 <= bounds.0 {
+            return DEFAULT_EMPTY_DOMAIN_BOUNDS; 
+        }
+        
+        if 1.0 <= significance_level {
+            return bounds; 
+        }
+
+        // significance_level is a value within (0.0, 1.0). 
+        
+        match hypothesys {
+            Hypothesis::RightTail => {
+                let quantile: f64 = self.quantile(1.0 - significance_level); 
+                bounds.1 = quantile; 
+            },
+            Hypothesis::LeftTail => {
+                let quantile: f64 = self.quantile(significance_level); 
+                bounds.0 = quantile; 
+            },
+            Hypothesis::TwoTailed => {
+                let quantiles: Vec<f64> = self.quantile_multiple(&[significance_level, 1.0 - significance_level]); 
+                bounds.0 = quantiles[0]; 
+                bounds.1 = quantiles[1]; 
+            },
+        }
+
+        return bounds; 
+    }
+
+    /// The [P value](https://en.wikipedia.org/wiki/P-value) is the probability
+    /// of the null hypotesys having generated a statistic this *extreme* or more. 
+    /// 
+    ///  - **Panics** if `statistic` is non-finite (`+-inf` or NaN)
+    fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
+        // https://en.wikipedia.org/wiki/P-value#Definition
+
+        if !statistic.is_finite() {
+            panic!("Tried to call DiscreteDistribution::p_value with a non-finite `statistic` (infinite or NaN). "); 
+        }
+
+        let bounds: (f64, f64) = self.get_domain().get_bounds(); 
+        if bounds.1 - bounds.0 <= 0.0 {
+            return 0.0; 
+        }
+
+        let density: f64 = self.cdf(statistic); 
+        let p: f64 = match hypothesys {
+            Hypothesis::RightTail => {
+                1.0 - density
+            },
+            Hypothesis::LeftTail => {
+                density
+            },
+            Hypothesis::TwoTailed => {
+                2.0 * density.min(1.0 - density)
+            },
+        }; 
+
+        return p; 
     }
 }
 

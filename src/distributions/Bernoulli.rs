@@ -199,48 +199,6 @@ impl DiscreteDistribution for Bernoulli {
         let entropy: f64 = -q * q.ln() - self.p * self.p.ln();
         return entropy;
     }
-
-    /// For [Bernoulli], you should better use [Bernoulli::sample].
-    ///
-    /// (Deafult implementation is used)
-    fn rejection_sample_range(&self, n: usize, pmf_max: f64, range: (i64, i64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::rng();
-        let range_f: (f64, f64);
-
-        {
-            // possible early return
-            let domain: &DiscreteDomain = self.get_domain();
-
-            if let DiscreteDomain::Custom(_) = domain {
-                return Vec::new();
-            }
-
-            let bounds: (f64, f64) = domain.get_bounds();
-            range_f = (range.0 as f64, range.1 as f64);
-            if range.1 < range.0 || (range_f.0 < bounds.0.floor()) || bounds.1.ceil() < range_f.1 {
-                return Vec::new();
-            }
-        }
-
-        // domain is not of the custom variant.
-        // `range` is contained within the domain of the distribution
-
-        let bound_range: f64 = (range.1 - range.0) as f64;
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _i in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.random();
-                x = range_f.0 + x * bound_range;
-                let y: f64 = rng.random();
-                if y * pmf_max < self.pmf(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
-    }
 }
 
 impl Parametric for Bernoulli {

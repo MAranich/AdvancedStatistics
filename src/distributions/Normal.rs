@@ -145,7 +145,7 @@ pub struct NormalGenerator {
 impl StdNormal {
     /// Create a Standard normal distribution. Has a mean of `0.0` and a standard
     /// deviation of `1.0`.
-    pub fn new() -> StdNormal {
+    pub const fn new() -> StdNormal {
         return StdNormal {
             domain: ContinuousDomain::Reals,
         };
@@ -172,7 +172,7 @@ impl Normal {
     ///  - The `standard_deviation` must be stricly greater than `0.0`.
     ///
     /// If those conditions are not fullfiled, an error will be returned.
-    pub fn new(mean: f64, standard_deviation: f64) -> Result<Normal, ()> {
+    pub const fn new(mean: f64, standard_deviation: f64) -> Result<Normal, ()> {
         if !mean.is_finite() || !standard_deviation.is_finite() || standard_deviation < 0.0 {
             return Err(());
         }
@@ -193,7 +193,7 @@ impl Normal {
     ///
     /// If those conditions are not fullfiled, the returned distribution
     /// will be invalid.
-    pub unsafe fn new_unchecked(mean: f64, standard_deviation: f64) -> Normal {
+    pub const unsafe fn new_unchecked(mean: f64, standard_deviation: f64) -> Normal {
         let std_normal: StdNormal = StdNormal::new();
         return Normal {
             std_normal,
@@ -203,13 +203,13 @@ impl Normal {
     }
 
     /// Returns the mean, the first parameter of the normal distribution.
-    pub fn get_mean(&self) -> f64 {
-        return self.mean.clone();
+    pub const fn get_mean(&self) -> f64 {
+        return self.mean;
     }
 
     /// Returns the standard deviation, the second parameter of the normal distribution.
-    pub fn get_standard_deviation(&self) -> f64 {
-        return self.standard_deviation.clone();
+    pub const fn get_standard_deviation(&self) -> f64 {
+        return self.standard_deviation;
     }
 
     /// Returns an iterator that can generate [Normal] samples even faster
