@@ -1,5 +1,5 @@
 //! # Binomial distribution
-//! 
+//!
 //! The [Binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution)
 //! is the distribution that models the number of successes of `n`
 //! [Bernoulli trials](crate::distributions::Bernoulli) with succes probability `p`.
@@ -34,7 +34,7 @@ impl Binomial {
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
     ///  - `n` indicates the number of trials
     ///
-    pub fn new(p: f64, n: u64) -> Result<Binomial, ()> {
+    pub const fn new(p: f64, n: u64) -> Result<Binomial, ()> {
         if p.is_infinite() || p.is_nan() {
             return Err(());
         }
@@ -42,7 +42,7 @@ impl Binomial {
             return Err(());
         }
 
-        let domain: DiscreteDomain = DiscreteDomain::Range(0, n.try_into().unwrap_or(i64::MAX));
+        let domain: DiscreteDomain = DiscreteDomain::Range(0, n as i64);
 
         return Ok(Binomial { domain, p, n });
     }
@@ -52,20 +52,20 @@ impl Binomial {
     ///   - `p` indicates the probability of success (returning `1.0`) of each Bernoulli trial.
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise the structure will be invalid.
     ///  - `n` indicates the number of trials
-    pub unsafe fn new_unchecked(p: f64, n: u64) -> Binomial {
-        let domain: DiscreteDomain = DiscreteDomain::Range(0, n.try_into().unwrap_or(i64::MAX));
+    pub const unsafe fn new_unchecked(p: f64, n: u64) -> Binomial {
+        let domain: DiscreteDomain = DiscreteDomain::Range(0, n as i64);
 
         return Binomial { domain, p, n };
     }
 
     /// Return `p` (probability of success).
-    pub fn get_p(&self) -> f64 {
-        return self.p.clone();
+    pub const fn get_p(&self) -> f64 {
+        return self.p;
     }
 
     /// Return `n` (number of trials).
-    pub fn get_n(&self) -> u64 {
-        return self.n.clone();
+    pub const fn get_n(&self) -> u64 {
+        return self.n;
     }
 }
 
@@ -195,6 +195,8 @@ impl DiscreteDistribution for Binomial {
 
         let mut ret: Vec<f64> = Vec::with_capacity(n);
         let mut aux: Vec<f64> = Vec::with_capacity(self.n as usize);
+
+        // Todo: redo this. If n is very large, it will take a lot of time
 
         for _ in 0..n {
             rng.fill(aux.as_mut_slice());
@@ -415,8 +417,8 @@ impl Parametric for Binomial {
         return (binomial_coef as f64) * prob_p * prob_q;
     }
 
-    /// Returns the number of parameters of the model: `2`, 
-    /// but we do **not** optimize for `n`. 
+    /// Returns the number of parameters of the model: `2`,
+    /// but we do **not** optimize for `n`.
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -617,4 +619,3 @@ impl Default for Binomial {
         Binomial::new(0.5, 6).unwrap()
     }
 }
-

@@ -73,21 +73,21 @@
 //!
 //!
 //! ## Tests
-//! 
-//! We have provided some structures to simplify the computation of tests. 
-//! Collected data can be stored in [Samples](Samples::Samples), wich also 
-//! allows effitient computation of common statistics (mean, variance, median...). 
-//! 
-//! We also provided an implemetation of common tests: 
-//! 
+//!
+//! We have provided some structures to simplify the computation of tests.
+//! Collected data can be stored in [Samples](Samples::Samples), wich also
+//! allows effitient computation of common statistics (mean, variance, median...).
+//!
+//! We also provided an implemetation of common tests:
+//!
 //!  - [x] [Z-test](hypotesys::z_test) ([Wiki](https://en.wikipedia.org/wiki/Z-test))
 //!  - [x] [General Z-test](hypotesys::z_test_general) ([Wiki](https://en.wikipedia.org/wiki/Z-test))
 //!  - [ ] [t test](hypotesys::t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#One-sample_t-test))
 //!  - [ ] [2 sample t test](hypotesys::two_sample_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests))
 //!  - [ ] [Test name](hypotesys::test_function) ([Wiki](wiki_link))
 //!  - [ ] ... (more to come (?))
-//! 
-//! 
+//!
+//!
 //! ***
 //!
 

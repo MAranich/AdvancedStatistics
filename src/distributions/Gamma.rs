@@ -114,11 +114,11 @@ impl Gamma {
     }
 
     /// Get the parameter alpha
-    pub fn get_alpha(&self) -> f64 {
+    pub const fn get_alpha(&self) -> f64 {
         return self.alpha;
     }
 
-    pub fn get_theta(&self) -> f64 {
+    pub const fn get_theta(&self) -> f64 {
         return self.theta;
     }
 

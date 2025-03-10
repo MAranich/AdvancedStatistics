@@ -35,14 +35,15 @@ impl Poisson {
     /// Creates a new [Poisson] distribution.
     ///
     ///  - `lambda` indicates rate. And must fullfill:
-    ///      - Must fe finite (no `+-inf` nor NaNs)
+    ///      - Must be finite (no `+-inf` nor NaNs)
     ///      - `0.0 < lambda`
     ///
     /// Otherwise an error will be returned.
-    pub fn new(lambda: f64) -> Result<Poisson, ()> {
-        if lambda.is_infinite() || lambda.is_nan() {
+    pub const fn new(lambda: f64) -> Result<Poisson, ()> {
+        if !lambda.is_finite() {
             return Err(());
         }
+
         if lambda <= 0.0 {
             return Err(());
         }
@@ -53,16 +54,16 @@ impl Poisson {
     /// Creates a new [Poisson] distribution without checking.
     ///
     ///  - `lambda` indicates rate. And must fullfill:
-    ///      - Must fe finite (no `+-inf` nor NaNs)
+    ///      - Must be finite (no `+-inf` nor NaNs)
     ///      - `0.0 < lambda`
     ///
     /// The invariants must be fullfiled by the caller.
-    pub unsafe fn new_unchecked(lambda: f64) -> Poisson {
+    pub const unsafe fn new_unchecked(lambda: f64) -> Poisson {
         return Poisson { lambda };
     }
 
     /// Returns the value of `lambda`
-    pub fn get_lambda(&self) -> f64 {
+    pub const fn get_lambda(&self) -> f64 {
         return self.lambda;
     }
 }

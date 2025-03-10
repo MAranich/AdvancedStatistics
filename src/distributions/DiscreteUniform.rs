@@ -1,5 +1,5 @@
 //! # Discrete uniform
-//! 
+//!
 //! The [discrete uniform distribution](https://en.wikipedia.org/wiki/Discrete_uniform_distribution)
 //! is a discrete distribution where all possible outcomes are integers in the
 //! interval `[a, b]` have equal chance of happening.
@@ -10,10 +10,7 @@
 
 use rand::Rng;
 
-use crate::{
-    distribution_trait::DiscreteDistribution,
-    domain::DiscreteDomain,
-};
+use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiscreteUniform {
@@ -29,7 +26,7 @@ impl DiscreteUniform {
     /// and `b` (maximum). Both `a` and `b` are inclusive.
     ///
     /// Returns [Err] if `b < a`.
-    pub fn new(a: i64, b: i64) -> Result<DiscreteUniform, ()> {
+    pub const fn new(a: i64, b: i64) -> Result<DiscreteUniform, ()> {
         if b < a {
             return Err(());
         }
@@ -46,7 +43,7 @@ impl DiscreteUniform {
     /// and `b` (maximum). Both `a` and `b` are inclusive.
     ///
     /// Does not check if `b < a`.
-    pub unsafe fn new_unchecked(a: i64, b: i64) -> DiscreteUniform {
+    pub const unsafe fn new_unchecked(a: i64, b: i64) -> DiscreteUniform {
         let new_domain: DiscreteDomain = DiscreteDomain::Range(a, b);
 
         return DiscreteUniform {
@@ -57,12 +54,12 @@ impl DiscreteUniform {
     }
 
     /// Return `a` (minimum value).
-    pub fn get_a(&self) -> i64 {
+    pub const fn get_a(&self) -> i64 {
         return self.a;
     }
 
     /// Return `b` (maximum value).
-    pub fn get_b(&self) -> i64 {
+    pub const fn get_b(&self) -> i64 {
         return self.b;
     }
 }
@@ -209,11 +206,12 @@ impl DiscreteDistribution for DiscreteUniform {
         return Some((n * n - 1.0) / 12.0);
     }
 
-    ///Returns the mode of the distribution. It represents the most likely outcome.
+    /// Returns the mode of the distribution. It represents the most likely outcome.
     ///
-    /// For the case of [DiscreteUniform], it will always return `self.a`
-    /// (the minimum value), but take into account that every value in it's domain
-    /// is the mode.
+    /// ### [DiscreteUniform]
+    ///
+    /// It will always return `self.a` (the minimum value), but take into
+    /// account that every value in it's domain is the mode.
     fn mode(&self) -> f64 {
         return self.a as f64;
     }
@@ -279,8 +277,7 @@ impl DiscreteDistribution for DiscreteUniform {
 
     fn entropy(&self) -> f64 {
         let n: f64 = (self.b - self.a + 1) as f64;
-        return n.ln(); 
-
+        return n.ln();
     }
 }
 

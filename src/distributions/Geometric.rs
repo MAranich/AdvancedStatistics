@@ -26,7 +26,7 @@ impl Geometric {
     ///  - `p` indicates the probability of success.
     ///  - `p` must belong in the interval `[0.0, 1.0]`.
     ///      - Otherwise an error will be returned.
-    pub fn new(p: f64) -> Result<Geometric, ()> {
+    pub const fn new(p: f64) -> Result<Geometric, ()> {
         if p.is_infinite() || p.is_nan() {
             return Err(());
         }
@@ -41,13 +41,13 @@ impl Geometric {
     ///
     /// In order to generate a valid Geometric, `p` must fullfill:
     ///  - `p` indicates the probability of success.
-    ///  - `p` must belong in the interval `[0.0, 1.0]`.
-    pub unsafe fn new_unchecked(p: f64) -> Geometric {
+    ///      - `p` must belong in the interval `[0.0, 1.0]`.
+    pub const unsafe fn new_unchecked(p: f64) -> Geometric {
         return Geometric { p };
     }
 
     /// Return `p` (probability of success).
-    pub fn get_p(&self) -> f64 {
+    pub const fn get_p(&self) -> f64 {
         return self.p;
     }
 }

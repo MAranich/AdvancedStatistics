@@ -36,18 +36,18 @@ pub struct ExponentialGenerator {
 impl Exponential {
     /// Creates a new [Exponential] distribution. It is requiered that `0.0 < lambda` or an
     /// error will be returned.
-    pub fn new(_lambda: f64) -> Result<Exponential, ()> {
-        if !_lambda.is_finite() {
+    pub const fn new(lambda: f64) -> Result<Exponential, ()> {
+        if !lambda.is_finite() {
             return Err(());
         }
-        if _lambda <= 0.0 {
+        if lambda <= 0.0 {
             return Err(());
         }
 
-        return Ok(Exponential { lambda: _lambda });
+        return Ok(Exponential { lambda });
     }
 
-    pub fn get_lambda(&self) -> f64 {
+    pub const fn get_lambda(&self) -> f64 {
         return self.lambda;
     }
 
@@ -77,7 +77,7 @@ impl Distribution for Exponential {
     fn cdf(&self, x: f64) -> f64 {
         if x.is_nan() {
             // x is not valid
-            panic!("Found NaN while attempting to compute the cdf of an Exponential. ");
+            panic!("Found NaN while attempting to compute the cdf of an Exponential. \n");
         }
         if x <= 0.0 {
             return 0.0;
@@ -92,11 +92,9 @@ impl Distribution for Exponential {
     }
 
     fn quantile(&self, x: f64) -> f64 {
-        // just call [Distribution::quantile_multiple]
-
         if x.is_nan() {
             // x is not valid
-            panic!("Tried to evaluate the quantile function with a NaN value. \n");
+            panic!("Tried to evaluate the Exponential::quantile function with a NaN value. \n");
         }
 
         if x <= 0.0 {
@@ -115,7 +113,11 @@ impl Distribution for Exponential {
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        (0..n).map(|_| self.sample()).collect::<Vec<f64>>()
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
+        (0..n)
+            .map(|_| rng.random())
+            .map(|r: f64| -r.ln() / self.lambda)
+            .collect::<Vec<f64>>()
     }
 
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
@@ -165,7 +167,7 @@ impl Parametric for Exponential {
     /// (or [DiscreteDistribution::pmf](crate::distribution_trait::DiscreteDistribution::pmf))
     /// but also taking the parameters into account.
     ///
-    /// ### Parameters for Exponential:
+    /// ### Parameters for [Exponential]:
     ///
     /// The exponential distribution has only 1 parameter, `lambda`.
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {

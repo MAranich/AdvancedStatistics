@@ -1,5 +1,5 @@
 //! # Bernoulli distribution
-//! 
+//!
 //! The [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution).
 //!
 //! It represents a value that can eiter take the value `1` with probability `p` or `0`
@@ -34,7 +34,7 @@ impl Bernoulli {
     ///
     ///  - `p` indicates the probability of success (returning `1.0`).
     ///     - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
-    pub fn new(p: f64) -> Result<Bernoulli, ()> {
+    pub const fn new(p: f64) -> Result<Bernoulli, ()> {
         if !p.is_finite() {
             return Err(());
         }
@@ -47,12 +47,12 @@ impl Bernoulli {
 
     /// Creates a new [bernulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution).
     /// Does not check if p is in `[0, 1]`.
-    pub unsafe fn new_unchecked(p: f64) -> Bernoulli {
+    pub const unsafe fn new_unchecked(p: f64) -> Bernoulli {
         return Bernoulli { p: p };
     }
 
     /// Return `p` (probability of success).
-    pub fn get_p(&self) -> f64 {
+    pub const fn get_p(&self) -> f64 {
         return self.p;
     }
 }
@@ -332,7 +332,6 @@ impl Parametric for Bernoulli {
     }
 
     fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
-
         // Reserve a vector with exacly 1 elements
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(1);
@@ -342,9 +341,9 @@ impl Parametric for Bernoulli {
         /*
                 Maximum likelyhood estimation:
 
-            Assuming `n` samples, wich `a` of them are 0, `b` are 1 and `c` are 
-            anything else. It is true that: `n = a + b + c`. 
-            Since all samples SHOULD come from the Bernoulli distribution `c` = 0 
+            Assuming `n` samples, wich `a` of them are 0, `b` are 1 and `c` are
+            anything else. It is true that: `n = a + b + c`.
+            Since all samples SHOULD come from the Bernoulli distribution `c` = 0
             and `n = a + b`
 
             ### For mean:
@@ -352,15 +351,15 @@ impl Parametric for Bernoulli {
             0 = sumatory{x_i} d/d_mean ln(pdf(x_i | p))
             0 = sumatory{x_i} {1/(p-1) if x == 0.0; 1/p if x == 1.0; 0.0 otherwise}
             0 = a/(p-1) + b/p + c*0.0
-            0 = a/(p-1) + b/p 
-            -a/(p-1) = b/p 
-            a/(1-p) = b/p 
-            a/b = (1-p)/p 
-            a/b = 1/p - 1 
-            a/b + 1 = 1/p 
-            (a + b)/b = 1/p 
-            b/(a + b) = p 
-            b/n = p 
+            0 = a/(p-1) + b/p
+            -a/(p-1) = b/p
+            a/(1-p) = b/p
+            a/b = (1-p)/p
+            a/b = 1/p - 1
+            a/b + 1 = 1/p
+            (a + b)/b = 1/p
+            b/(a + b) = p
+            b/n = p
 
 
             ## Conclusion:
@@ -372,22 +371,22 @@ impl Parametric for Bernoulli {
             But for std we will use the **UNBIASED** formula instead of the obtained one.
             std = sqrt(1/(n-1) * sumatory{x_i} (x - mean)^2 )
 
-            ## Deafult values: 
+            ## Deafult values:
             If there are not enough samples for the computation, the deafults are:
              - p: 0.5
 
         */
 
-        let mut num_ones: u32 = 0; 
+        let mut num_ones: u32 = 0;
         for observation in data.peek_data().iter() {
             if *observation == 0.0 {
-                num_ones += 1; 
+                num_ones += 1;
             }
         }
 
         ret.push((num_ones as f64) / (data.peek_data().len() as f64));
 
-        return ret; 
+        return ret;
     }
 }
 

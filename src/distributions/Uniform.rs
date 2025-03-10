@@ -26,14 +26,14 @@ impl Uniform {
     ///
     ///  - `a` indicates the minimum value.
     ///  - `b` indicates the maximum value.
-    ///  - `a <= b` must be fulfilled or an error will be returned.
+    ///  - `a < b` must be fulfilled or an error will be returned.
     ///  - `a` and `b` must both be finite values (no `+-inf` or NaNs)
-    pub fn new(a: f64, b: f64) -> Result<Uniform, ()> {
+    pub const fn new(a: f64, b: f64) -> Result<Uniform, ()> {
         if !a.is_finite() || !b.is_finite() {
             return Err(());
         }
 
-        if b < a {
+        if b <= a {
             return Err(());
         }
 
@@ -48,21 +48,21 @@ impl Uniform {
     ///
     ///  - `a` indicates the minimum value.
     ///  - `b` indicates the maximum value.
-    ///  - `a <= b` must be fulfilled or an error will be returned.
+    ///  - `a < b` must be fulfilled or an error will be returned.
     ///  - `a` and `b` must both be finite values (no `+-inf` or NaNs)
-    pub unsafe fn new_unchecked(a: f64, b: f64) -> Result<Uniform, ()> {
+    pub const unsafe fn new_unchecked(a: f64, b: f64) -> Result<Uniform, ()> {
         let domain: ContinuousDomain = ContinuousDomain::Range(a, b);
 
         return Ok(Uniform { domain, a, b });
     }
 
     /// Return `a` (minimum value).
-    pub fn get_a(&self) -> f64 {
+    pub const fn get_a(&self) -> f64 {
         return self.a;
     }
 
     /// Return `b` (maximum value).
-    pub fn get_b(&self) -> f64 {
+    pub const fn get_b(&self) -> f64 {
         return self.b;
     }
 }

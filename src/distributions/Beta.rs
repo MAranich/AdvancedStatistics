@@ -18,7 +18,7 @@ use rand::Rng;
 use crate::{
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
-    euclid,
+    euclid::{self, digamma},
 };
 
 pub const BETA_DOMAIN: ContinuousDomain = ContinuousDomain::Range(0.0, 1.0);
@@ -106,11 +106,11 @@ impl Beta {
         };
     }
 
-    pub fn get_alpha(&self) -> f64 {
+    pub const fn get_alpha(&self) -> f64 {
         return self.alpha;
     }
 
-    pub fn get_beta(&self) -> f64 {
+    pub const fn get_beta(&self) -> f64 {
         return self.beta;
     }
 }
@@ -590,7 +590,19 @@ impl Distribution for Beta {
         return moment;
     }
 
-    // There is a formula for `entropy` but it requieres evaluationg the digamma function
+    fn entropy(&self) -> f64 {
+        // https://en.wikipedia.org/wiki/Beta_distribution#Quantities_of_information_(entropy)
+
+        // B(a, b) = gamma(a+b) / (gamma(a)*gamma(b)) = self.normalitzation_constant
+        // ln(B(a, b)) - (a-1)*digamma(a) - (b-1)*digamma(b) + (a+b-2)*digamma(a+b)
+
+        let term_1: f64 = self.normalitzation_constant.ln();
+        let term_2: f64 = -(self.alpha - 1.0) * digamma(self.alpha);
+        let term_3: f64 = -(self.beta - 1.0) * digamma(self.beta);
+        let term_4: f64 = (self.alpha + self.beta - 2.0) * digamma(self.alpha + self.beta);
+
+        return term_1 + term_2 + term_3 + term_4;
+    }
 
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         // Small modifications for the information that we know of beta.

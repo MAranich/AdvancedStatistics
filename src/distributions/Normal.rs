@@ -158,9 +158,7 @@ impl StdNormal {
     /// It avoids the heap allocation of [StdNormal::sample_multiple] and
     /// the repeated initialitzation processes in [StdNormal::sample].
     pub fn iter(&self) -> StdNormalGenerator {
-        StdNormalGenerator {
-            rng: rand::rng(),
-        }
+        StdNormalGenerator { rng: rand::rng() }
     }
 }
 
@@ -219,9 +217,7 @@ impl Normal {
     /// It avoids the heap allocation of [Normal::sample_multiple] and
     /// the repeated initialitzation processes in [Normal::sample].
     pub fn iter(&self) -> NormalGenerator {
-        let std: StdNormalGenerator = StdNormalGenerator {
-            rng: rand::rng(),
-        };
+        let std: StdNormalGenerator = StdNormalGenerator { rng: rand::rng() };
 
         return NormalGenerator {
             rng: std,
@@ -401,7 +397,7 @@ impl Distribution for StdNormal {
 
             let mut r: f64 = 4.0 * q - 2.2;
             let mut last: f64 = -128.0; // arbitrary number, just far away from r
-                                        // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
+            // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
             'newton_loop: loop {
                 let cdf: f64 = if r < 1.4 {
                     // covers 83.8487 % of cases
@@ -1516,7 +1512,7 @@ impl Iterator for StdNormalGenerator {
 
         let mut r: f64 = 4.0 * q - 2.2;
         let mut last: f64 = -128.0; // arbitrary number, just far away from r
-                                    // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
+        // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
         let ret: f64 = 'newton_loop: loop {
             let cdf: f64 = if r < 1.4 {
                 // covers 83.8487 % of cases
