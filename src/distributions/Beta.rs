@@ -53,41 +53,13 @@ impl Beta {
             return Err(());
         }
 
-        let norm_ct: f64 = Beta::compute_normalitzation_constant(alpha, beta);
+        let norm_ct: f64 = 1.0 / euclid::beta_fn(alpha, beta);
 
         return Ok(Beta {
             alpha,
             beta,
             normalitzation_constant: norm_ct,
         });
-    }
-
-    fn compute_normalitzation_constant(alpha: f64, beta: f64) -> f64 {
-        // Assumes alpha and beta are valid
-
-        /*
-               Computation:
-           The normalitzation constant is:
-           norm = 1/B(alpha, beta) = Gamma(alpha + beta) / (Gamma(alpha)*Gamma(beta))
-
-           However, the raw computation could overflow or be imprecise. Therefore
-           we will compute:
-
-           ln(norm) = ln( Gamma(alpha + beta) / (Gamma(alpha)*Gamma(beta)) )
-            = ln(Gamma(alpha + beta)) - ln(Gamma(alpha)) - ln(Gamma(beta)))
-
-           and exponentiate the result.
-
-
-           ***************************
-           OR INTEGRATE BETWEEN 0 AND 1
-
-        */
-
-        let ln_c: f64 =
-            euclid::ln_gamma(alpha + beta) - euclid::ln_gamma(alpha) - euclid::ln_gamma(beta);
-
-        return ln_c.exp();
     }
 
     /// Creates a new [Beta] distribution with parameters `alpha` and `beta`.
@@ -97,7 +69,7 @@ impl Beta {
     ///
     /// Otherwise an invalid Beta will be returned.
     pub unsafe fn new_unchecked(alpha: f64, beta: f64) -> Beta {
-        let norm_ct: f64 = Beta::compute_normalitzation_constant(alpha, beta);
+        let norm_ct: f64 = 1.0 / euclid::beta_fn(alpha, beta);
 
         return Beta {
             alpha,
@@ -669,7 +641,7 @@ impl Parametric for Beta {
 
         let a: f64 = parameters[0];
         let b: f64 = parameters[1];
-        let norm: f64 = Beta::compute_normalitzation_constant(a, b);
+        let norm: f64 = 1.0 / euclid::beta_fn(a, b);
 
         let pow_alpha: f64 = x.powf(a - 1.0);
         let pow_beta: f64 = (1.0 - x).powf(b - 1.0);
@@ -1024,10 +996,12 @@ impl Default for Beta {
         // a sample from ([Beta::default] * 2 - 1) * r follows the Wigner semicircle distribution
         let alpha: f64 = 1.5;
         let beta: f64 = 1.5;
+        let norm_ct: f64 = 1.0 / euclid::beta_fn(alpha, beta);
+
         Self {
             alpha,
             beta,
-            normalitzation_constant: Beta::compute_normalitzation_constant(alpha, beta),
+            normalitzation_constant: norm_ct,
         }
     }
 }

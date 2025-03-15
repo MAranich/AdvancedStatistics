@@ -170,7 +170,6 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
     return integral;
 }
 
-
 /// Numerical integration but for a finite range.
 ///
 /// Numerical integration for a function `func` within a finite range. The
@@ -223,7 +222,6 @@ pub fn numerical_integration_finite(
     ret = ret * (step_length / 3.0);
     return ret;
 }
-
 
 /// Sum all the discrete values in a distribution.
 /// Can be used to determine the total probability of a pmf.
@@ -337,7 +335,6 @@ pub fn discrete_region_with_area(
 
     return (min, max);
 }
-
 
 /// Randomly permute a slice.
 ///
@@ -840,4 +837,10 @@ pub fn digamma(x: f64) -> f64 {
     }
 
     result
+}
+
+/// Evaluates tue [Beta function](https://en.wikipedia.org/wiki/Beta_function).
+pub fn beta_fn(a: f64, b: f64) -> f64 {
+    let ln_b: f64 = ln_gamma(a) + ln_gamma(b) - ln_gamma(a + b);
+    return ln_b.exp();
 }
