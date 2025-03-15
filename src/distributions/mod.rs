@@ -16,3 +16,4 @@ pub mod Exponential;
 pub mod Gamma;
 pub mod Normal;
 pub mod Uniform;
+pub mod StudentT;

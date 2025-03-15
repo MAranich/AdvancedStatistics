@@ -118,9 +118,10 @@ const SECTION_4_DEN: [f64; 7] = [
     1.0,
 ];
 
+pub const NORMAL_DOMAIN: ContinuousDomain = ContinuousDomain::Reals; 
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct StdNormal {
-    domain: ContinuousDomain,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -146,9 +147,7 @@ impl StdNormal {
     /// Create a Standard normal distribution. Has a mean of `0.0` and a standard
     /// deviation of `1.0`.
     pub const fn new() -> StdNormal {
-        return StdNormal {
-            domain: ContinuousDomain::Reals,
-        };
+        return StdNormal {};
     }
 
     /// Returns an iterator that can generate [StdNormal] samples even faster
@@ -233,7 +232,7 @@ impl Distribution for StdNormal {
     }
 
     fn get_domain(&self) -> &ContinuousDomain {
-        return &self.domain;
+        return &NORMAL_DOMAIN;
     }
 
     fn cdf(&self, x: f64) -> f64 {
@@ -842,7 +841,7 @@ impl Distribution for Normal {
     }
 
     fn get_domain(&self) -> &ContinuousDomain {
-        return self.std_normal.get_domain();
+        return &NORMAL_DOMAIN;
     }
 
     fn cdf(&self, x: f64) -> f64 {
