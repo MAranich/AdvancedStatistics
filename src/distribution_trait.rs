@@ -579,7 +579,19 @@ pub trait Distribution {
                     let _end: f64 = self.pdf(current_position - step_length);
                     (_middle, _end)
                 }
-                IntegrationType::FullInfinite => todo!(),
+                IntegrationType::FullInfinite => {
+                    let _middle: f64 = {
+                        let t: f64 = current_position + half_step_length; 
+                        let u: f64 = 1.0 / (1.0 - t * t);
+                        self.pdf(t * u) * (1.0 + t * t) * u * u
+                    }; 
+                    let _end: f64 = {
+                        let t: f64 = current_position + step_length; 
+                        let u: f64 = 1.0 / (1.0 - t * t); 
+                        self.pdf(t * u) * (1.0 + t * t) * u * u
+                    }; 
+                    (_middle, _end)
+                },
             };
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
