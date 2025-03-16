@@ -183,57 +183,6 @@ pub fn general_test<T: crate::distribution_trait::Distribution>(
     return null.p_value(hypothesys, statistic);
 }
 
-/// Performs a [Z-test](https://en.wikipedia.org/wiki/Z-test) for a general `statistic`
-/// with the given `data` and `hypotesys`.
-///
-/// ## Assumptions of the test
-///
-/// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
-/// 2. Assumes that the null distribution of the test statistic
-/// can be aproximated with a [Normal](crate::distributions::Normal) distribution.
-///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
-///     if it applies.
-///      - Can also be assumed if it is known that the samples are drawn
-///         from a [Normal](crate::distributions::Normal) distribution.
-/// 3. The mean and standard deviation of the null distribution are known
-///      - (Or estimated with high accuracy)
-///
-/// ## Inputs:
-/// 1. `data`: all the samples collected to perform the test.
-///      - **Panics** if `data` contains no samples.
-/// 2. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
-/// 3. `null_mean_statistic`: the mean of the null distribution.
-/// 4. `std_dev`: the *known* standard deviation of the null distribution.
-///      - **Panics** if it is negative, `+-inf` or NaN.
-/// 5. `statistic`: the found statistic.
-///
-/// ## Results
-///
-/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
-///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
-/// can be immidiately rejected.
-///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
-/// cannot be rejected.
-///
-pub fn z_test_general(
-    hypothesys: Hypothesis,
-    null_mean_statistic: f64,
-    std_dev: f64,
-    statistic: f64,
-) -> f64 {
-    let null: crate::distributions::Normal::Normal = match crate::distributions::Normal::Normal::new(
-        null_mean_statistic,
-        std_dev,
-    ) {
-        Ok(d) => d,
-        Err(_) => panic!(
-            "Attempted a hypotesys::z_test_mean with a invalif value for `std_dev`. It is either not stricly positive, `+-inf` or a NaN. \n"
-        ),
-    };
-
-    return null.p_value(hypothesys, statistic);
-}
-
 /// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean. 
 /// Can be used to determine if a the mean of the data is different to the one form 
 /// the null distribution. 
