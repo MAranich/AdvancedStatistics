@@ -82,24 +82,24 @@
 //!  - If the P value is **very large** (for example `0.1 < p`) => fail to reject `H0`.
 //!
 //! ## Implementation
-//! 
-//! We have implemeted some common tests. Each of the functions take the 
+//!
+//! We have implemeted some common tests. Each of the functions take the
 //! necessary arguments and return the corresponding [P value](https://en.wikipedia.org/wiki/P-value)
-//! of the test. 
-//! 
-//! However, take into account that there are assumptions of the tests that we cannot 
-//! check. For this reason there is the necessary documentation that explains: 
+//! of the test.
+//!
+//! However, take into account that there are assumptions of the tests that we cannot
+//! check. For this reason there is the necessary documentation that explains:
 //!  - What the test does (introduction)
 //!  - The assumptions
 //!  - The inputs
 //!  - The results (and errors)
 //!
-//! But keep in mind that the user needs to make sure that the necessary assumprions 
-//! for the test to give results that are valid. 
-//! 
-//! ## Hypotesys struct 
-//! 
-//! Todo: 
+//! But keep in mind that the user needs to make sure that the necessary assumprions
+//! for the test to give results that are valid.
+//!
+//! ## Hypotesys struct
+//!
+//! Todo:
 //!
 //!
 
@@ -127,8 +127,18 @@ pub enum Hypothesis {
     TwoTailed,
 }
 
+/// Performs a general test and returns the probability (P value) of `statistic` being
+/// drawn from the `null` distribution.
+pub fn general_test<T: crate::distribution_trait::Distribution>(
+    hypothesys: Hypothesis,
+    statistic: f64,
+    null: T,
+) -> f64 {
+    return null.p_value(hypothesys, statistic);
+}
+
 /// Performs a [Z-test](https://en.wikipedia.org/wiki/Z-test) **for the mean**
-/// with the given `data` and `hypotesys`. This test can be used to test 
+/// with the given `data` and `hypotesys`. This test can be used to test
 ///
 /// ## Assumptions of the test
 ///
@@ -158,7 +168,7 @@ pub enum Hypothesis {
 /// can be immidiately rejected.
 ///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
 /// cannot be rejected.
-/// 
+///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
 pub fn z_test(
@@ -171,23 +181,13 @@ pub fn z_test(
         None => return Err(TestError::NotEnoughSamples),
     };
 
-    let p: f64 = null.p_value(hypothesys, sample_mean); 
+    let p: f64 = null.p_value(hypothesys, sample_mean);
     return Ok(p);
 }
 
-/// Performs a general test and returns the probability (P value) of `statistic` being
-/// drawn from the `null` distribution. 
-pub fn general_test<T: crate::distribution_trait::Distribution>(
-    hypothesys: Hypothesis,
-    statistic: f64,
-    null: T,
-) -> f64 {
-    return null.p_value(hypothesys, statistic);
-}
-
-/// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean. 
-/// Can be used to determine if a the mean of the data is different to the one form 
-/// the null distribution. 
+/// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean.
+/// Can be used to determine if a the mean of the data is different to the one form
+/// the null distribution.
 ///
 /// ## Assumptions of the test
 ///
@@ -364,4 +364,66 @@ pub fn two_sample_t_test(
 
     let p: f64 = null_student_t.p_value(hypothesys, t);
     return Ok(p);
+}
+
+
+/// Performs a paired [t-test](https://en.wikipedia.org/wiki/Student's_t-test) for the mean.
+/// Can be used to determine if a there is a shift from the first observation to the second. 
+/// 
+/// To do this, we compute a difference dataset where each sample is the difference between 
+/// each pair of samples. 
+///
+/// ## Assumptions of the test
+///
+/// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
+/// 2. Assumes that the null distribution of the mean of the difference dataset can 
+/// be aproximated with a [Normal](crate::distributions::Normal) distribution.
+///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
+///     if it applies.
+///      - Can also be assumed if it is known that the samples of the difference 
+///         distribution are drawn from a [Normal](crate::distributions::Normal) distribution.
+///          - Note that this does not mean that the original samples need to come 
+///             form a normal distribution, only their difference. 
+/// ## Inputs:
+/// 1. `data_pre`: the samples collected to perform the test before the treatment.
+/// 2. `data_post`: the samples collected to perform the test after the treatment.
+/// 3. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+///
+/// ## Results
+///
+/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
+///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
+/// can be immidiately rejected.
+///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
+/// cannot be rejected.
+///
+/// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
+///
+pub fn paired_t_test(
+    data_pre: &mut Samples,
+    data_post: &mut Samples,
+    hypothesys: Hypothesis,
+) -> Result<f64, TestError> {
+
+    let n_pre: usize = data_pre.count(); 
+    let n_post: usize = data_post.count(); 
+
+    if n_pre != n_post {
+        return Err(TestError::InvalidArguments); 
+    }
+    let n: usize = n_pre; 
+
+    let mut difference_dataset_values = Vec::new(); 
+    difference_dataset_values.reserve_exact(n);
+
+    for (pre, post) in data_pre.peek_data().iter().zip(data_post.peek_data().iter()) {
+        difference_dataset_values.push(*post - *pre);
+    }
+
+    let mut difference_dataset: Samples = match Samples::new_move(difference_dataset_values) {
+        Ok(v) => v,
+        Err(_) => return Err(TestError::NanErr),
+    }; 
+
+    return t_test(&mut difference_dataset, hypothesys, 0.0); 
 }

@@ -14,7 +14,7 @@ pub enum AdvStatError {
 
 #[derive(Error, Debug)]
 pub enum TestError {
-    #[error("A NaN (Not a Number) was found in the input. ")]
+    #[error("A NaN (Not a Number) was found in the input. (Or maybe `+- inf` depending on the function)")]
     NanErr, 
     #[error("There were not enough samples to do the operation. ")]
     NotEnoughSamples, 
