@@ -28,7 +28,7 @@
 //!  - Then we have to select an statistic that can allow us to test the hypothesys
 //!     - The expected value, for example.
 //!  - Then we need to know the distribution of the test statistic under the null
-//! hypothesys (known as null distribution)
+//!     hypothesys (known as null distribution)
 //!
 //! Here we can take 2 approaches: selecting a significance level (denoted by
 //! `alpha`) or using the p value.
@@ -68,9 +68,9 @@
 //! requiered to reject or fail to reject the null hypothesys `H0`. The P
 //! value can be interpreted on the following (equivalent ways):
 //!  - The probability of the null distribution generating a statistic
-//! as extreme or more than the one obtained.
+//!     as extreme or more than the one obtained.
 //!  - The value for alpha that makes the statistic lay on the boundary of the
-//! confidence interval.
+//!     confidence interval.
 //!      - That means that if we use the significance level approach and we select
 //!         `alpha < p` we will fail to reject `H0` and `p < alpha` we will
 //!         reject `H0`.
@@ -127,6 +127,31 @@ pub enum Hypothesis {
     TwoTailed,
 }
 
+/// Contains the result of the test
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TestResult {
+    /// The obtained [P value](https://en.wikipedia.org/wiki/P-value)
+    PValue(f64),
+    /// The obtained [P value](https://en.wikipedia.org/wiki/P-value) and the confidence interval
+    PValueCI(f64, (f64, f64)),
+}
+
+impl TestResult {
+    /// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
+    pub fn p(&self) -> f64 {
+        // convinience method for quickly retriving the p value
+        return match self {
+            TestResult::PValue(p) | TestResult::PValueCI(p, _) => *p,
+        };
+    }
+}
+
+impl Default for TestResult {
+    fn default() -> Self {
+        TestResult::PValue(0.0)
+    }
+}
+
 /// Performs a general test and returns the probability (P value) of `statistic` being
 /// drawn from the `null` distribution.
 pub fn general_test<T: crate::distribution_trait::Distribution>(
@@ -138,64 +163,84 @@ pub fn general_test<T: crate::distribution_trait::Distribution>(
 }
 
 /// Performs a [Z-test](https://en.wikipedia.org/wiki/Z-test) **for the mean**
-/// with the given `data` and `hypotesys`. This test can be used to test
+/// with the given `data` and `hypotesys`. This test can be used to test if the mean of
+/// a dataset is different from the null hypothesys when the variance is known.
+///
+/// Usually a [t-test](t_test) is prefered.
 ///
 /// ## Assumptions of the test
 ///
 /// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
 /// 2. Assumes that the null distribution of the test statistic
-/// (the mean) can be aproximated with a
-/// [Normal](crate::distributions::Normal) distribution.
+///     (the mean) can be aproximated with a
+///     [Normal](crate::distributions::Normal) distribution.
 ///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
-///     if it applies.
+///         if it applies.
 ///      - Can also be assumed if it is known that the samples are drawn
-///         from a [Normal](crate::distributions::Normal) distribution.
+///             from a [Normal](crate::distributions::Normal) distribution.
 /// 3. The mean and standard deviation of the null distribution are known
 ///      - (Or estimated with high accuracy)
 ///
 /// ## Inputs:
 /// 1. `data`: all the samples collected to perform the test.
-/// 2. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
-/// 3. `null`: the [null distribution](https://en.wikipedia.org/wiki/Null_distribution)
+/// 2. `hypothesys`: (optional) determines if a 2-tailed/left-tailed/right-tailed will be used
+///      - The default is a 2 tailed test.
+/// 3. `null`: (optional) the [null distribution](https://en.wikipedia.org/wiki/Null_distribution)
 /// of the mean.
 ///      - Contains the null hypothesys mean
 ///      - Contains the **known** standard deviation of the null distribution.
+///      - The default is a standard normal (0 mean, 1 std_dev).
+/// 4. `significance`: (optional) If left empty, only the P-value will be computed.
+///     Otherwise, a confidence interval with the given significance level (alpha)
+///     will be computed.
+///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - (The P-value is always computed)
 ///
 /// ## Results
 ///
-/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
-///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
-/// can be immidiately rejected.
-///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
-/// cannot be rejected.
+/// If the test is performed correcly, it returns a [TestResult] with the P value
+/// and the confidence interval if `significance` was provided.
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
+#[bon::builder]
 pub fn z_test(
     data: &mut Samples,
-    hypothesys: Hypothesis,
-    null: crate::distributions::Normal::Normal,
-) -> Result<f64, TestError> {
+    #[builder(default)] hypothesys: Hypothesis,
+    #[builder(default)] null: crate::distributions::Normal::Normal,
+    significance: Option<f64>,
+) -> Result<TestResult, TestError> {
     let sample_mean: f64 = match data.mean() {
         Some(m) => m,
         None => return Err(TestError::NotEnoughSamples),
     };
 
     let p: f64 = null.p_value(hypothesys, sample_mean);
-    return Ok(p);
+
+    let ret: TestResult = if let Some(alpha) = significance {
+        if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+            return Err(TestError::InvalidSignificance);
+        }
+        let confidence_interval: (f64, f64) = null.confidence_interval(hypothesys, alpha);
+        TestResult::PValueCI(p, confidence_interval)
+    } else {
+        TestResult::PValue(p)
+    };
+
+    return Ok(ret);
 }
 
 /// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean.
 /// Can be used to determine if a the mean of the data is different to the one form
-/// the null distribution.
+/// the null distribution (usally mean = 0).
 ///
 /// ## Assumptions of the test
 ///
 /// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
 /// 2. Assumes that the null distribution of the mean can be aproximated
-/// with a [Normal](crate::distributions::Normal) distribution.
+///     with a [Normal](crate::distributions::Normal) distribution.
 ///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
-///     if it applies.
+///         if it applies.
 ///      - Can also be assumed if it is known that the samples are drawn
 ///         from a [Normal](crate::distributions::Normal) distribution.
 /// 3. The mean of the null distribution are known
@@ -203,24 +248,29 @@ pub fn z_test(
 ///
 /// ## Inputs:
 /// 1. `data`: all the samples collected to perform the test.
-/// 2. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+/// 2. `hypothesys`: (optional) determines if a 2-tailed/left-tailed/right-tailed will be used
+///      - The default is a 2 tailed test.
 /// 3. `null_mean`: the mean of the null distribution.
-///
+///      - The default is 0.
+/// 4. `significance`: (optional) If left empty, only the P-value will be computed.
+///     Otherwise, a confidence interval with the given significance level (alpha)
+///     will be computed.
+///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - (The P-value is always computed)
 /// ## Results
 ///
-/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
-///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
-/// can be immidiately rejected.
-///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
-/// cannot be rejected.
+/// If the test is performed correcly, it returns a [TestResult] with the P value
+/// and the confidence interval if `significance` was provided.
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
+#[bon::builder]
 pub fn t_test(
     data: &mut Samples,
-    hypothesys: Hypothesis,
-    null_mean: f64,
-) -> Result<f64, TestError> {
+    #[builder(default)] hypothesys: Hypothesis,
+    #[builder(default)] null_mean: f64,
+    significance: Option<f64>,
+) -> Result<TestResult, TestError> {
     let len: usize = data.count();
     if len < 2 {
         return Err(TestError::NotEnoughSamples);
@@ -234,7 +284,17 @@ pub fn t_test(
 
     let p: f64 = t_distr.p_value(hypothesys, t);
 
-    return Ok(p);
+    let ret: TestResult = if let Some(alpha) = significance {
+        if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+            return Err(TestError::InvalidSignificance);
+        }
+        let confidence_interval: (f64, f64) = t_distr.confidence_interval(hypothesys, alpha);
+        TestResult::PValueCI(p, confidence_interval)
+    } else {
+        TestResult::PValue(p)
+    };
+
+    return Ok(ret);
 }
 
 /// Performs a two sample location [t-test](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests)
@@ -255,32 +315,37 @@ pub fn t_test(
 ///
 /// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
 /// 2. Assumes that the null distribution of the mean can be aproximated
-/// with a [Normal](crate::distributions::Normal) distribution.
+///     with a [Normal](crate::distributions::Normal) distribution.
 ///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
-///     if it applies (by having **many** samples).
+///         if it applies (by having **many** samples).
 ///      - Can also be assumed if it is known that the samples are drawn
-///         from a [Normal](crate::distributions::Normal) distribution.
+///             from a [Normal](crate::distributions::Normal) distribution.
 ///
 /// ## Inputs:
 /// 1. `data_a`: The samples collected for group A.
 /// 2. `data_b`: The samples collected for group b.
 /// 3. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+///      - The default is a 2 tailed test.
+/// 4. `significance`: (optional) If left empty, only the P-value will be computed.
+///     Otherwise, a confidence interval with the given significance level (alpha)
+///     will be computed.
+///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - (The P-value is always computed)
 ///
 /// ## Results
 ///
-/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
-///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
-/// can be immidiately rejected.
-///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
-/// cannot be rejected.
+/// If the test is performed correcly, it returns a [TestResult] with the P value
+/// and the confidence interval if `significance` was provided.
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
+#[bon::builder]
 pub fn two_sample_t_test(
     data_a: &mut Samples,
     data_b: &mut Samples,
-    hypothesys: Hypothesis,
-) -> Result<f64, TestError> {
+    #[builder(default)] hypothesys: Hypothesis,
+    significance: Option<f64>,
+) -> Result<TestResult, TestError> {
     let n_a: f64 = data_a.count() as f64;
     let n_b: f64 = data_b.count() as f64;
 
@@ -316,7 +381,18 @@ pub fn two_sample_t_test(
         };
 
         let p: f64 = null_student_t.p_value(hypothesys, t);
-        return Ok(p);
+        let ret: TestResult = if let Some(alpha) = significance {
+            if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+                return Err(TestError::InvalidSignificance);
+            }
+            let confidence_interval: (f64, f64) =
+                null_student_t.confidence_interval(hypothesys, alpha);
+            TestResult::PValueCI(p, confidence_interval)
+        } else {
+            TestResult::PValue(p)
+        };
+
+        return Ok(ret);
     }
 
     if similar_var {
@@ -335,7 +411,18 @@ pub fn two_sample_t_test(
         };
 
         let p: f64 = null_student_t.p_value(hypothesys, t);
-        return Ok(p);
+        let ret: TestResult = if let Some(alpha) = significance {
+            if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+                return Err(TestError::InvalidSignificance);
+            }
+            let confidence_interval: (f64, f64) =
+                null_student_t.confidence_interval(hypothesys, alpha);
+            TestResult::PValueCI(p, confidence_interval)
+        } else {
+            TestResult::PValue(p)
+        };
+
+        return Ok(ret);
     }
 
     // Welch's t-test
@@ -363,67 +450,92 @@ pub fn two_sample_t_test(
     };
 
     let p: f64 = null_student_t.p_value(hypothesys, t);
-    return Ok(p);
+    let ret: TestResult = if let Some(alpha) = significance {
+        if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+            return Err(TestError::InvalidSignificance);
+        }
+        let confidence_interval: (f64, f64) = null_student_t.confidence_interval(hypothesys, alpha);
+        TestResult::PValueCI(p, confidence_interval)
+    } else {
+        TestResult::PValue(p)
+    };
+
+    return Ok(ret);
 }
 
-
 /// Performs a paired [t-test](https://en.wikipedia.org/wiki/Student's_t-test) for the mean.
-/// Can be used to determine if a there is a shift from the first observation to the second. 
-/// 
-/// To do this, we compute a difference dataset where each sample is the difference between 
-/// each pair of samples. 
+/// Can be used to determine if a there is a shift from the first observation to the second.
+///
+/// To do this, we compute a difference dataset where each sample is the difference between
+/// each pair of samples.
 ///
 /// ## Assumptions of the test
 ///
 /// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
-/// 2. Assumes that the null distribution of the mean of the difference dataset can 
+/// 2. Assumes that the null distribution of the mean of the *difference dataset* can
 /// be aproximated with a [Normal](crate::distributions::Normal) distribution.
 ///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
 ///     if it applies.
-///      - Can also be assumed if it is known that the samples of the difference 
+///      - Can also be assumed if it is known that the samples of the difference
 ///         distribution are drawn from a [Normal](crate::distributions::Normal) distribution.
-///          - Note that this does not mean that the original samples need to come 
-///             form a normal distribution, only their difference. 
+///          - Note that this does not mean that the original samples need to come
+///             form a normal distribution, only their difference.
+///
 /// ## Inputs:
 /// 1. `data_pre`: the samples collected to perform the test before the treatment.
 /// 2. `data_post`: the samples collected to perform the test after the treatment.
 /// 3. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+///      - The default is a 2 tailed test.
+/// 4. `significance`: (optional) If left empty, only the P-value will be computed.
+///     Otherwise, a confidence interval with the given significance level (alpha)
+///     will be computed.
+///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - (The P-value is always computed)
 ///
 /// ## Results
 ///
-/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
-///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
-/// can be immidiately rejected.
-///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
-/// cannot be rejected.
+/// If the test is performed correcly, it returns a [TestResult] with the P value
+/// and the confidence interval if `significance` was provided.
 ///
+/// If there are an unequal number of sampes, returns [TestError::InvalidArguments].
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
+#[bon::builder]
 pub fn paired_t_test(
     data_pre: &mut Samples,
     data_post: &mut Samples,
-    hypothesys: Hypothesis,
-) -> Result<f64, TestError> {
-
-    let n_pre: usize = data_pre.count(); 
-    let n_post: usize = data_post.count(); 
+    #[builder(default)] hypothesys: Hypothesis,
+    significance: Option<f64>,
+) -> Result<TestResult, TestError> {
+    let n_pre: usize = data_pre.count();
+    let n_post: usize = data_post.count();
 
     if n_pre != n_post {
-        return Err(TestError::InvalidArguments); 
+        return Err(TestError::InvalidArguments);
     }
-    let n: usize = n_pre; 
+    let n: usize = n_pre;
 
-    let mut difference_dataset_values = Vec::new(); 
+    let mut difference_dataset_values: Vec<f64> = Vec::new();
     difference_dataset_values.reserve_exact(n);
 
-    for (pre, post) in data_pre.peek_data().iter().zip(data_post.peek_data().iter()) {
+    for (pre, post) in data_pre
+        .peek_data()
+        .iter()
+        .zip(data_post.peek_data().iter())
+    {
         difference_dataset_values.push(*post - *pre);
     }
 
     let mut difference_dataset: Samples = match Samples::new_move(difference_dataset_values) {
         Ok(v) => v,
         Err(_) => return Err(TestError::NanErr),
-    }; 
+    };
 
-    return t_test(&mut difference_dataset, hypothesys, 0.0); 
+    //return t_test(&mut difference_dataset, hypothesys, 0.0);
+    return t_test()
+        .data(&mut difference_dataset)
+        .hypothesys(hypothesys)
+        .null_mean(0.0)
+        .maybe_significance(significance)
+        .call();
 }

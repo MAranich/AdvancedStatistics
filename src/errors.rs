@@ -12,14 +12,22 @@ pub enum AdvStatError {
     NotEnoughSamples, 
 }
 
+/// An enum that indicates what went wrong with the test. 
 #[derive(Error, Debug)]
 pub enum TestError {
+    /// A NaN (Not a Number) was found in the input. (Or maybe `+- inf` depending on the function)
     #[error("A NaN (Not a Number) was found in the input. (Or maybe `+- inf` depending on the function)")]
     NanErr, 
+    /// There were not enough samples to do the operation. 
     #[error("There were not enough samples to do the operation. ")]
     NotEnoughSamples, 
+    /// The arguments violated some of the function preconditions. 
     #[error("The arguments violated some of the function preconditions. ")]
     InvalidArguments, 
-    #[error("Unknown error")]
+    /// The significance level was set to an invalid value. (`0.0 < significance < 1.0`)
+    #[error("The significance level was set to an invalid value. (`0.0 < significance < 1.0`)")]
+    InvalidSignificance, 
+    /// Unknown error / unimplemented
+    #[error("Unknown error / unimplemented")]
     Unknown,
 }
