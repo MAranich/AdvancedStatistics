@@ -81,12 +81,29 @@
 //!  - If the P value is **very small** (for example `P < 0.01`) => reject `H0`.
 //!  - If the P value is **very large** (for example `0.1 < p`) => fail to reject `H0`.
 //!
-//!  
+//! ## Implementation
+//! 
+//! We have implemeted some common tests. Each of the functions take the 
+//! necessary arguments and return the corresponding [P value](https://en.wikipedia.org/wiki/P-value)
+//! of the test. 
+//! 
+//! However, take into account that there are assumptions of the tests that we cannot 
+//! check. For this reason there is the necessary documentation that explains: 
+//!  - What the test does (introduction)
+//!  - The assumptions
+//!  - The inputs
+//!  - The results (and errors)
 //!
+//! But keep in mind that the user needs to make sure that the necessary assumprions 
+//! for the test to give results that are valid. 
+//! 
+//! ## Hypotesys struct 
+//! 
+//! Todo: 
 //!
 //!
 
-use std::{env::var, hint::assert_unchecked};
+use std::hint::assert_unchecked;
 
 use crate::{
     Samples::Samples, distribution_trait::Distribution, distributions::StudentT::StudentT,
@@ -111,7 +128,7 @@ pub enum Hypothesis {
 }
 
 /// Performs a [Z-test](https://en.wikipedia.org/wiki/Z-test) **for the mean**
-/// with the given `data` and `hypotesys`.
+/// with the given `data` and `hypotesys`. This test can be used to test 
 ///
 /// ## Assumptions of the test
 ///
@@ -157,7 +174,7 @@ pub fn z_test(
 }
 
 /// Performs a general test and returns the probability (P value) of `statistic` being
-/// drawn from the `null` distribution.
+/// drawn from the `null` distribution. 
 pub fn general_test<T: crate::distribution_trait::Distribution>(
     hypothesys: Hypothesis,
     statistic: f64,
@@ -217,7 +234,9 @@ pub fn z_test_general(
     return null.p_value(hypothesys, statistic);
 }
 
-/// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean.
+/// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean. 
+/// Can be used to determine if a the mean of the data is different to the one form 
+/// the null distribution. 
 ///
 /// ## Assumptions of the test
 ///
@@ -272,15 +291,15 @@ pub fn t_test(
 /// their means are different or not. The null hypotesys assumes that the 2 means
 /// are equal (there is no difference).
 ///
-/// This function will ajust to the given datasets and perform different computations: 
+/// This function will ajust to the given datasets and perform different computations:
 ///  - [Equal sample sizes and variance](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_sample_sizes_and_variance)
 ///  - [Equal or unequal sample sizes, similar variances](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_or_unequal_sample_sizes,_similar_variances_(%E2%81%A01/2%E2%81%A0_%3C_%E2%81%A0sX1/sX2%E2%81%A0_%3C_2))
 ///  - [Equal or unequal sample sizes, unequal variances](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_or_unequal_sample_sizes,_unequal_variances_(sX1_%3E_2sX2_or_sX2_%3E_2sX1))
 ///      - Known as [Welch's t-test](https://en.wikipedia.org/wiki/Welch%27s_t-test)
-/// 
-/// Variances are considered similar iff `1/2 <= var(a)/var(b) <= 2.0`, where `var(x)` 
-/// is the unbiased sample variance of the dataset x. 
-/// 
+///
+/// Variances are considered similar iff `1/2 <= var(a)/var(b) <= 2.0`, where `var(x)`
+/// is the unbiased sample variance of the dataset x.
+///
 /// ## Assumptions of the test
 ///
 /// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
@@ -292,8 +311,8 @@ pub fn t_test(
 ///         from a [Normal](crate::distributions::Normal) distribution.
 ///
 /// ## Inputs:
-/// 1. `data_a`: The samples collected for group A. 
-/// 2. `data_b`: The samples collected for group b. 
+/// 1. `data_a`: The samples collected for group A.
+/// 2. `data_b`: The samples collected for group b.
 /// 3. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
 ///
 /// ## Results
@@ -374,7 +393,7 @@ pub fn two_sample_t_test(
     let aux_a: f64 = var_a / n_a;
     let aux_b: f64 = var_b / n_b;
     let aux: f64 = aux_a + var_b / n_b;
-    
+
     //corrected sample standard deviation
     let s_corr: f64 = aux.sqrt();
     let t: f64 = mean_diff / s_corr;
