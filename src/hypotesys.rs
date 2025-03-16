@@ -145,7 +145,6 @@ pub enum Hypothesis {
 ///
 /// ## Inputs:
 /// 1. `data`: all the samples collected to perform the test.
-///   - **Panics** if `data` contains no samples.
 /// 2. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
 /// 3. `null`: the [null distribution](https://en.wikipedia.org/wiki/Null_distribution)
 /// of the mean.
@@ -159,18 +158,21 @@ pub enum Hypothesis {
 /// can be immidiately rejected.
 ///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
 /// cannot be rejected.
+/// 
+/// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
 pub fn z_test(
     data: &mut Samples,
     hypothesys: Hypothesis,
     null: crate::distributions::Normal::Normal,
-) -> f64 {
+) -> Result<f64, TestError> {
     let sample_mean: f64 = match data.mean() {
         Some(m) => m,
-        None => panic!("Attempted a hypotesys::z_test_mean with an empty dataset. \n"),
+        None => return Err(TestError::NotEnoughSamples),
     };
 
-    return null.p_value(hypothesys, sample_mean);
+    let p: f64 = null.p_value(hypothesys, sample_mean); 
+    return Ok(p);
 }
 
 /// Performs a general test and returns the probability (P value) of `statistic` being
