@@ -86,7 +86,12 @@
 //!
 //!
 
-use crate::{Samples::Samples, distribution_trait::Distribution};
+use std::{env::var, hint::assert_unchecked};
+
+use crate::{
+    Samples::Samples, distribution_trait::Distribution, distributions::StudentT::StudentT,
+    errors::TestError,
+};
 
 /// Defines Wich kind of test are we doing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
@@ -108,14 +113,17 @@ pub enum Hypothesis {
 /// Performs a [Z-test](https://en.wikipedia.org/wiki/Z-test) **for the mean**
 /// with the given `data` and `hypotesys`.
 ///
-/// ## Assumptions
+/// ## Assumptions of the test
 ///
-/// 1. Assumes that the null distribution of the test statistic
+/// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
+/// 2. Assumes that the null distribution of the test statistic
 /// (the mean) can be aproximated with a
 /// [Normal](crate::distributions::Normal) distribution.
-///     - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
+///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
 ///     if it applies.
-/// 2. The mean and standard deviation of the null distribution are known
+///      - Can also be assumed if it is known that the samples are drawn
+///         from a [Normal](crate::distributions::Normal) distribution.
+/// 3. The mean and standard deviation of the null distribution are known
 ///      - (Or estimated with high accuracy)
 ///
 /// ## Inputs:
@@ -148,16 +156,29 @@ pub fn z_test(
     return null.p_value(hypothesys, sample_mean);
 }
 
+/// Performs a general test and returns the probability (P value) of `statistic` being
+/// drawn from the `null` distribution.
+pub fn general_test<T: crate::distribution_trait::Distribution>(
+    hypothesys: Hypothesis,
+    statistic: f64,
+    null: T,
+) -> f64 {
+    return null.p_value(hypothesys, statistic);
+}
+
 /// Performs a [Z-test](https://en.wikipedia.org/wiki/Z-test) for a general `statistic`
 /// with the given `data` and `hypotesys`.
 ///
-/// ## Assumptions
+/// ## Assumptions of the test
 ///
-/// 1. Assumes that the null distribution of the test statistic
+/// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
+/// 2. Assumes that the null distribution of the test statistic
 /// can be aproximated with a [Normal](crate::distributions::Normal) distribution.
-///     - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
+///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
 ///     if it applies.
-/// 2. The mean and standard deviation of the null distribution are known
+///      - Can also be assumed if it is known that the samples are drawn
+///         from a [Normal](crate::distributions::Normal) distribution.
+/// 3. The mean and standard deviation of the null distribution are known
 ///      - (Or estimated with high accuracy)
 ///
 /// ## Inputs:
@@ -194,4 +215,183 @@ pub fn z_test_general(
     };
 
     return null.p_value(hypothesys, statistic);
+}
+
+/// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean.
+///
+/// ## Assumptions of the test
+///
+/// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
+/// 2. Assumes that the null distribution of the mean can be aproximated
+/// with a [Normal](crate::distributions::Normal) distribution.
+///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
+///     if it applies.
+///      - Can also be assumed if it is known that the samples are drawn
+///         from a [Normal](crate::distributions::Normal) distribution.
+/// 3. The mean of the null distribution are known
+///      - (Or estimated with high accuracy)
+///
+/// ## Inputs:
+/// 1. `data`: all the samples collected to perform the test.
+/// 2. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+/// 3. `null_mean`: the mean of the null distribution.
+///
+/// ## Results
+///
+/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
+///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
+/// can be immidiately rejected.
+///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
+/// cannot be rejected.
+///
+/// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
+///
+pub fn t_test(
+    data: &mut Samples,
+    hypothesys: Hypothesis,
+    null_mean: f64,
+) -> Result<f64, TestError> {
+    let len: usize = data.count();
+    if len < 2 {
+        return Err(TestError::NotEnoughSamples);
+    }
+
+    let mean: f64 = data.mean().unwrap();
+    let sample_std_dev: f64 = data.variance().unwrap().sqrt();
+
+    let t: f64 = (mean - null_mean) * (len as f64).sqrt() / sample_std_dev;
+    let t_distr: StudentT = StudentT::new(len as f64 - 1.0).unwrap();
+
+    let p: f64 = t_distr.p_value(hypothesys, t);
+
+    return Ok(p);
+}
+
+/// Performs a two sample location [t-test](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests)
+/// for the mean. We have 2 datasets `data_a` and `data_b` and we wish to determine if
+/// their means are different or not. The null hypotesys assumes that the 2 means
+/// are equal (there is no difference).
+///
+/// This function will ajust to the given datasets and perform different computations: 
+///  - [Equal sample sizes and variance](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_sample_sizes_and_variance)
+///  - [Equal or unequal sample sizes, similar variances](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_or_unequal_sample_sizes,_similar_variances_(%E2%81%A01/2%E2%81%A0_%3C_%E2%81%A0sX1/sX2%E2%81%A0_%3C_2))
+///  - [Equal or unequal sample sizes, unequal variances](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_or_unequal_sample_sizes,_unequal_variances_(sX1_%3E_2sX2_or_sX2_%3E_2sX1))
+///      - Known as [Welch's t-test](https://en.wikipedia.org/wiki/Welch%27s_t-test)
+/// 
+/// Variances are considered similar iff `1/2 <= var(a)/var(b) <= 2.0`, where `var(x)` 
+/// is the unbiased sample variance of the dataset x. 
+/// 
+/// ## Assumptions of the test
+///
+/// 1. [IID samples](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
+/// 2. Assumes that the null distribution of the mean can be aproximated
+/// with a [Normal](crate::distributions::Normal) distribution.
+///      - This can be assumed trough the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
+///     if it applies (by having **many** samples).
+///      - Can also be assumed if it is known that the samples are drawn
+///         from a [Normal](crate::distributions::Normal) distribution.
+///
+/// ## Inputs:
+/// 1. `data_a`: The samples collected for group A. 
+/// 2. `data_b`: The samples collected for group b. 
+/// 3. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+///
+/// ## Results
+///
+/// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
+///  - If the P value is **very small** (for example `P < 0.01`), the null hypothesys
+/// can be immidiately rejected.
+///  - If the P value is **very large** (for example `0.1 < p`), the null hypothesys
+/// cannot be rejected.
+///
+/// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
+///
+pub fn two_sample_t_test(
+    data_a: &mut Samples,
+    data_b: &mut Samples,
+    hypothesys: Hypothesis,
+) -> Result<f64, TestError> {
+    let n_a: f64 = data_a.count() as f64;
+    let n_b: f64 = data_b.count() as f64;
+
+    if n_a < 2.0 || n_b < 2.0 {
+        return Err(TestError::NotEnoughSamples);
+    }
+    // All the following unwraps are safe since the dataset has at least 2 samples
+
+    let mean_diff: f64 = data_a.mean().unwrap() - data_b.mean().unwrap();
+
+    let var_a: f64 = data_a.variance().unwrap();
+    let var_b: f64 = data_b.variance().unwrap();
+    let similar_var: bool = {
+        let var_ratio: f64 = var_a / var_b;
+        0.5 <= var_ratio && var_ratio <= 2.0
+    };
+
+    if n_a == n_b && similar_var {
+        // Equal sample sizes and variance
+        // https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_sample_sizes_and_variance
+
+        let n: f64 = n_a;
+
+        let s_pool: f64 = ((var_a + var_b) * 0.5).sqrt();
+
+        let t: f64 = mean_diff / (s_pool * (2.0 / n).sqrt());
+
+        let degrees_of_freedom: f64 = 2.0 * (n - 1.0);
+        let null_student_t: StudentT = unsafe {
+            // safe because of the cond in the assert is always fullfilled
+            assert_unchecked(2.0 <= degrees_of_freedom);
+            StudentT::new_unchecked(degrees_of_freedom)
+        };
+
+        let p: f64 = null_student_t.p_value(hypothesys, t);
+        return Ok(p);
+    }
+
+    if similar_var {
+        // Equal or unequal sample sizes, similar variances
+        // https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_or_unequal_sample_sizes,_similar_variances_(%E2%81%A01/2%E2%81%A0_%3C_%E2%81%A0sX1/sX2%E2%81%A0_%3C_2)
+
+        let degrees_of_freedom: f64 = n_a + n_b - 2.0;
+
+        let s_pool: f64 = (((n_a - 1.0) * var_a + (n_b - 1.0) * var_b) / degrees_of_freedom).sqrt();
+        let t: f64 = mean_diff / (s_pool * (1.0 / n_a + 1.0 / n_b).sqrt());
+
+        let null_student_t: StudentT = unsafe {
+            // safe because of the cond in the assert is always fullfilled
+            assert_unchecked(2.0 <= degrees_of_freedom);
+            StudentT::new_unchecked(degrees_of_freedom)
+        };
+
+        let p: f64 = null_student_t.p_value(hypothesys, t);
+        return Ok(p);
+    }
+
+    // Welch's t-test
+    // https://en.wikipedia.org/wiki/Welch%27s_t-test
+
+    let aux_a: f64 = var_a / n_a;
+    let aux_b: f64 = var_b / n_b;
+    let aux: f64 = aux_a + var_b / n_b;
+    
+    //corrected sample standard deviation
+    let s_corr: f64 = aux.sqrt();
+    let t: f64 = mean_diff / s_corr;
+
+    let degrees_of_freedom: f64 = {
+        let num: f64 = aux * aux;
+        let den_1: f64 = aux_a * aux_a / (n_a - 1.0);
+        let den_2: f64 = aux_b * aux_b / (n_a - 1.0);
+        num / (den_1 + den_2)
+    };
+
+    let null_student_t: StudentT = unsafe {
+        // safe because of the cond in the assert is always fullfilled
+        assert_unchecked(2.0 <= degrees_of_freedom);
+        StudentT::new_unchecked(degrees_of_freedom)
+    };
+
+    let p: f64 = null_student_t.p_value(hypothesys, t);
+    return Ok(p);
 }

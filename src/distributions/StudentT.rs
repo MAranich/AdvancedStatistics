@@ -591,7 +591,7 @@ impl Parametric for StudentT {
         // let norm = gamma((nu-1)/2) / (sqrt(pi * nu) * gamma(nu/2))
         // pdf(x | nu) = norm(nu) * (1 + x^2 / nu) ^ (-(nu+1)/2)
 
-        let nu: f64 = parameters[0];
+        //let nu: f64 = parameters[0];
 
         let pdf: f64 = self.general_pdf(x, parameters);
         let ln_der: Vec<f64> = self.log_derivative_pdf_parameters(x, parameters);
