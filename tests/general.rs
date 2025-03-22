@@ -1,15 +1,18 @@
 use std::num::NonZero;
 
+use AdvancedStatistics::{
+    euclid::{digamma, fast_digamma},
+    *,
+};
 ///! General testing section
 use distribution_trait::{DiscreteDistribution, Distribution};
 use distributions::{Binomial::Binomial, Exponential::Exponential};
 use domain::*;
-use AdvancedStatistics::*;
 
 #[test]
 fn temporal() {
-    let value: f64 = 1.0 / 2.0_f64.powi(15);
-    print!("{} | {} \n", value, value.to_bits());
+    println!("{:?}", 0.0);
+
     //panic!();
 }
 
@@ -357,61 +360,99 @@ fn deafult_methods_comparasion_discrete_binomial() {
 
 #[test]
 fn ln_gamma_precision() {
-
     /*
-        we know that ln_gamma_int is correct because ti's derivated from it's definition, 
-        but it may be slow O(n) and only works for integers. 
+        we know that ln_gamma_int is correct because ti's derivated from it's definition,
+        but it may be slow O(n) and only works for integers.
     */
     // maximum absolute error allowed
-    let max_diff: f64 = 0.000045; 
+    let max_diff: f64 = 0.000045;
     // maximum relative error allowed
-    let max_rel: f64 = 0.0000000000001; 
-
+    let max_rel: f64 = 0.0000000000001;
 
     for i in 1..=260 {
-        let ground: f64 = euclid::ln_gamma_int(NonZero::new(i as u64).unwrap()); 
-        let alternative: f64 = euclid::ln_gamma(i as f64); 
-        let abs_diff: f64 = (ground-alternative).abs(); 
-        let rel_err: f64 = abs_diff/ground; 
+        let ground: f64 = euclid::ln_gamma_int(NonZero::new(i as u64).unwrap());
+        let alternative: f64 = euclid::ln_gamma(i as f64);
+        let abs_diff: f64 = (ground - alternative).abs();
+        let rel_err: f64 = abs_diff / ground;
 
-        println!("{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}", i, ground, alternative, abs_diff, rel_err); 
-        assert!(abs_diff < max_diff); 
-        assert!(rel_err < max_rel || !rel_err.is_finite()); 
+        println!(
+            "{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}",
+            i, ground, alternative, abs_diff, rel_err
+        );
+        assert!(abs_diff < max_diff);
+        assert!(rel_err < max_rel || !rel_err.is_finite());
         // relative error when the true value is 0 explodes to inf
     }
 
-    println!("**************************************************************************"); 
-    println!("**************************************************************************"); 
+    println!("**************************************************************************");
+    println!("**************************************************************************");
 
     for i in 18..=52 {
-        let ground: f64 = euclid::ln_gamma_int(NonZero::new((i * i) as u64).unwrap()); 
-        let alternative: f64 = euclid::ln_gamma((i * i) as f64); 
-        let abs_diff: f64 = (ground-alternative).abs(); 
-        let rel_err: f64 = abs_diff/ground; 
+        let ground: f64 = euclid::ln_gamma_int(NonZero::new((i * i) as u64).unwrap());
+        let alternative: f64 = euclid::ln_gamma((i * i) as f64);
+        let abs_diff: f64 = (ground - alternative).abs();
+        let rel_err: f64 = abs_diff / ground;
 
-        println!("{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}", i*i, ground, alternative, abs_diff, rel_err); 
-        assert!(abs_diff < max_diff); 
-        assert!(rel_err < max_rel); 
+        println!(
+            "{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}",
+            i * i,
+            ground,
+            alternative,
+            abs_diff,
+            rel_err
+        );
+        assert!(abs_diff < max_diff);
+        assert!(rel_err < max_rel);
     }
 
-    println!("**************************************************************************"); 
-    println!("**************************************************************************"); 
-    println!("**************************************************************************"); 
+    println!("**************************************************************************");
+    println!("**************************************************************************");
+    println!("**************************************************************************");
 
-    // doing powers of 1.5 so it does not syncronize with the ground impl. 
+    // doing powers of 1.5 so it does not syncronize with the ground impl.
     // max: 50 => 31.24s
     //      48 => 13.81s
     for i in 20..=48 {
-        let x: f64 = 1.5_f64.powi(i).floor(); 
-        let ground: f64 = euclid::ln_gamma_int(NonZero::new(x as u64).unwrap()); 
-        let alternative: f64 = euclid::ln_gamma(x); 
-        let abs_diff: f64 = (ground-alternative).abs(); 
-        let rel_err: f64 = abs_diff/ground; 
+        let x: f64 = 1.5_f64.powi(i).floor();
+        let ground: f64 = euclid::ln_gamma_int(NonZero::new(x as u64).unwrap());
+        let alternative: f64 = euclid::ln_gamma(x);
+        let abs_diff: f64 = (ground - alternative).abs();
+        let rel_err: f64 = abs_diff / ground;
 
-        println!("{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}", x, ground, alternative, abs_diff, rel_err); 
-        assert!(abs_diff < max_diff); 
-        assert!(rel_err < max_rel); 
+        println!(
+            "{}: Ground: {} \t Test: {}\t abs_diff: {}\tRelative: {}",
+            x, ground, alternative, abs_diff, rel_err
+        );
+        assert!(abs_diff < max_diff);
+        assert!(rel_err < max_rel);
     }
 
-    // panic!("Show results! "); 
+    // panic!("Show results! ");
+}
+
+#[test]
+fn precision_fast_digamma() {
+    // We will assume `digamma` is the absolute correct value.
+
+    let points: [f64; 19] = [
+        0.02, 0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.4, 2.6, 3.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, 512.0, 1024.0, 2048.0, 
+    ];
+    // we don't care for values less than 0.01
+
+    let max_abs_error_treshols: f64 = 0.01; 
+
+    for v in points {
+        let ground: f64 = digamma(v);
+        let aprox: f64 = fast_digamma(v);
+        let diff: f64 = (ground - aprox).abs();
+        println!("\t{}: (ground: {}, aprox: {})", v, ground, aprox);
+        println!("abs_diff: {}, log_abs_diff: {}", diff, diff.ln());
+
+        if max_abs_error_treshols <= diff {
+            // some values near x = 2.5 or x = 0.0 may fulfill this but 
+            // we will just ignre them because they are very few. 
+            panic!("Error over the trehold in precision_fast_digamma"); 
+        }
+    }
+
 }

@@ -42,6 +42,32 @@ const GAMMA_DK: &[f64] = &[
     -2.71994908488607703910e-9,
 ];
 
+const DIGAMMA_PADE_NUMERATOR: [f64; 10] = [
+    f64::from_bits(4606895151198600840), // 0.9681068894678484 * x^9
+    f64::from_bits(4622326023376881682), // 10.900445563285789 * x^8
+    f64::from_bits(4630802302362762150), // 39.82936685007671 * x^7
+    f64::from_ne_bytes((-4595341684280653133_i64).to_ne_bytes()), // -26.066739493990735 * x^6
+    f64::from_ne_bytes((-4591911135655156611_i64).to_ne_bytes()), // -44.50899304316497 * x^5
+    f64::from_bits(4632406757511219600), // 51.22970635597005 * x^4
+    f64::from_ne_bytes((-4582014799659311941_i64).to_ne_bytes()), // -203.30675827220497 * x^3
+    f64::from_bits(4637869898496226414), // 116.0953155385375 * x^2
+    f64::from_ne_bytes((-4594029258403371555_i64).to_ne_bytes()), // -30.729412860620744 * x^1
+    f64::from_ne_bytes((-4588381784057634817_i64).to_ne_bytes()), // -75.17308887757825 * 1
+];
+
+const DIGAMMA_PADE_DENOMINATOR: [f64; 10] = [
+    f64::from_bits(4597365231518235045), // 0.22751831606769915 *x^9
+    f64::from_bits(4617143727378099735), // 4.847419311026463 * x^8
+    f64::from_bits(4629301544876694958), // 30.58292177572519 * x^7
+    f64::from_bits(4633704158295068952), // 60.44829337930622 * x^6
+    f64::from_bits(4626738796517638895), // 21.478210625183177  * x^5
+    f64::from_bits(4635579749389125764), // 83.55033930138057 * x^4
+    f64::from_bits(4624558894206669157), // 14.866820933276083 * x^3
+    f64::from_ne_bytes((-4600054551361252253_i64).to_ne_bytes()), // -12.661636075188829 * x^2
+    f64::from_bits(4634990252777920101), // 75.17308860443298 * x
+    f64::from_bits(4464699609586934289), // 3.172226528805559e-10 * 1
+];
+
 /// When doing a discrete integration of a pmf (discrete) with infinite domain,
 /// we will conly integrate up to the this area.
 ///
@@ -843,4 +869,79 @@ pub fn digamma(x: f64) -> f64 {
 pub fn beta_fn(a: f64, b: f64) -> f64 {
     let ln_b: f64 = ln_gamma(a) + ln_gamma(b) - ln_gamma(a + b);
     return ln_b.exp();
+}
+
+/// Evaluate the [Digamma function](https://en.wikipedia.org/wiki/Digamma_function)
+/// but in a faster les precise way. 
+/// 
+///  - Only works for stricly positive numbers: `0.0 < x`
+/// 
+/// Use some aproximations to estimate the digamma function but with possibly some error. 
+/// 
+/// The aproximation may have some non-eglibible error near `0.0` since there is a 
+/// singularity there. On other places, the absolute error is usally inferior to `0.01` 
+/// and the error converges to 0 as `x` grows to infinity.  
+/// 
+pub fn fast_digamma(x: f64) -> f64 {
+    assert!(0.0 < x);
+    /*
+            Plan:
+
+        https://en.wikipedia.org/wiki/Digamma_function
+
+        We can evaluate the digamma function aproximately with the aproximation:
+
+         > digamma(x) ~= ln(x - 0.5)
+
+        Wich becomes very accurate for `2 < x` and the error decreases as x increases.
+
+        Then we will use a padé aprximant for the value near 0. We will center
+        the aproximation arround 1.0.
+
+
+    */
+
+    let UPPER_APROXIMATION_TRESHOLD: f64 = 2.5;
+    let LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
+
+    let ret: f64 = if UPPER_APROXIMATION_TRESHOLD < x {
+        // error of ~0.0100518357 at 2.5 and then decreases as x increases. 
+        (x - 0.5).ln()
+    } else if x < LOWER_APROXIMATION_TRESHOLD {
+        // this aproximation is probably has the most error. 
+        -1.0 / x
+    } else {
+        // Padé aproximant [9/9]. It has the least error I could find. 
+        // The maximal absolute error is arround 10^-6 (near 0), but in 
+        // general the error is lower than 10^-8. Very good aproximation 
+        // for the interval. 
+
+        //[Horner's rule](https://en.wikipedia.org/wiki/Horner%27s_method)
+
+        let num: f64 = DIGAMMA_PADE_NUMERATOR[0]
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[1])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[2])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[3])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[4])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[5])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[6])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[7])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[8])
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[9]); 
+
+        let den: f64 = DIGAMMA_PADE_DENOMINATOR[0]
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[1])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[2])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[3])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[4])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[5])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[6])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[7])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[8])
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[9]); 
+
+        num / den
+    };
+
+    return ret;
 }
