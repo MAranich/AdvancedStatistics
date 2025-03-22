@@ -20,7 +20,7 @@ use crate::{
     configuration,
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
-    euclid::{self, gamma},
+    euclid::{self, gamma, ln_gamma},
 };
 
 pub const STUDENT_T_DOMAIN: ContinuousDomain = ContinuousDomain::Reals;
@@ -39,7 +39,7 @@ impl StudentT {
     ///  - Altough we accept a float, `degrees_of_freedom` almost always is an integer.
     ///
     /// ***
-    /// 
+    ///
     /// Notes:
     ///  - A [StudentT] distribution with 1 degree of freedom is a [Cauchy distribution](crate::distributions::Cauchy).
     ///  - A [StudentT] distribution with infinite degrees of freedom is a [standard normal distribution](crate::distributions::Normal).
@@ -70,7 +70,7 @@ impl StudentT {
     /// will be invalid.
     ///
     /// ***
-    /// 
+    ///
     /// ### Notes:
     ///
     ///  - A [StudentT] distribution with 1 degree of freedom is a [Cauchy distribution](crate::distributions::Cauchy).
@@ -87,11 +87,29 @@ impl StudentT {
     }
 
     pub fn compute_normalitzation_constant(degrees_of_freedom: f64) -> f64 {
-        let num: f64 = gamma((degrees_of_freedom - 1.0) / 2.0);
+        /*
+
+        c = gamma((nu+1)/2) / (sqrt(pi*nu) * gamma(nu/2))
+        ln(c) = ln(gamma((nu+1)/2) / (sqrt(pi*nu) * gamma(nu/2)))
+        ln(c) = ln_gamma((nu+1)/2) - ln(sqrt(pi*nu)) - ln_gamma(nu/2)
+        ln(c) = ln_gamma((nu+1)/2) - 0.5*ln(pi*nu) - ln_gamma(nu/2)
+
+        ***
+        // original code:
+
+        let num: f64 = gamma((degrees_of_freedom + 1.0) / 2.0);
         let den_1: f64 = gamma(degrees_of_freedom / 2.0);
         let den_2: f64 = (f64::consts::PI * degrees_of_freedom).sqrt();
 
         return num / (den_1 * den_2);
+
+         */
+
+        let ln_c: f64 = ln_gamma((degrees_of_freedom + 1.0) * 0.5)
+            - ln_gamma(degrees_of_freedom * 0.5)
+            - 0.5 * (f64::consts::PI * degrees_of_freedom).ln();
+
+        return ln_c.exp();
     }
 
     /// Returns the degrees_of_freedom.
