@@ -402,7 +402,7 @@ impl Distribution for StdNormal {
                     // covers 83.8487 % of cases
                     // method 0
 
-                    //Horner's rule
+                    //[Horner's rule](https://en.wikipedia.org/wiki/Horner%27s_method)
                     let numerator: f64 = SECTION_0_NUM[0]
                         .mul_add(r, SECTION_0_NUM[1])
                         .mul_add(r, SECTION_0_NUM[2])

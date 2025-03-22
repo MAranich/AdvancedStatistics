@@ -43,6 +43,9 @@ impl DiscreteUniform {
     /// and `b` (maximum). Both `a` and `b` are inclusive.
     ///
     /// Does not check if `b < a`.
+    /// 
+    /// If the preconditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub const unsafe fn new_unchecked(a: i64, b: i64) -> DiscreteUniform {
         let new_domain: DiscreteDomain = DiscreteDomain::Range(a, b);
 

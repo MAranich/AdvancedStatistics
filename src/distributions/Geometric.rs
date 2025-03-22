@@ -42,6 +42,9 @@ impl Geometric {
     /// In order to generate a valid Geometric, `p` must fullfill:
     ///  - `p` indicates the probability of success.
     ///      - `p` must belong in the interval `[0.0, 1.0]`.
+    /// 
+    /// If those conditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub const unsafe fn new_unchecked(p: f64) -> Geometric {
         return Geometric { p };
     }

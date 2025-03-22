@@ -57,7 +57,8 @@ impl Poisson {
     ///      - Must be finite (no `+-inf` nor NaNs)
     ///      - `0.0 < lambda`
     ///
-    /// The invariants must be fullfiled by the caller.
+    /// If those conditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub const unsafe fn new_unchecked(lambda: f64) -> Poisson {
         return Poisson { lambda };
     }

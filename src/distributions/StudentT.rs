@@ -38,6 +38,8 @@ impl StudentT {
     ///  - Must be stricly positive (`0.0 < degrees_of_freedom`)
     ///  - Altough we accept a float, `degrees_of_freedom` almost always is an integer.
     ///
+    /// ***
+    /// 
     /// Notes:
     ///  - A [StudentT] distribution with 1 degree of freedom is a [Cauchy distribution](crate::distributions::Cauchy).
     ///  - A [StudentT] distribution with infinite degrees of freedom is a [standard normal distribution](crate::distributions::Normal).
@@ -67,6 +69,8 @@ impl StudentT {
     /// If those conditions are not fullfiled, the returned distribution
     /// will be invalid.
     ///
+    /// ***
+    /// 
     /// ### Notes:
     ///
     ///  - A [StudentT] distribution with 1 degree of freedom is a [Cauchy distribution](crate::distributions::Cauchy).

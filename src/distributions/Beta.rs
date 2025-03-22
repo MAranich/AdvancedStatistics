@@ -67,7 +67,8 @@ impl Beta {
     ///  - `alpha` must be finite and be stricly positive.
     ///  - `beta` must be finite and be stricly positive.
     ///
-    /// Otherwise an invalid Beta will be returned.
+    /// If the preconditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub unsafe fn new_unchecked(alpha: f64, beta: f64) -> Beta {
         let norm_ct: f64 = 1.0 / euclid::beta_fn(alpha, beta);
 

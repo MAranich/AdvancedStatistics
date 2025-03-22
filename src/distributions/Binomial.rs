@@ -52,6 +52,9 @@ impl Binomial {
     ///   - `p` indicates the probability of success (returning `1.0`) of each Bernoulli trial.
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise the structure will be invalid.
     ///  - `n` indicates the number of trials
+    /// 
+    /// If the preconditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub const unsafe fn new_unchecked(p: f64, n: u64) -> Binomial {
         let domain: DiscreteDomain = DiscreteDomain::Range(0, n as i64);
 

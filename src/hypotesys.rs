@@ -193,7 +193,7 @@ pub fn general_test<T: crate::distribution_trait::Distribution>(
 /// 4. `significance`: (optional) If left empty, only the P-value will be computed.
 ///     Otherwise, a confidence interval with the given significance level (alpha)
 ///     will be computed.
-///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
 ///
 /// ## Results
@@ -255,7 +255,7 @@ pub fn z_test(
 /// 4. `significance`: (optional) If left empty, only the P-value will be computed.
 ///     Otherwise, a confidence interval with the given significance level (alpha)
 ///     will be computed.
-///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
 /// ## Results
 ///
@@ -329,7 +329,7 @@ pub fn t_test(
 /// 4. `significance`: (optional) If left empty, only the P-value will be computed.
 ///     Otherwise, a confidence interval with the given significance level (alpha)
 ///     will be computed.
-///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
 ///
 /// ## Results
@@ -489,7 +489,7 @@ pub fn two_sample_t_test(
 /// 4. `significance`: (optional) If left empty, only the P-value will be computed.
 ///     Otherwise, a confidence interval with the given significance level (alpha)
 ///     will be computed.
-///      - It needs to be a valid probability (`0 < significance < 1`)
+///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
 ///
 /// ## Results

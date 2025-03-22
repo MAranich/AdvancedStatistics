@@ -47,6 +47,9 @@ impl Bernoulli {
 
     /// Creates a new [bernulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution).
     /// Does not check if p is in `[0, 1]`.
+    /// 
+    /// If the preconditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub const unsafe fn new_unchecked(p: f64) -> Bernoulli {
         return Bernoulli { p: p };
     }

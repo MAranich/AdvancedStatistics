@@ -103,6 +103,8 @@ impl Gamma {
     ///  - The values for `alpha` and `theta` are too large to model properly
     ///      - This means that a [f64] value is not precise enough.
     ///
+    /// If those conditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub unsafe fn new_unchecked(alpha: f64, theta: f64) -> Gamma {
         let norm_const: f64 = euclid::gamma(alpha) * theta.powf(alpha);
 
@@ -118,6 +120,7 @@ impl Gamma {
         return self.alpha;
     }
 
+    /// Get the parameter theta
     pub const fn get_theta(&self) -> f64 {
         return self.theta;
     }

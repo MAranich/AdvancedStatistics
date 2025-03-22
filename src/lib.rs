@@ -83,7 +83,7 @@
 //!  - [x] [Z-test](hypotesys::z_test) ([Wiki](https://en.wikipedia.org/wiki/Z-test))
 //!  - [x] [t-test](hypotesys::t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#One-sample_t-test))
 //!  - [x] [2 sample t-test](hypotesys::two_sample_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests))
-//!  - [ ] [Paired t-test](hypotesys::paired_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test))
+//!  - [x] [Paired t-test](hypotesys::paired_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test))
 //!  - [ ] [F-test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/F-test))
 //!  - [ ] [Sign test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/Sign_test))
 //!  - [ ] [Wilcoxon signed-rank test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test))

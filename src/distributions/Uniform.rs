@@ -43,13 +43,15 @@ impl Uniform {
     }
 
     /// Creates a new [uniform distribution](https://en.wikipedia.org/wiki/Continuous_uniform_distribution).
-    /// Does not do any checks. If the invariants are not fullfilled, results may be
-    /// wrong or inconsistent.
+    /// Does not do any checks. 
     ///
     ///  - `a` indicates the minimum value.
     ///  - `b` indicates the maximum value.
     ///  - `a < b` must be fulfilled or an error will be returned.
     ///  - `a` and `b` must both be finite values (no `+-inf` or NaNs)
+    /// 
+    /// If those conditions are not fullfiled, the returned distribution
+    /// will be invalid.
     pub const unsafe fn new_unchecked(a: f64, b: f64) -> Result<Uniform, ()> {
         let domain: ContinuousDomain = ContinuousDomain::Range(a, b);
 

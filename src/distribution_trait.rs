@@ -173,7 +173,6 @@ pub trait Distribution {
         for point in points {
             if point.is_nan() {
                 panic!("Found NaN in `cdf_multiple`. \n");
-                // return Err(AdvStatError::NanErr);
             }
         }
 
@@ -1887,10 +1886,12 @@ pub trait Parametric {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
 
+        let pdf: f64 = self.general_pdf(x, parameters); 
+
         return self
             .log_derivative_pdf_parameters(x, parameters)
             .iter()
-            .map(|log_d| log_d * self.general_pdf(x, parameters))
+            .map(|log_d| log_d * pdf)
             .collect::<Vec<f64>>();
     }
 

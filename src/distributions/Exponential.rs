@@ -34,8 +34,12 @@ pub struct ExponentialGenerator {
 }
 
 impl Exponential {
-    /// Creates a new [Exponential] distribution. It is requiered that `0.0 < lambda` or an
-    /// error will be returned.
+    /// Creates a new [Exponential] distribution. 
+    /// 
+    ///  - `lambda` must be finite (no `+-inf` nor NaNs)
+    ///  - `0.0 < lambda` 
+    /// 
+    /// Otherwise an error will be returned. 
     pub const fn new(lambda: f64) -> Result<Exponential, ()> {
         if !lambda.is_finite() {
             return Err(());
@@ -45,6 +49,16 @@ impl Exponential {
         }
 
         return Ok(Exponential { lambda });
+    }
+    /// Creates a new [Exponential] distribution. 
+    /// 
+    ///  - `lambda` must be finite (no `+-inf` nor NaNs)
+    ///  - `0.0 < lambda` 
+    /// 
+    /// If the preconditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    pub const unsafe fn new_unchecked(lambda: f64) -> Exponential {
+        return Exponential { lambda };
     }
 
     pub const fn get_lambda(&self) -> f64 {
