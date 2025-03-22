@@ -11,9 +11,10 @@ pub mod Poisson;
 
 // Continuous
 pub mod Beta;
+pub mod ChiSquared;
 pub mod Dirac;
 pub mod Exponential;
 pub mod Gamma;
 pub mod Normal;
-pub mod Uniform;
 pub mod StudentT;
+pub mod Uniform;

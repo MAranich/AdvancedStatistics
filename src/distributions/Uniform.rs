@@ -450,6 +450,13 @@ impl Parametric for Uniform {
              - max and min (maximum likelyhood)
              - the Minimum-variance unbiased estimator (iff self.a == 0 and min < 0.0)
 
+                ### Deafult values:
+
+            If there are not enough samples to compute the estimators, then
+            this method will return the following deafult probabilities:
+             - `a`: 0.0
+             - `b`: 1.0
+
          */
 
         // Reserve vector for exacly 2 elements

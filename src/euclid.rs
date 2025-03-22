@@ -909,6 +909,8 @@ pub fn fast_digamma(x: f64) -> f64 {
         (x - 0.5).ln()
     } else if x < LOWER_APROXIMATION_TRESHOLD {
         // this aproximation is probably has the most error. 
+        // This is the part that could use some improvement. 
+        // digamma(0.01) ~= -100.560885458
         -1.0 / x
     } else {
         // Padé aproximant [9/9]. It has the least error I could find. 

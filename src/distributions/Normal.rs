@@ -1462,6 +1462,14 @@ impl Parametric for Normal {
 
             // The biased definition of std_dev
 
+                ### Deafult values:
+
+            If there are not enough samples to compute the estimators, then
+            this method will return the following deafult probabilities:
+             - `mean`: 0.0
+             - `std_dev`: 1.0
+
+
             ## Conclusion:
 
             To estimate the mean we will use:
@@ -1470,10 +1478,6 @@ impl Parametric for Normal {
 
             But for std we will use the **UNBIASED** formula instead of the obtained one.
             std = sqrt(1/(n-1) * sumatory{x_i} (x - mean)^2 )
-
-            If there are not enough samples for the computation, the deafults are:
-             - mean: 0
-             - std_dev: 1
 
         */
 
