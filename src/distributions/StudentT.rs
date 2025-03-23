@@ -20,8 +20,10 @@ use crate::{
     configuration,
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
-    euclid::{self, gamma, ln_gamma},
+    euclid::{self, ln_gamma},
 };
+
+use super::{ChiSquared::ChiSquared, Normal::StdNormal};
 
 pub const STUDENT_T_DOMAIN: ContinuousDomain = ContinuousDomain::Reals;
 
@@ -53,9 +55,11 @@ impl StudentT {
             return Err(());
         }
 
+        let norm: f64 = Self::compute_normalitzation_constant(degrees_of_freedom);
+
         return Ok(StudentT {
             degrees_of_freedom,
-            normalitzation_constant: Self::compute_normalitzation_constant(degrees_of_freedom),
+            normalitzation_constant: norm,
         });
     }
 
@@ -104,6 +108,8 @@ impl StudentT {
         return num / (den_1 * den_2);
 
          */
+
+        assert!(0.0 < degrees_of_freedom);
 
         let ln_c: f64 = ln_gamma((degrees_of_freedom + 1.0) * 0.5)
             - ln_gamma(degrees_of_freedom * 0.5)
@@ -246,12 +252,28 @@ impl Distribution for StudentT {
         return ret;
     }
 
-    // default sample_multiple, I have not found any better method than the
-    // Inverse transform sampling or rejection sampling
-    // Found: if Z is std_normal and V is chi^2 with nu deg.free., then
-    // T = Z * sqrt(nu/V) is distributed as a StudentT distr. with nu deg.free.
-    // ^is this better than inverse transform sampling?
-    // To be researched and implemented.
+    fn sample_multiple(&self, n: usize) -> Vec<f64> {
+        // default sample_multiple, I have not found any better method than the
+        // Inverse transform sampling or rejection sampling
+        // Found: if Z is std_normal and V is chi^2 with nu deg.free., then
+        // T = Z * sqrt(nu/V) is distributed as a StudentT distr. with nu deg.free.
+        // ^is this better than inverse transform sampling?
+        // To be researched and implemented.
+
+        let std_norm: StdNormal = StdNormal::new();
+        let chi_sq: ChiSquared = unsafe { ChiSquared::new_unchecked(self.degrees_of_freedom) };
+
+        let normal_samples: Vec<f64> = std_norm.sample_multiple(n);
+        let chi_sq_samples: Vec<f64> = chi_sq.sample_multiple(n);
+
+        let d: f64 = self.degrees_of_freedom;
+
+        return normal_samples
+            .iter()
+            .zip(chi_sq_samples.iter())
+            .map(|(&n, &c)| n * (d / c).sqrt())
+            .collect::<Vec<f64>>();
+    }
 
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*

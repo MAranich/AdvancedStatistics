@@ -13,13 +13,11 @@
 
 use std::{f64, hint::assert_unchecked, num::NonZero};
 
-use rand::Rng;
-
 use crate::{
     configuration,
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
-    euclid::{self, digamma, gamma, ln_gamma},
+    euclid::{self, digamma, ln_gamma},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,15 +47,15 @@ impl ChiSquared {
     }
 
     /// Creates a new [ChiSquared] distribution with parameter
-    /// `k` = `degrees_of_freedom` without checking if it is not 0.
+    /// `k` = `degrees_of_freedom` without checking if it is not 0 (or an integer).
     ///
     /// If the preconditions are not fullfiled, the returned distribution
     /// will be invalid.
-    pub unsafe fn new_unchecked(degrees_of_freedom: u64) -> ChiSquared {
-        let c: f64 = ChiSquared::compute_normalitzation_constant(degrees_of_freedom as f64);
+    pub unsafe fn new_unchecked(degrees_of_freedom: f64) -> ChiSquared {
+        let c: f64 = ChiSquared::compute_normalitzation_constant(degrees_of_freedom);
 
         return ChiSquared {
-            degrees_of_freedom: degrees_of_freedom as f64,
+            degrees_of_freedom: degrees_of_freedom,
             normalitzation_constant: c,
         };
     }
@@ -65,8 +63,36 @@ impl ChiSquared {
     pub fn compute_normalitzation_constant(k: f64) -> f64 {
         assert!(0.0 < k);
 
+        /*
+            // original code: 
+            let d: f64 = k * 0.5;
+            return 1.0_f64 / (2.0_f64.powf(d) * gamma(d));
+
+            ***
+            
+            c = 1/(2^(k*0.5) * gamma(k*0.5))
+            ln(c) = ln(1/(2^(k*0.5) * gamma(k*0.5)))
+            ln(c) = -ln(2^(k*0.5) * gamma(k*0.5))
+            ln(c) = -ln(2^(k*0.5)) - ln(gamma(k*0.5))
+            ln(c) = -(k*0.5)*ln(2) - ln_gamma(k*0.5)
+
+            ***
+            
+            // alternative code: 
+
+            let d: f64 = k * 0.5;
+            let ln_c: f64 = -d * f64::consts::LN_2 - euclid::ln_gamma(d); 
+
+            return ln_c.exp();
+
+            // idk if the alternative version is better than the original one. 
+         */
+
+
         let d: f64 = k * 0.5;
-        return 1.0_f64 / (2.0_f64.powf(d) * gamma(d));
+        let ln_c: f64 = -d * f64::consts::LN_2 - euclid::ln_gamma(d); 
+
+        return ln_c.exp();
     }
 
     /// Get the parameter degrees of freedom
@@ -171,13 +197,9 @@ impl Distribution for ChiSquared {
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::rng();
-        let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
-        rng.fill(rand_quantiles.as_mut_slice());
+        let gamma: super::Gamma::Gamma = crate::distributions::Gamma::Gamma::from_chi_squared(self); 
 
-        let ret: Vec<f64> = self.quantile_multiple(&rand_quantiles);
-
-        return ret;
+        return gamma.sample_multiple(n);
     }
 
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
@@ -434,7 +456,7 @@ impl Parametric for ChiSquared {
     /// the given `parameters`.
     ///
     /// If follows the same constraits as the normal
-    /// [Distribution::pdf](crate::distribution_trait::Distribution::pdf)
+    /// [Distribution::pdf]
     /// (or [DiscreteDistribution::pmf])
     /// but also taking the parameters into account.
     ///
