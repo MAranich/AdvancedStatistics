@@ -25,49 +25,6 @@ pub const LN_PI: f64 = 1.1447298858494001741434273513530587116472948129153;
 /// Constant value for `ln(2 * sqrt(e / pi))`
 pub const LN_2_SQRT_E_OVER_PI: f64 = 0.6207822376352452223455184457816472122518527279025978;
 
-/// Auxiliary variable when evaluating the `gamma_ln` function
-const GAMMA_R: f64 = 10.900511;
-
-const GAMMA_DK: &[f64] = &[
-    2.48574089138753565546e-5,
-    1.05142378581721974210,
-    -3.45687097222016235469,
-    4.51227709466894823700,
-    -2.98285225323576655721,
-    1.05639711577126713077,
-    -1.95428773191645869583e-1,
-    1.70970543404441224307e-2,
-    -5.71926117404305781283e-4,
-    4.63399473359905636708e-6,
-    -2.71994908488607703910e-9,
-];
-
-const DIGAMMA_PADE_NUMERATOR: [f64; 10] = [
-    f64::from_bits(4606895151198600840), // 0.9681068894678484 * x^9
-    f64::from_bits(4622326023376881682), // 10.900445563285789 * x^8
-    f64::from_bits(4630802302362762150), // 39.82936685007671 * x^7
-    f64::from_ne_bytes((-4595341684280653133_i64).to_ne_bytes()), // -26.066739493990735 * x^6
-    f64::from_ne_bytes((-4591911135655156611_i64).to_ne_bytes()), // -44.50899304316497 * x^5
-    f64::from_bits(4632406757511219600), // 51.22970635597005 * x^4
-    f64::from_ne_bytes((-4582014799659311941_i64).to_ne_bytes()), // -203.30675827220497 * x^3
-    f64::from_bits(4637869898496226414), // 116.0953155385375 * x^2
-    f64::from_ne_bytes((-4594029258403371555_i64).to_ne_bytes()), // -30.729412860620744 * x^1
-    f64::from_ne_bytes((-4588381784057634817_i64).to_ne_bytes()), // -75.17308887757825 * 1
-];
-
-const DIGAMMA_PADE_DENOMINATOR: [f64; 10] = [
-    f64::from_bits(4597365231518235045), // 0.22751831606769915 *x^9
-    f64::from_bits(4617143727378099735), // 4.847419311026463 * x^8
-    f64::from_bits(4629301544876694958), // 30.58292177572519 * x^7
-    f64::from_bits(4633704158295068952), // 60.44829337930622 * x^6
-    f64::from_bits(4626738796517638895), // 21.478210625183177  * x^5
-    f64::from_bits(4635579749389125764), // 83.55033930138057 * x^4
-    f64::from_bits(4624558894206669157), // 14.866820933276083 * x^3
-    f64::from_ne_bytes((-4600054551361252253_i64).to_ne_bytes()), // -12.661636075188829 * x^2
-    f64::from_bits(4634990252777920101), // 75.17308860443298 * x
-    f64::from_bits(4464699609586934289), // 3.172226528805559e-10 * 1
-];
-
 /// When doing a discrete integration of a pmf (discrete) with infinite domain,
 /// we will conly integrate up to the this area.
 ///
@@ -727,6 +684,23 @@ pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
     return accumulator;
 }
 
+/// Auxiliary variable when evaluating the `gamma_ln` function
+const GAMMA_R: f64 = 10.900511;
+
+const GAMMA_DK: &[f64] = &[
+    2.48574089138753565546e-5,
+    1.05142378581721974210,
+    -3.45687097222016235469,
+    4.51227709466894823700,
+    -2.98285225323576655721,
+    1.05639711577126713077,
+    -1.95428773191645869583e-1,
+    1.70970543404441224307e-2,
+    -5.71926117404305781283e-4,
+    4.63399473359905636708e-6,
+    -2.71994908488607703910e-9,
+];
+
 /// An implementation of the logarithmic gamma function:
 ///
 /// `ln_gamma(x) = ln(gamma(x))` => `ln_gamma(x).exp() = gamma(x)`
@@ -865,23 +839,50 @@ pub fn digamma(x: f64) -> f64 {
     result
 }
 
-/// Evaluates tue [Beta function](https://en.wikipedia.org/wiki/Beta_function).
+/// Evaluates the [Beta function](https://en.wikipedia.org/wiki/Beta_function).
 pub fn beta_fn(a: f64, b: f64) -> f64 {
+    // B(a, b) = gamma(a) * gamma(b) / gamma(a + b)
     let ln_b: f64 = ln_gamma(a) + ln_gamma(b) - ln_gamma(a + b);
     return ln_b.exp();
 }
 
+const DIGAMMA_PADE_NUMERATOR: [f64; 10] = [
+    f64::from_bits(4606895151198600840), // 0.9681068894678484 * x^9
+    f64::from_bits(4622326023376881682), // 10.900445563285789 * x^8
+    f64::from_bits(4630802302362762150), // 39.82936685007671 * x^7
+    f64::from_ne_bytes((-4595341684280653133_i64).to_ne_bytes()), // -26.066739493990735 * x^6
+    f64::from_ne_bytes((-4591911135655156611_i64).to_ne_bytes()), // -44.50899304316497 * x^5
+    f64::from_bits(4632406757511219600), // 51.22970635597005 * x^4
+    f64::from_ne_bytes((-4582014799659311941_i64).to_ne_bytes()), // -203.30675827220497 * x^3
+    f64::from_bits(4637869898496226414), // 116.0953155385375 * x^2
+    f64::from_ne_bytes((-4594029258403371555_i64).to_ne_bytes()), // -30.729412860620744 * x^1
+    f64::from_ne_bytes((-4588381784057634817_i64).to_ne_bytes()), // -75.17308887757825 * 1
+];
+
+const DIGAMMA_PADE_DENOMINATOR: [f64; 10] = [
+    f64::from_bits(4597365231518235045), // 0.22751831606769915 *x^9
+    f64::from_bits(4617143727378099735), // 4.847419311026463 * x^8
+    f64::from_bits(4629301544876694958), // 30.58292177572519 * x^7
+    f64::from_bits(4633704158295068952), // 60.44829337930622 * x^6
+    f64::from_bits(4626738796517638895), // 21.478210625183177  * x^5
+    f64::from_bits(4635579749389125764), // 83.55033930138057 * x^4
+    f64::from_bits(4624558894206669157), // 14.866820933276083 * x^3
+    f64::from_ne_bytes((-4600054551361252253_i64).to_ne_bytes()), // -12.661636075188829 * x^2
+    f64::from_bits(4634990252777920101), // 75.17308860443298 * x
+    f64::from_bits(4464699609586934289), // 3.172226528805559e-10 * 1
+];
+
 /// Evaluate the [Digamma function](https://en.wikipedia.org/wiki/Digamma_function)
-/// but in a faster les precise way. 
-/// 
+/// but in a faster les precise way.
+///
 ///  - Only works for stricly positive numbers: `0.0 < x`
-/// 
-/// Use some aproximations to estimate the digamma function but with possibly some error. 
-/// 
-/// The aproximation may have some non-eglibible error near `0.0` since there is a 
-/// singularity there. On other places, the absolute error is usally inferior to `0.01` 
+///
+/// Use some aproximations to estimate the digamma function but with possibly some error.
+///
+/// The aproximation may have some non-neglibible error near `0.0` since there is a
+/// singularity there. On other places, the absolute error is usally inferior to `0.01`
 /// and the error converges to 0 as `x` grows to infinity.  
-/// 
+///
 pub fn fast_digamma(x: f64) -> f64 {
     assert!(0.0 < x);
     /*
@@ -905,18 +906,18 @@ pub fn fast_digamma(x: f64) -> f64 {
     let LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
 
     let ret: f64 = if UPPER_APROXIMATION_TRESHOLD < x {
-        // error of ~0.0100518357 at 2.5 and then decreases as x increases. 
+        // error of ~0.0100518357 at 2.5 and then decreases as x increases.
         (x - 0.5).ln()
     } else if x < LOWER_APROXIMATION_TRESHOLD {
-        // this aproximation is probably has the most error. 
-        // This is the part that could use some improvement. 
+        // this aproximation is probably has the most error.
+        // This is the part that could use some improvement.
         // digamma(0.01) ~= -100.560885458
         -1.0 / x
     } else {
-        // Padé aproximant [9/9]. It has the least error I could find. 
-        // The maximal absolute error is arround 10^-6 (near 0), but in 
-        // general the error is lower than 10^-8. Very good aproximation 
-        // for the interval. 
+        // Padé aproximant [9/9]. It has the least error I could find.
+        // The maximal absolute error is arround 10^-6 (near 0), but in
+        // general the error is lower than 10^-8. Very good aproximation
+        // for the interval.
 
         //[Horner's rule](https://en.wikipedia.org/wiki/Horner%27s_method)
 
@@ -929,7 +930,7 @@ pub fn fast_digamma(x: f64) -> f64 {
             .mul_add(x, DIGAMMA_PADE_NUMERATOR[6])
             .mul_add(x, DIGAMMA_PADE_NUMERATOR[7])
             .mul_add(x, DIGAMMA_PADE_NUMERATOR[8])
-            .mul_add(x, DIGAMMA_PADE_NUMERATOR[9]); 
+            .mul_add(x, DIGAMMA_PADE_NUMERATOR[9]);
 
         let den: f64 = DIGAMMA_PADE_DENOMINATOR[0]
             .mul_add(x, DIGAMMA_PADE_DENOMINATOR[1])
@@ -940,9 +941,163 @@ pub fn fast_digamma(x: f64) -> f64 {
             .mul_add(x, DIGAMMA_PADE_DENOMINATOR[6])
             .mul_add(x, DIGAMMA_PADE_DENOMINATOR[7])
             .mul_add(x, DIGAMMA_PADE_DENOMINATOR[8])
-            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[9]); 
+            .mul_add(x, DIGAMMA_PADE_DENOMINATOR[9]);
 
         num / den
+    };
+
+    return ret;
+}
+
+const TRIGAMMA_PADE_NUMERATOR_NEAR: [f64; 10] = [
+    f64::from_bits(4599050549071154915),
+    f64::from_ne_bytes((-4600409371471362341_i64).to_ne_bytes()),
+    f64::from_ne_bytes((-4597281187866632591_i64).to_ne_bytes()),
+    f64::from_bits(4632346509620312168),
+    f64::from_bits(4616525723690984644),
+    f64::from_ne_bytes((-4610594855483089821_i64).to_ne_bytes()),
+    f64::from_ne_bytes((-4612427250341551519_i64).to_ne_bytes()),
+    f64::from_ne_bytes((-4611102809801308534_i64).to_ne_bytes()),
+    f64::from_bits(4606195231813272395),
+    f64::from_bits(4612073025499257633),
+];
+
+const TRIGAMMA_PADE_DENOMINATOR_NEAR: [f64; 9] = [
+    f64::from_ne_bytes((-4638276494265840659_i64).to_ne_bytes()),
+    f64::from_bits(4615093503512022652),
+    f64::from_bits(4628107794560365866),
+    f64::from_bits(4624313036851965874),
+    f64::from_ne_bytes((-4607143091965773016_i64).to_ne_bytes()),
+    f64::from_ne_bytes((-4613937075861529182_i64).to_ne_bytes()),
+    f64::from_ne_bytes((-4633983040951574275_i64).to_ne_bytes()),
+    f64::from_bits(4584910698861055288),
+    f64::from_bits(4611497482667492137),
+];
+
+const TRIGAMMA_PADE_NUMERATOR_FAR: [f64; 5] = [
+    f64::from_bits(4544270547592325628),
+    f64::from_bits(4611212281723361743),
+    f64::from_bits(4614173460334576948),
+    f64::from_bits(4612174066386801401),
+    f64::from_bits(4605621130056117067),
+];
+
+const TRIGAMMA_PADE_DENOMINATOR_FAR: [f64; 5] = [
+    f64::from_bits(4611216292122336954),
+    f64::from_bits(4612026526901311232),
+    f64::from_bits(4605792166458241723),
+    f64::from_ne_bytes((-4653557409945557045_i64).to_ne_bytes()),
+    f64::from_bits(4553543097738502949),
+];
+
+/// Evaluate the [Trigamma function](https://en.wikipedia.org/wiki/Digamma_function)
+/// but in a faster les precise way.
+///
+///  - Only works for stricly positive numbers: `0.0 < x`
+///
+/// Use some aproximations to estimate the trigamma function but with possibly some error.
+///
+/// The aproximation may have some non-neglibible error near `0.0` since there is a
+/// singularity there.
+pub fn fast_trigamma(x: f64) -> f64 {
+    assert!(0.0 < x);
+
+    let UPPER_APROXIMATION_TRESHOLD: f64 = 3.0;
+    let LOWER_APROXIMATION_TRESHOLD: f64 = 0.5;
+
+    let ret: f64 = if x < LOWER_APROXIMATION_TRESHOLD {
+        /*
+
+           Numerator parameters:
+               [0.29859054968822657=4599050549071154915,
+               -12.031348945838024=-4600409371471362341,
+               -19.17623857399889=-4597281187866632591,
+               50.801619343678624=4632346509620312168,
+               4.298521772835731=4616525723690984644,
+               -2.4845736897510036=-4610594855483089821,
+               -1.8354134524617154=-4612427250341551519,
+               -2.258996657933328=-4611102809801308534,
+               0.8904002277705357=4606195231813272395,
+               2.1718656647530143=4612073025499257633]
+           Denominator parameters:
+               [-0.03424150930256773=-4638276494265840659,
+               3.513227358811319=4615093503512022652,
+               26.3418686978304=4628107794560365866,
+               14.430090539732053=4624313036851965874,
+               -4.034929245490993=-4607143091965773016,
+               -1.5001648413725452=-4613937075861529182,
+               -0.06556665266328206=-4633983040951574275,
+               0.03295889828600668=4584910698861055288,
+               1.9581366516797039=4611497482667492137]
+
+
+            Important: This pade aprox. aproximates the function ln(trigamma(x)).
+            To compensate for this, we need to expenentiate later. This gives results
+            with have arround 2 more digits of precision, particularly near 0.0.
+
+        */
+
+        let numerator: f64 = TRIGAMMA_PADE_NUMERATOR_NEAR[0]
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[1])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[2])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[3])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[4])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[5])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[6])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[7])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[8])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[9])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[10]);
+
+        let denominator: f64 = TRIGAMMA_PADE_DENOMINATOR_NEAR[0]
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[1])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[2])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[3])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[4])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[5])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[6])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[7])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[8])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[9]);
+
+        (numerator / denominator).exp()
+    } else if x < UPPER_APROXIMATION_TRESHOLD {
+        /*
+
+           Numerator parameters:
+               [6.291250076865396e-05=4544270547592325628,
+               1.8948093207160246=4611212281723361743,
+               3.1046461111115153=4614173460334576948,
+               2.2167368326648753=4612174066386801401,
+               0.8266621288433752=4605621130056117067]
+           Denominator parameters:
+               [1.895699808172067=4611216292122336954,
+               2.1512161391318614=4612026526901311232,
+               0.8456509840121592=4605792166458241723,
+               -0.0033255535404039574=-4653557409945557045,
+               0.0002660347037229275=4553543097738502949]
+
+        */
+
+        let numerator: f64 = TRIGAMMA_PADE_NUMERATOR_FAR[0]
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[1])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[2])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[3])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[4])
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[5]); 
+
+        let denominator: f64 = TRIGAMMA_PADE_DENOMINATOR_FAR[0]
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[1])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[2])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[3])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[4])
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[5]); 
+
+        numerator / denominator
+    } else {
+        // gets better as x increases
+        // Maximum absolute error at x = 3.0 of e^-5.28 = 0.0050924307927 = 1/196.3698753 = 10^-2.29307
+        1.0 / (x - 0.5)
     };
 
     return ret;
