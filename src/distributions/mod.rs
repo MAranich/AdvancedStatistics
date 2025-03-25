@@ -14,6 +14,7 @@ pub mod Beta;
 pub mod ChiSquared;
 pub mod Dirac;
 pub mod Exponential;
+pub mod F;
 pub mod Gamma;
 pub mod Normal;
 pub mod StudentT;

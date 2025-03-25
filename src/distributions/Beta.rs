@@ -36,6 +36,12 @@ impl Beta {
     ///  - `beta` must be finite and be stricly positive.
     ///
     /// Otherwise an error will be returned.
+    /// 
+    /// An error will also be returned if `alpha` and `beta` are too 
+    /// large to model properly. 
+    /// - This means that a [f64] value is not precise enough.
+    /// - Use [Beta::new_unchecked] if you don't need to evaluate
+    ///         the pdf direcly or indirecly.
     pub fn new(alpha: f64, beta: f64) -> Result<Beta, ()> {
         if !alpha.is_finite() {
             return Err(());
@@ -53,12 +59,17 @@ impl Beta {
             return Err(());
         }
 
-        let norm_ct: f64 = 1.0 / euclid::beta_fn(alpha, beta);
+        let norm: f64 = 1.0 / euclid::beta_fn(alpha, beta);
+
+        if !norm.is_finite() {
+            // we do not have enough precision to do the computations
+            return Err(());
+        }
 
         return Ok(Beta {
             alpha,
             beta,
-            normalitzation_constant: norm_ct,
+            normalitzation_constant: norm,
         });
     }
 
@@ -66,6 +77,7 @@ impl Beta {
     ///
     ///  - `alpha` must be finite and be stricly positive.
     ///  - `beta` must be finite and be stricly positive.
+    ///  - `alpha` and `beta` are too large to model properly. 
     ///
     /// If the preconditions are not fullfiled, the returned distribution
     /// will be invalid.

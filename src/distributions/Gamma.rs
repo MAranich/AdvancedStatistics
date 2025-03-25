@@ -28,6 +28,8 @@ use crate::{
     euclid,
 };
 
+use super::ChiSquared::ChiSquared;
+
 pub const GAMMA_DOMAIN: ContinuousDomain = ContinuousDomain::From(0.0);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -60,6 +62,8 @@ impl Gamma {
     ///  - `theta <= 0.0`
     ///  - The values for `alpha` and `theta` are too large to model properly
     ///      - This means that a [f64] value is not precise enough.
+    ///      - Use [Gamma::new_unchecked] if you don't need to evaluate 
+    ///         the pdf direcly or indirecly. 
     ///
     pub fn new(alpha: f64, theta: f64) -> Result<Gamma, ()> {
         if !alpha.is_finite() {
@@ -145,6 +149,10 @@ impl Gamma {
             b,
             c,
         };
+    }
+
+    pub fn from_chi_squared(chi_sq: &ChiSquared) -> Gamma {
+        unsafe { Gamma::new_unchecked(chi_sq.get_degrees_of_freedom().get() as f64 * 0.5, 2.0) }
     }
 }
 
@@ -978,6 +986,7 @@ impl Parametric for Gamma {
              = (polygamma_1(x) + Digamma(x)) * Gamma(a) / Gamma(a) - Digamma(x)^2
              = polygamma_1(x) + Digamma(x)^2 - Digamma(x)^2
              = polygamma_1(x)
+             = trigamma(x)
 
             d/da f(a) = d/da Digamma(a) - ln(a) + s
             d/da f(a) = polygamma_1(a) - 1/a
@@ -987,12 +996,12 @@ impl Parametric for Gamma {
             Otherwise, a possible improvement for this function is to use an actual
             implemetation for oplygamma_1.
 
-            d/da f(a) = lim{h->0}[ (Digamma(a + h) - Digamma(a))/h ] - 1/a
+            d/da f(a) = trigamma(a) - 1/a
 
             Using Newton's method:
 
             a_i+1 = a_i - f(a_i)/f'(a_i)
-            a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)/(lim{h->0}[ (Digamma(a_i + h) - Digamma(a_i))/h ] - 1/a_i)
+            a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)/(trigamma(a_i) - 1/a_i)
             a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s) / ((Digamma(a_i + h) - Digamma(a_i))/h - 1/a_i)
             a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s) / (Digamma(a_i + h) - Digamma(a_i) - h/a_i)/h
             a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)*h / (Digamma(a_i + h) - Digamma(a_i) - h/a_i)
@@ -1041,7 +1050,6 @@ impl Parametric for Gamma {
 
         // Newton's method:
 
-        let h: f64 = unsafe { configuration::derivation::DEAFULT_H };
         let convergence_epsilon: f64 = unsafe {
             configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
         };
@@ -1051,10 +1059,10 @@ impl Parametric for Gamma {
             //a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)*h / (Digamma(a_i + h) - Digamma(a_i) - h/a_i)
 
             let digamma: f64 = euclid::digamma(a);
-            let digamma_h: f64 = euclid::digamma(a + h);
+            let trigamma: f64= euclid::fast_trigamma(a); 
 
-            let num: f64 = (digamma - a.ln() + s) * h;
-            let den: f64 = digamma_h - digamma - h / a;
+            let num: f64 = digamma - a.ln() + s;
+            let den: f64 = trigamma - 1.0/a; 
 
             difference = num / den;
             a = a - difference;

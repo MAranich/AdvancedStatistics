@@ -605,10 +605,6 @@ impl Parametric for ChiSquared {
         // digamma(k) = 
         let digamma_k: f64 = -f64::consts::LN_2 + log_mean; 
         
-        let h: f64 = unsafe {
-            configuration::derivation::DEAFULT_H
-        };
-
         let k: f64 = if threshold_approximation < digamma_k {
             // we CAN use the approxiamtion
 
@@ -618,7 +614,7 @@ impl Parametric for ChiSquared {
                 // Extra Newton's method step: 
 
                 let digamma_aprox: f64 = euclid::digamma(approx_k); 
-                let der_digamma_aprox: f64 = (euclid::digamma(approx_k + h) - digamma_aprox) / h; 
+                let der_digamma_aprox: f64 = euclid::fast_trigamma(digamma_aprox); 
 
                 approx_k - (digamma_aprox - digamma_k)/der_digamma_aprox
             }; 
@@ -646,19 +642,14 @@ impl Parametric for ChiSquared {
                     break; 
                 }
 
-                let den: f64 = if k_approx < LOWER_APROXIMATION_TRESHOLD {
-                    (euclid::fast_digamma(k_approx + h) - euclid::fast_digamma(k_approx)) / h
-                } else {
-                    (euclid::digamma(k_approx + h) - euclid::digamma(k_approx)) / h
-                }; 
+                let den: f64 = euclid::fast_trigamma(k_approx); 
 
                 k_approx = k_approx - num/den; 
             }
 
             // Do final step with real digamma
             let num: f64 = euclid::digamma(k_approx) - digamma_k; 
-            let den: f64 = 
-                (euclid::digamma(k_approx + h) - euclid::digamma(k_approx)) / h; 
+            let den: f64 = euclid::fast_trigamma(k_approx); 
 
             k_approx = k_approx - num/den; 
 

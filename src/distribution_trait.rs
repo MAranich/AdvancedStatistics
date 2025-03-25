@@ -771,7 +771,7 @@ pub trait Distribution {
     /// Returns the [kurtosis](https://en.wikipedia.org/wiki/Kurtosis)
     /// of the distribution.
     fn kurtosis(&self) -> Option<f64> {
-        return Some(self.moments(4, Moments::Standarized));
+        return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
     /// Returns the [excess kurtosis](https://en.wikipedia.org/wiki/Kurtosis#Excess_kurtosis)
@@ -779,7 +779,7 @@ pub trait Distribution {
     ///
     /// The excess kurtosis is defined as `kurtosis - 3`.
     fn excess_kurtosis(&self) -> Option<f64> {
-        return self.kurtosis().map(|x| x - 3.0);
+        return Some(self.moments(4, Moments::Standarized) - 3.0);
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
