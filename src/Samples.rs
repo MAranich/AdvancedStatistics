@@ -441,6 +441,11 @@ impl Samples {
             return None;
         }
 
+        // If it is already computed, just return it.
+        if self.properties.minimum.is_some() {
+            return self.properties.minimum.clone();
+        }
+
         let min: Option<f64> = self.data.first().copied();
         if self.properties.is_sorted {
             self.properties.minimum = min.clone();
@@ -468,6 +473,11 @@ impl Samples {
         let n: usize = self.data.len();
         if n == 0 {
             return None;
+        }
+
+        // If it is already computed, just return it.
+        if self.properties.maximum.is_some() {
+            return self.properties.minimum.clone();
         }
 
         let max: Option<f64> = self.data.last().copied();
@@ -635,6 +645,7 @@ impl Samples {
     ///
     /// Identical to [Samples::len]
     pub fn count(&self) -> usize {
+        //#[rustc_confusables("len", "size", "count", "shape", "n")]
         return self.data.len();
     }
 
@@ -748,20 +759,19 @@ impl Samples {
         // safety: all unwrap unchecked are fine since we have at least 2 samples
         match method {
             OutlierDetectionMethod::IQR(m) => {
-
                 if m.is_nan() || m.is_sign_negative() {
                     // return empty vector
-                    return ret; 
+                    return ret;
                 }
 
                 // Q1 − 1.5 IQR ////// Q3 + 1.5 IQR
-                let q1: f64 = unsafe {self.quantile(0.25).unwrap_unchecked()}; 
-                let q3: f64 = unsafe {self.quantile(0.75).unwrap_unchecked()}; 
+                let q1: f64 = unsafe { self.quantile(0.25).unwrap_unchecked() };
+                let q3: f64 = unsafe { self.quantile(0.75).unwrap_unchecked() };
 
-                let iqr: f64 = q3 - q1; 
-                let mult_iqr: f64 = m * iqr; 
+                let iqr: f64 = q3 - q1;
+                let mult_iqr: f64 = m * iqr;
 
-                let range: (f64, f64) = (q1 - mult_iqr, q3 + mult_iqr); 
+                let range: (f64, f64) = (q1 - mult_iqr, q3 + mult_iqr);
 
                 for (i, &sampl) in self.data.iter().enumerate() {
                     if !(range.0 <= sampl && sampl <= range.1) {
@@ -770,36 +780,33 @@ impl Samples {
                 }
             }
             OutlierDetectionMethod::ZScore(s) => {
-
                 if s.is_nan() || s.is_sign_negative() {
                     // return empty vector
-                    return ret; 
+                    return ret;
                 }
 
-                let mean: f64 = unsafe{self.mean().unwrap_unchecked()}; 
-                let variance: f64 = unsafe {self.variance().unwrap_unchecked()}; 
-            
-                let minus_mean: f64 = -mean; 
-                let inv_std_dev: f64 = 1.0/variance.sqrt(); 
+                let mean: f64 = unsafe { self.mean().unwrap_unchecked() };
+                let variance: f64 = unsafe { self.variance().unwrap_unchecked() };
+
+                let minus_mean: f64 = -mean;
+                let inv_std_dev: f64 = 1.0 / variance.sqrt();
 
                 for (i, &sampl) in self.data.iter().enumerate() {
-                    let score: f64 = (sampl + minus_mean) * inv_std_dev; 
+                    let score: f64 = (sampl + minus_mean) * inv_std_dev;
                     if s < score.abs() {
                         ret.push(i);
                     }
                 }
-
-            },
+            }
             OutlierDetectionMethod::Range(min, max) => {
-
                 if min.is_nan() || max.is_nan() {
                     // return empty vector
-                    return ret; 
+                    return ret;
                 }
 
                 if max <= min {
                     // return full vector
-                    return (0..(self.count())).into_iter().collect::<Vec<usize>>(); 
+                    return (0..(self.count())).into_iter().collect::<Vec<usize>>();
                 }
 
                 for (i, &sampl) in self.data.iter().enumerate() {
@@ -807,7 +814,7 @@ impl Samples {
                         ret.push(i);
                     }
                 }
-            },
+            }
         }
 
         return ret;

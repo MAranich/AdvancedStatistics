@@ -252,7 +252,6 @@ impl Distribution for F {
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
-        let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
         let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
 
@@ -575,7 +574,6 @@ impl Parametric for F {
     }
 
     fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
-
         /*
                 Using Maximum Likelyhood estimation:
             Assuming n samples.
@@ -589,10 +587,10 @@ impl Parametric for F {
             0 = sumatory{x_i} ln(d1/d2) + 1 + digamma(d1/2 + d2/2) - digamma(d1/2) + ln(x_i) - ln(1 + d1/d2 * x_i) + (d1+d2)/(1 + d1/d2 * x_i) * x_i/d2 )
             0 = n * (ln(d1/d2) + 1 + digamma(d1/2 + d2/2) - digamma(d1/2)) + sumatory{x_i} ln(x_i) - ln(1 + d1/d2 * x_i) + (d1+d2)/(1 + d1/d2 * x_i) * x_i/d2 )
             -n * (ln(d1/d2) + 1 + digamma(d1/2 + d2/2) - digamma(d1/2)) = sumatory{x_i} ln(x_i) - ln(1 + d1/d2 * x_i) + (d1+d2)/(d2 + d1 * x_i) * x_i )
-            
-            -ln(d1/d2) - 1 - digamma(d1/2 + d2/2) + digamma(d1/2) = mean{x_i}[ ln(x_i) ] - mean{x_i}[ ln(1 + d1/d2 * x_i) ] + (d1+d2) * mean{x_i}[1/(d2 + d1 * x_i) * x_i] 
 
-            
+            -ln(d1/d2) - 1 - digamma(d1/2 + d2/2) + digamma(d1/2) = mean{x_i}[ ln(x_i) ] - mean{x_i}[ ln(1 + d1/d2 * x_i) ] + (d1+d2) * mean{x_i}[1/(d2 + d1 * x_i) * x_i]
+
+
                 Estimation of d2:
 
             norm(d1, d2) = (d1/d2)^(d1/2) * gamma(d1/2 + d2/2) / (gamma(d1/2) * gamma(d2/2))
@@ -603,10 +601,10 @@ impl Parametric for F {
             0 = n * (-d1/d2 + digamma(d1/2 + d2/2) - digamma(d2/2)) + summatory{x_i} - ln(1 + d1/d2 * x_i) + (d1+d2)/(1 + d1/d2 * x_i) * - d1/d2^2 * x_i
             -n * (-d1/d2 + digamma(d1/2 + d2/2) - digamma(d2/2)) = summatory{x_i} - ln(1 + d1/d2 * x_i) - (d1+d2)/(d2 + d1 * x_i) * d1/d2 * x_i
             -n * (-d1/d2 + digamma(d1/2 + d2/2) - digamma(d2/2)) = summatory{x_i} - ln(1 + d1/d2 * x_i) - (d1+d2)/(d2 + d1 * x_i) * d1/d2 * x_i
-            
+
             d1/d2 - digamma(d1/2 + d2/2) + digamma(d2/2) = -mean{x_i}[ ln(1 + d1/d2 * x_i) ] -(d1+d2) * d1/d2 * mean{x_i}[ 1/(d2 + d1 * x_i) * x_i]
 
-            Here we have a system of 2 equations: 
+            Here we have a system of 2 equations:
 
             -n * (ln(d1/d2) + 1 + digamma(d1/2 + d2/2) - digamma(d1/2)) = sumatory{x_i} ln(x_i) - ln(1 + d1/d2 * x_i) + (d1+d2)/(d2 + d1 * x_i) * x_i )
             -n * (-d1/d2 + digamma(d1/2 + d2/2) - digamma(d2/2)) = summatory{x_i} - ln(1 + d1/d2 * x_i) - (d1+d2)/(d2 + d1 * x_i) * d1/d2 * x_i
@@ -617,71 +615,71 @@ impl Parametric for F {
             -ln(d1/d2) - d1/d2 - 1 - digamma(d1/2) - digamma(d2/2) = mean{x_i}[ ln(x_i) ] - 2 * mean{x_i} [ ln(1 + d1/d2 * x_i) ] + mean{x_i}[ (d1+d2)/(d2 + d1 * x_i) * x_i * (1 + d1/d2) ]
             -ln(d1/d2) - d1/d2 - 1 - digamma(d1/2) - digamma(d2/2) = mean{x_i}[ ln(x_i) ] - 2 * mean{x_i} [ ln(1 + d1/d2 * x_i) ] + (d1+d2) * (1 + d1/d2) * mean{x_i}[ 1/(d2 + d1 * x_i) * x_i ]
 
-            Here we are stuck and we cannot progress analytically. 
-            
-            ## Option 1: 
-            
-            Doing some re-labeling: 
+            Here we are stuck and we cannot progress analytically.
+
+            ## Option 1:
+
+            Doing some re-labeling:
 
             mean_ln(x) = mean{x_i}[ ln(x_i) ]
             f(x, d1, d2) = - 2 * mean{x_i} [ ln(1 + d1/d2 * x_i) ] + (d1+d2) * (1 + d1/d2) * mean{x_i}[ 1/(d2 + d1 * x_i) * x_i ]
             g(d1, d2) = -ln(d1/d2) - d1/d2 - 1 - digamma(d1/2) - digamma(d2/2)
 
-            Here `x` represents the vector containing all the x_i. Then our previous expression becomes: 
+            Here `x` represents the vector containing all the x_i. Then our previous expression becomes:
 
             g(d1, d2) = mean_ln(x) + f(x, d1, d2)
             0 = mean_ln(x) + f(x, d1, d2) - g(d1, d2)
 
-            And here we can use the gradient descent to get a numerical solution. 
+            And here we can use the gradient descent to get a numerical solution.
 
-            ## Option 2: 
+            ## Option 2:
 
-            With our (separate) final equations: 
+            With our (separate) final equations:
 
-            -ln(d1/d2) - 1 - digamma(d1/2 + d2/2) + digamma(d1/2) = mean{x_i}[ ln(x_i) ] - mean{x_i}[ ln(1 + d1/d2 * x_i) ] + (d1+d2) * mean{x_i}[ 1/(d2 + d1 * x_i) * x_i] 
+            -ln(d1/d2) - 1 - digamma(d1/2 + d2/2) + digamma(d1/2) = mean{x_i}[ ln(x_i) ] - mean{x_i}[ ln(1 + d1/d2 * x_i) ] + (d1+d2) * mean{x_i}[ 1/(d2 + d1 * x_i) * x_i]
             d1/d2 - digamma(d1/2 + d2/2) + digamma(d2/2) = - mean{x_i}[ ln(1 + d1/d2 * x_i) ] - d1/d2 * (d1+d2) * mean{x_i}[ 1/(d2 + d1 * x_i) * x_i]
 
-            Doing some re-labeling: 
+            Doing some re-labeling:
             mean_ln(x) = mean{x_i}[ ln(x_i) ]
             f1(d1, d2) = -ln(d1/d2) - 1 - digamma(d1/2 + d2/2) + digamma(d1/2)
             g(x, d1, d2) = - mean{x_i}[ ln(1 + d1/d2 * x_i) ]
             f2(d1, d2) = d1/d2 - digamma(d1/2 + d2/2) + digamma(d2/2)
             g2(x, d1, d2) = (d1+d2) * mean{x_i}[ 1/(d2 + d1 * x_i) * x_i]
 
-            Then our equations become: 
+            Then our equations become:
 
             f1(d1, d2) = mean_ln(x) + g(x, d1, d2) + g2(x, d1, d2)
             f2(d1, d2) = g(x, d1, d2) - d1/d2 * g2(x, d1, d2)
 
-            Notice that goth g and g2 are evaluated in both equations. We will try to use 
-            multidimensiona Newton's method on: 
+            Notice that goth g and g2 are evaluated in both equations. We will try to use
+            multidimensiona Newton's method on:
 
             0 = mean_ln(x) + g(x, d1, d2) + g2(x, d1, d2) - f1(d1, d2)
             0 = g(x, d1, d2) - d1/d2 * g2(x, d1, d2) - f2(d1, d2)
 
-            We define: 
+            We define:
 
             F1(x, d1, d2) = mean_ln(x) + g(x, d1, d2) + g2(x, d1, d2) - f1(d1, d2)
             F2(x, d1, d2) = g(x, d1, d2) - d1/d2 * g2(x, d1, d2) - f2(d1, d2)
 
-            And using matrix notation: 
+            And using matrix notation:
 
             F(x, d1, d2) = [F1(x, d1, d2), F2(x, d1, d2)]
 
-            And the multidimensional Newton's method is: 
+            And the multidimensional Newton's method is:
 
             x_n+1 = x_n - J^-1 * F(x_n)
 
-            Where J^-1 is the inverse of the Jacobian matrix J(x, d1, d2), wich is defined as: 
+            Where J^-1 is the inverse of the Jacobian matrix J(x, d1, d2), wich is defined as:
 
             J(x, d1, d2) = [[d/d_d1 F1(x, d1, d2), d/d_d2 F1(x, d1, d2)], [d/d_d2 F1(x, d1, d2), d/d_d2 F1(x, d1, d2)]]
 
-            In our notation, [[a, b], [c, d]] should be interpreted as: 
+            In our notation, [[a, b], [c, d]] should be interpreted as:
 
-            | a | b | 
+            | a | b |
             | c | d |
 
-            To compute the Jacobian we will first compute the necessary derivatives: 
+            To compute the Jacobian we will first compute the necessary derivatives:
 
             d_d1 mean_ln(x) = d_d2 mean_ln(x) = 0
 
@@ -727,20 +725,20 @@ impl Parametric for F {
              = -d1/d2^2 -trigamma(d1/2 + d2/2)*0.5 + trigamma(d2/2)*0.5
 
 
-            ### Computing d/d_d1 F1(x, d1, d2): 
+            ### Computing d/d_d1 F1(x, d1, d2):
 
             d/d_d1 F1(x, d1, d2) = d_d1 mean_ln(x) + g(x, d1, d2) + g2(x, d1, d2) - f1(d1, d2)
              = 0 + (- mean{x_i}[ x_i/(d2 + d1 * x_i) ]) + (mean{x_i}[ x_i/(d2 + d1 * x_i) - (d1+d2) * (x_i/(d2 + d1 * x_i))^2 ]) - (1/d2 - trigamma(d1/2 + d2/2)*0.5 + trigamma(d1/2)*0.5)
              = - mean{x_i}[ x_i/(d2 + d1 * x_i) ] + mean{x_i}[ x_i/(d2 + d1 * x_i) ] - mean{x_i}[ (d1+d2) * (x_i/(d2 + d1 * x_i))^2 ] - 1/d2 + trigamma(d1/2 + d2/2)*0.5 - trigamma(d1/2)*0.5
              = - (d1+d2) * mean{x_i}[ (x_i/(d2 + d1 * x_i))^2 ] - 1/d2 + trigamma(d1/2 + d2/2)*0.5 - trigamma(d1/2)*0.5
 
-            ### Computing d/d_d2 F1(x, d1, d2): 
+            ### Computing d/d_d2 F1(x, d1, d2):
 
             d/d_d2 F1(x, d1, d2) = d_d2 mean_ln(x) + g(x, d1, d2) + g2(x, d1, d2) - f1(d1, d2)
              = 0 + (d1/d2 * mean{x_i}[ x_i/(d2 + d1 * x_i) ]) + (mean{x_i}[ x_i/(d2 + d1 * x_i) ] + (d1+d2) * mean{x_i}[ - x_i/(d2 + d1 * x_i)^2]) - (-1/d1 - trigamma(d1/2 + d2/2)*0.5 + trigamma(d1/2)*0.5)
              = (d1/d2 + 1) * mean{x_i}[ x_i/(d2 + d1 * x_i) ] + (d1+d2) * mean{x_i}[ - x_i/(d2 + d1 * x_i)^2] + 1/d1 + trigamma(d1/2 + d2/2)*0.5 - trigamma(d1/2)*0.5
 
-            ### Computing d/d_d1 F2(x, d1, d2): 
+            ### Computing d/d_d1 F2(x, d1, d2):
 
             d/d_d1 F2(x, d1, d2) = d/d_d1 g(x, d1, d2) - d1/d2 * g2(x, d1, d2) - f2(d1, d2)
              = (- mean{x_i}[ x_i/(d2 + d1 * x_i) ]) - (1/d2 * g2(x, d1, d2) + d1/d2 * d/d_d1[ g2(x, d1, d2)] ) - (1/d2 - trigamma(d1/2 + d2/2) * 0.5)
@@ -750,20 +748,9 @@ impl Parametric for F {
                                                                                                            //^parenthesis ? )
 
 
+            TODO: to complete. For now use default implementation
 
-             
         */
-
-
-
-
-
-
-
-
-
-
-
 
         let d: usize = Self::number_of_parameters() as usize;
         let mut parameters: Vec<f64> = std::vec![0.0; d];

@@ -52,7 +52,7 @@ impl Binomial {
     ///   - `p` indicates the probability of success (returning `1.0`) of each Bernoulli trial.
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise the structure will be invalid.
     ///  - `n` indicates the number of trials
-    /// 
+    ///
     /// If the preconditions are not fullfiled, the returned distribution
     /// will be invalid.
     pub const unsafe fn new_unchecked(p: f64, n: u64) -> Binomial {
@@ -84,7 +84,7 @@ impl DiscreteDistribution for Binomial {
         // Where ( a | b ) is `a choose b`
 
         let X: u64 = x.floor() as u64;
-        let binomial_coef: u128 = euclid::combinatorics::binomial_coeffitient(self.n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
+        let binomial_coef: u128 = euclid::combinatorics::binomial_coefficient(self.n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
 
         let prob_p: f64 = self.p.powi(X as i32);
         let prob_q: f64 = (1.0 - self.p).powi((self.n - X) as i32);
@@ -412,7 +412,7 @@ impl Parametric for Binomial {
         let n: u64 = parameters[1] as u64;
 
         let X: u64 = x.floor() as u64;
-        let binomial_coef: u128 = euclid::combinatorics::binomial_coeffitient(n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
+        let binomial_coef: u128 = euclid::combinatorics::binomial_coefficient(n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
 
         let prob_p: f64 = p.powi(X as i32);
         let prob_q: f64 = (1.0 - p).powi((n - X) as i32);

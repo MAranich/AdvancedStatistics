@@ -44,10 +44,10 @@
 //!  - [x] [Normal distribution](crate::distributions::Normal) ([Wiki](https://en.wikipedia.org/wiki/Normal_distribution))
 //!  - [x] [Uniform distribution](crate::distributions::Exponential) ([Wiki](https://en.wikipedia.org/wiki/Continuous_uniform_distribution))
 //!  - [x] [Exponential](crate::distributions::Exponential) ([Wiki](https://en.wikipedia.org/wiki/Exponential_distribution))
+//!  - [x] [Gamma distribution](crate::distributions::Gamma) ([Wiki](https://en.wikipedia.org/wiki/Gamma_distribution))
 //!  - [x] [Chi-squared distribution](crate::distributions::ChiSquared) ([Wiki](https://en.wikipedia.org/wiki/Chi-squared_distribution))
 //!  - [ ] [Chi distribution]() ([Wiki](https://en.wikipedia.org/wiki/Chi_distribution))
 //!  - [x] [F distribution](crate::distributions::F) ([Wiki](https://en.wikipedia.org/wiki/F-distribution))
-//!  - [x] [Gamma distribution](crate::distributions::Gamma) ([Wiki](https://en.wikipedia.org/wiki/Gamma_distribution))
 //!  - [x] [Beta distribution](crate::distributions::Beta) ([Wiki](https://en.wikipedia.org/wiki/Beta_distribution))
 //!  - [x] [Student's T distribution](crate::distributions::StudentT) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-distribution))
 //!  - [ ] [Hypergeometric]() ([Wiki](https://en.wikipedia.org/wiki/Hypergeometric_distribution))
@@ -105,7 +105,7 @@ pub mod distributions;
 pub mod domain;
 pub mod errors;
 pub mod euclid;
-pub mod hypotesys;
+pub mod hypothesis;
 pub mod mixed_distribution;
 
 // Todo: Do this struct that allows to shift the location of a distribution

@@ -448,11 +448,11 @@ impl IntegrationType {
 
 pub mod combinatorics {
 
-    /// Compute the [binomial coeffitient](https://en.wikipedia.org/wiki/Binomial_coefficient).
+    /// Compute the [binomial coefficient](https://en.wikipedia.org/wiki/Binomial_coefficient).
     ///
     /// Returns an error if there was a problem with the computation (overflow),
     /// if `n` or `k` are negative or if `n < k`.
-    pub fn binomial_coeffitient(n: u64, mut k: u64) -> Result<u128, ()> {
+    pub fn binomial_coefficient(n: u64, mut k: u64) -> Result<u128, ()> {
         // todo: https://math.stackexchange.com/questions/202554/how-do-i-compute-binomial-coefficients-efficiently
 
         /*
@@ -1084,14 +1084,14 @@ pub fn fast_trigamma(x: f64) -> f64 {
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[2])
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[3])
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[4])
-            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[5]); 
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[5]);
 
         let denominator: f64 = TRIGAMMA_PADE_DENOMINATOR_FAR[0]
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[1])
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[2])
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[3])
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[4])
-            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[5]); 
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[5]);
 
         numerator / denominator
     } else {

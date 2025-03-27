@@ -217,7 +217,7 @@ fn binomial_coef_computation() {
     ];
 
     for (n, k, correct_n_k) in results {
-        let bin_coef: u128 = euclid::combinatorics::binomial_coeffitient(n, k)
+        let bin_coef: u128 = euclid::combinatorics::binomial_coefficient(n, k)
             .expect("No overflows for the examples. ");
 
         println!("({}|{}) = {}  ||| Result: {}", n, k, correct_n_k, bin_coef);
@@ -235,7 +235,7 @@ struct MyBinomial {
 impl DiscreteDistribution for MyBinomial {
     fn pmf(&self, x: f64) -> f64 {
         let x_u: u64 = x.floor() as u64;
-        let binomial_coef: u128 = euclid::combinatorics::binomial_coeffitient(self.n, x_u).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
+        let binomial_coef: u128 = euclid::combinatorics::binomial_coefficient(self.n, x_u).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
 
         let prob_p: f64 = self.p.powi(x_u as i32);
         let prob_q: f64 = (1.0 - self.p).powi((self.n - x_u) as i32);
@@ -435,11 +435,12 @@ fn precision_fast_digamma() {
     // We will assume `digamma` is the absolute correct value.
 
     let points: [f64; 19] = [
-        0.02, 0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.4, 2.6, 3.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, 512.0, 1024.0, 2048.0, 
+        0.02, 0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.4, 2.6, 3.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0,
+        512.0, 1024.0, 2048.0,
     ];
     // we don't care for values less than 0.01
 
-    let max_abs_error_treshols: f64 = 0.01; 
+    let max_abs_error_treshols: f64 = 0.01;
 
     for v in points {
         let ground: f64 = digamma(v);
@@ -449,10 +450,9 @@ fn precision_fast_digamma() {
         println!("abs_diff: {}, log_abs_diff: {}", diff, diff.ln());
 
         if max_abs_error_treshols <= diff {
-            // some values near x = 2.5 or x = 0.0 may fulfill this but 
-            // we will just ignre them because they are very few. 
-            panic!("Error over the trehold in precision_fast_digamma"); 
+            // some values near x = 2.5 or x = 0.0 may fulfill this but
+            // we will just ignre them because they are very few.
+            panic!("Error over the trehold in precision_fast_digamma");
         }
     }
-
 }

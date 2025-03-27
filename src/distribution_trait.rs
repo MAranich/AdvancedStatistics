@@ -7,7 +7,7 @@ use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::{self, *};
-use crate::hypotesys::Hypothesis;
+use crate::hypothesis::Hypothesis;
 
 /// The trait for any continuous distribution.
 ///
@@ -580,17 +580,17 @@ pub trait Distribution {
                 }
                 IntegrationType::FullInfinite => {
                     let _middle: f64 = {
-                        let t: f64 = current_position + half_step_length; 
+                        let t: f64 = current_position + half_step_length;
                         let u: f64 = 1.0 / (1.0 - t * t);
                         self.pdf(t * u) * (1.0 + t * t) * u * u
-                    }; 
+                    };
                     let _end: f64 = {
-                        let t: f64 = current_position + step_length; 
-                        let u: f64 = 1.0 / (1.0 - t * t); 
+                        let t: f64 = current_position + step_length;
+                        let u: f64 = 1.0 / (1.0 - t * t);
                         self.pdf(t * u) * (1.0 + t * t) * u * u
-                    }; 
+                    };
                     (_middle, _end)
-                },
+                }
             };
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
@@ -1857,6 +1857,7 @@ pub trait DiscreteDistribution {
 ///      - [derivative_pdf_parameters](Parametric::derivative_pdf_parameters)
 ///      - [log_derivative_pdf_parameters](Parametric::log_derivative_pdf_parameters)
 ///
+/// (We recommend implementing log_derivative_pdf_parameters since it is usually easier).
 /// ### Notes:
 ///
 /// The `&self` in most methods is required because there can be other non-float
@@ -1886,7 +1887,7 @@ pub trait Parametric {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
 
-        let pdf: f64 = self.general_pdf(x, parameters); 
+        let pdf: f64 = self.general_pdf(x, parameters);
 
         return self
             .log_derivative_pdf_parameters(x, parameters)
@@ -1956,7 +1957,8 @@ pub trait Parametric {
     /// The method used is [Maximum Likelihood Estimation](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation)
     /// (MLE) with [Gradient Descent](https://en.wikipedia.org/wiki/Gradient_descent).
     ///
-    /// If there has been an error, returns an empty vector.
+    /// If there has been an error, returns an empty vector. If using the
+    /// default implemetation, it gets the initial guess from the values in self.
     fn fit(&self, data: &mut Samples) -> Vec<f64> {
         let d: usize = Self::number_of_parameters() as usize;
         let mut parameters: Vec<f64> = vec![0.0; d];
