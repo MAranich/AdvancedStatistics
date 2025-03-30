@@ -21,7 +21,7 @@ use rand::Rng;
 use crate::{
     distribution_trait::{DiscreteDistribution, Parametric},
     domain::DiscreteDomain,
-    euclid::ln_gamma_int,
+    euclid::{ln_gamma, ln_gamma_int},
 };
 
 pub const POISSON_DOMAIN: DiscreteDomain = DiscreteDomain::From(0);
@@ -85,7 +85,8 @@ impl DiscreteDistribution for Poisson {
         x = x.floor();
 
         // assuming `0.0 <= x`
-        let ln_gamma: f64 = ln_gamma_int(NonZero::new(x as u64 + 1).unwrap());
+        //let ln_gamma: f64 = ln_gamma_int(NonZero::new(x as u64 + 1).unwrap());
+        let ln_gamma: f64 = ln_gamma(x + 1.0); 
         let inner_exp: f64 = x * self.lambda.ln() - self.lambda - ln_gamma;
 
         return inner_exp.exp();
@@ -138,7 +139,7 @@ impl DiscreteDistribution for Poisson {
 
         let mut accumulator: f64 = 0.0;
 
-        while current_cdf_point <= bounds.0 {
+        while current_cdf_point < bounds.0 {
             ret[current_index] = 0.0;
             match idx_iter.next() {
                 Some(v) => current_index = v,
@@ -150,7 +151,7 @@ impl DiscreteDistribution for Poisson {
         let mut ln_gamma: f64 = 0.0;
         let mut x: f64 = 0.0;
         loop {
-            while current_cdf_point <= x {
+            while current_cdf_point < x {
                 ret[current_index] = accumulator;
                 match idx_iter.next() {
                     Some(v) => current_index = v,
@@ -248,7 +249,7 @@ impl DiscreteDistribution for Poisson {
 
         let mut accumulator: f64 = 0.0;
 
-        while current_quantile_point <= 0.0 {
+        while current_quantile_point < 0.0 {
             ret[current_index] = 0.0;
             match idx_iter.next() {
                 Some(v) => current_index = v,
@@ -260,6 +261,14 @@ impl DiscreteDistribution for Poisson {
         let mut ln_gamma: f64 = 0.0;
         let mut x: f64 = 0.0;
         loop {
+
+            let inner_exp: f64 = x * self.lambda.ln() - self.lambda - ln_gamma;
+            let pmf: f64 = inner_exp.exp();
+
+            accumulator += pmf;
+            //println!("pmf({})\t = {}", x, pmf); 
+            //println!("cdf({})\t = {}", x, accumulator); 
+
             while current_quantile_point <= accumulator {
                 ret[current_index] = x;
                 match idx_iter.next() {
@@ -269,10 +278,6 @@ impl DiscreteDistribution for Poisson {
                 current_quantile_point = points[current_index];
             }
 
-            let inner_exp: f64 = x * self.lambda.ln() - self.lambda - ln_gamma;
-            let pmf: f64 = inner_exp.exp();
-
-            accumulator += pmf;
             x += 1.0;
             ln_gamma += x.ln();
         }

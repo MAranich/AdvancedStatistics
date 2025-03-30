@@ -168,7 +168,7 @@ impl Distribution for F {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, true);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -262,7 +262,7 @@ impl Distribution for F {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, true);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 

@@ -47,7 +47,7 @@ pub trait Distribution {
     /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
     /// (Cumulative distribution function).
     ///
-    ///  > F(x) = cdf(x) = P(X < x) = p
+    ///  > F(x) = cdf(x) = P(X <= x) = p
     ///
     /// The cdf includes the `x` itself. If the function is evaluated outside
     /// the domain of the pdf, it will either return either `0.0` or `1.0`.
@@ -116,6 +116,21 @@ pub trait Distribution {
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
 
+
+    /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
+    /// (Cumulative distribution function) on multiple points.
+    ///
+    ///  > F(x) = cdf(x) = P(X <= x) = p
+    ///
+    /// The cdf includes the `x` itself. If the function is evaluated outside
+    /// the domain of the pdf, it will either return either `0.0` or `1.0`.
+    /// **Panicks** is `x` is a NaN.
+    ///
+    /// Note that the deafult implemetation requieres numerical integration and
+    /// may be expensive.
+    /// 
+    /// ***
+    /// 
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
     ///
@@ -193,7 +208,13 @@ pub trait Distribution {
             }
         });
 
-        let (step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds);
+        
+        let (step_length, max_iters): (f64, usize) = {
+            let doing_substitutuon: bool = if let IntegrationType::FullInfinite = integration_type {
+                true
+            } else {false};
+            choose_integration_precision_and_steps(bounds, doing_substitutuon)
+        };
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -227,7 +248,7 @@ pub trait Distribution {
             match integration_type {
                 IntegrationType::Finite | IntegrationType::ConstToInfinite => {
                     current_position = bounds.0 + step_length * num_step;
-                    while current_cdf_point <= current_position {
+                    while current_cdf_point < current_position {
                         ret[current_index] = accumulator;
 
                         // update `current_cdf_point` to the next value or exit if we are done
@@ -240,7 +261,7 @@ pub trait Distribution {
                 }
                 IntegrationType::InfiniteToConst => {
                     current_position = bounds.1 - step_length * num_step;
-                    while current_position <= current_cdf_point {
+                    while current_position < current_cdf_point {
                         ret[current_index] = 1.0 - accumulator;
 
                         // update `current_cdf_point` to the next value or exit if we are done
@@ -267,7 +288,7 @@ pub trait Distribution {
                     current_position = bounds.0 + step_length * num_step;
                     let u: f64 = 1.0 - current_position * current_position;
 
-                    while current_cdf_point * u <= current_position {
+                    while current_cdf_point * u < current_position {
                         ret[current_index] = accumulator;
 
                         // update `current_cdf_point` to the next value or exit if we are done
@@ -341,11 +362,26 @@ pub trait Distribution {
         return ret;
     }
 
+
+    /// Samples the distribution at random multiple times.
+    ///
+    /// The deafult method is [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling)
+    /// unless the deadult method is overriden. Inverse transform sampling simply
+    /// generates a random uniform number and evaluates the inverse cdf function
+    /// (the [Distribution::quantile] function) and returns the result.
+    ///
+    /// Note that the deafult implemetation requieres numerical integration and
+    /// may be expensive. 
+    /// 
+    /// ***
+    /// 
     /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample]
-    /// at multiple points. It may provide a computational advantage in comparasion to [Distribution::sample].
+    /// at multiple points. It may provide a computational advantage in comparasion 
+    /// to [Distribution::sample].
     ///
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
-    /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible.
+    /// wich may be expensive. Consider using [Distribution::rejection_sample] or 
+    /// [Distribution::rejection_sample_range] if possible.
     ///
     /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
     ///
@@ -364,14 +400,30 @@ pub trait Distribution {
         return ret;
     }
 
-    /// quantile_multiple acts the same as [Distribution::quantile] but on multiple points.
-    /// It provides a computational advantage over calling the normal [Distribution::quantile]
+
+    /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function) 
     /// multiple times.
     ///
-    /// **Panicks** is `x` is a NaN. If a value in points is less (or equal)
-    /// to 0.0, the minimum value in the domain will be returned. If a value in
-    /// points is greater (or equal) to 1, the maximum value in the domain
+    /// If the cdf is:
+    ///
+    ///  > F(x) = cdf(x) = P(X <= x) = p
+    ///
+    /// Then the quantile function is:
+    ///
+    ///  > Q(p) = x = F^-1(p)
+    ///
+    ///  - if `x` is outside the range [0.0, 1.0], the respective bound of the domain
     /// will be returned.
+    ///  - **Panicks** is `x` is a NaN.
+    ///
+    /// The quantile function is the inverse function of [Distribution::cdf_multiple]. Note that
+    /// the deafult implemetation requieres numerical integration and may be expensive.
+    ///
+    /// ***
+    /// 
+    /// [Distribution::quantile_multiple] acts the same as [Distribution::quantile] but 
+    /// on multiple points. It provides a computational advantage over calling the 
+    /// normal [Distribution::quantile] multiple times.
     ///
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
@@ -446,8 +498,12 @@ pub trait Distribution {
                 a.partial_cmp(&b).unwrap()
             }
         });
-
-        let (step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds);
+        let (step_length, max_iters): (f64, usize) = {
+            let doing_substitutuon: bool = if let IntegrationType::FullInfinite = integration_type {
+                true
+            } else {false};
+            choose_integration_precision_and_steps(bounds, doing_substitutuon)
+        };
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -494,7 +550,7 @@ pub trait Distribution {
             match integration_type {
                 IntegrationType::Finite | IntegrationType::ConstToInfinite => {
                     current_position = bounds.0 + step_length * num_step;
-                    while current_quantile <= accumulator {
+                    while current_quantile < accumulator {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
@@ -521,7 +577,7 @@ pub trait Distribution {
                 }
                 IntegrationType::InfiniteToConst => {
                     current_position = bounds.1 - step_length * num_step;
-                    while 1.0 - accumulator <= current_quantile {
+                    while 1.0 - accumulator < current_quantile {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
@@ -545,7 +601,7 @@ pub trait Distribution {
                     // integral {-inf -> inf} f(x) dx = integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
 
                     current_position = bounds.0 + step_length * num_step;
-                    while current_quantile <= accumulator {
+                    while current_quantile < accumulator {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
@@ -853,7 +909,7 @@ pub trait Distribution {
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
-        let (_, num_steps): (f64, usize) = choose_integration_precision_and_steps(bounds);
+        let (_, num_steps): (f64, usize) = choose_integration_precision_and_steps(bounds, true);
 
         let moment: f64 = match integration_type {
             IntegrationType::Finite => {
@@ -1125,10 +1181,10 @@ pub trait DiscreteDistribution {
     /// If the function is evaluated outside the domain of the pdf, it will either
     /// return either `0.0` or `1.0`. **Panicks** is `x` is a NaN.
     ///
-    ///  > F(x) = cdf(x) = P(X < x) = p
+    ///  > F(x) = cdf(x) = P(X <= x) = p
     ///
-    /// Note that the deafult implemetation requieres numerical integration and
-    /// may be expensive.
+    /// The cdf **includes** the `x` itself. Note that the deafult implemetation 
+    /// requieres evaluating the pmf many times and may be expensive.
     fn cdf(&self, x: f64) -> f64 {
         if x.is_nan() {
             panic!("Tried to evaluate the cdf with a NaN value. \n");
@@ -1186,9 +1242,21 @@ pub trait DiscreteDistribution {
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
 
-    /// `cdf_multiple` allows to evaluate the [Distribution::cdf] at multiple points.
-    /// It *may* provide a computational advantage over calling [Distribution::cdf]
-    /// in a loop.  
+    /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
+    /// (Cumulative distribution function) on multiple points.
+    /// If the function is evaluated outside the domain of the pdf, it will either
+    /// return either `0.0` or `1.0`. **Panicks** is `x` is a NaN.
+    ///
+    ///  > F(x) = cdf(x) = P(X <= x) = p
+    ///
+    /// The cdf **includes** the `x` itself. Note that the deafult implemetation 
+    /// requieres evaluating the pmf many times and may be expensive.
+    /// 
+    /// ***
+    /// 
+    /// [Distribution::cdf_multiple] allows to evaluate the [Distribution::cdf] at 
+    /// multiple points. It *may* provide a computational advantage over calling 
+    /// [Distribution::cdf] in a loop.  
     ///
     /// ***
     /// ***
@@ -1263,7 +1331,7 @@ pub trait DiscreteDistribution {
             IntegrationType::Finite
             | IntegrationType::ConstToInfinite
             | IntegrationType::FullInfinite => {
-                while current_cdf_point <= bounds.0 {
+                while current_cdf_point < bounds.0 {
                     ret[current_index] = 0.0;
                     match idx_iter.next() {
                         Some(v) => current_index = v,
@@ -1273,7 +1341,7 @@ pub trait DiscreteDistribution {
                 }
             }
             IntegrationType::InfiniteToConst => {
-                while bounds.1 <= current_cdf_point {
+                while bounds.1 < current_cdf_point {
                     ret[current_index] = 1.0;
                     match idx_iter.next() {
                         Some(v) => current_index = v,
@@ -1289,7 +1357,7 @@ pub trait DiscreteDistribution {
                 IntegrationType::Finite
                 | IntegrationType::ConstToInfinite
                 | IntegrationType::FullInfinite => {
-                    while current_cdf_point <= x {
+                    while current_cdf_point < x {
                         ret[current_index] = accumulator;
                         match idx_iter.next() {
                             Some(v) => current_index = v,
@@ -1299,7 +1367,7 @@ pub trait DiscreteDistribution {
                     }
                 }
                 IntegrationType::InfiniteToConst => {
-                    while x <= current_cdf_point {
+                    while x < current_cdf_point {
                         ret[current_index] = 1.0 - accumulator;
                         match idx_iter.next() {
                             Some(v) => current_index = v,
@@ -1324,12 +1392,19 @@ pub trait DiscreteDistribution {
         return ret;
     }
 
-    /// `sample_multiple` allows to evaluate the [Distribution::sample]
-    /// at multiple points. It *may* provide a computational advantage in
-    /// comparasion to calling [Distribution::sample] in a loop.
+    /// [Distribution::sample_multiple] samples the distribution 
+    /// at random `n` times. 
+    /// 
+    /// The deafult method is [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling)
+    /// unless the deadult method is overriden. Inverse transform sampling simply
+    /// generates a random uniform number and evaluates the inverse cdf function
+    /// (the [Distribution::quantile_multiple] function) and returns the result.
     ///
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
     /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible.
+    /// 
+    /// It *may* provide a computational advantage in
+    /// comparasion to calling [Distribution::sample] in a loop.
     ///
     /// ***
     /// ***
@@ -1440,7 +1515,7 @@ pub trait DiscreteDistribution {
             IntegrationType::Finite
             | IntegrationType::ConstToInfinite
             | IntegrationType::FullInfinite => {
-                while current_quantile_point <= 0.0 {
+                while current_quantile_point < 0.0 {
                     ret[current_index] = bounds.0;
                     match idx_iter.next() {
                         Some(v) => current_index = v,
@@ -1462,11 +1537,14 @@ pub trait DiscreteDistribution {
         }
 
         for x in domain.iter() {
+            
+            accumulator += self.pmf(x);
+            
             match integration_type {
                 IntegrationType::Finite
                 | IntegrationType::ConstToInfinite
                 | IntegrationType::FullInfinite => {
-                    while current_quantile_point <= accumulator {
+                    while current_quantile_point < accumulator {
                         ret[current_index] = x;
                         match idx_iter.next() {
                             Some(v) => current_index = v,
@@ -1486,8 +1564,6 @@ pub trait DiscreteDistribution {
                     }
                 }
             }
-
-            accumulator += self.pmf(x);
         }
 
         ret[current_index] = bounds.1;

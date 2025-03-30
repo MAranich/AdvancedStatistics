@@ -228,7 +228,7 @@ impl Distribution for Gamma {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, false);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -252,7 +252,7 @@ impl Distribution for Gamma {
             let current_position: f64;
 
             current_position = bounds.0 + step_length * num_step;
-            while current_cdf_point <= current_position {
+            while current_cdf_point < current_position {
                 ret[current_index] = accumulator;
 
                 // update `current_cdf_point` to the next value or exit if we are done
@@ -263,11 +263,8 @@ impl Distribution for Gamma {
                 current_cdf_point = points[current_index];
             }
 
-            let (middle, end): (f64, f64) = {
-                let _middle: f64 = self.pdf(current_position + half_step_length);
-                let _end: f64 = self.pdf(current_position + step_length);
-                (_middle, _end)
-            };
+            let middle: f64 = self.pdf(current_position + half_step_length);
+            let end: f64 = self.pdf(current_position + step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -426,7 +423,7 @@ impl Distribution for Gamma {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, false);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -488,11 +485,8 @@ impl Distribution for Gamma {
                 break 'integration_loop;
             }
 
-            let (middle, end): (f64, f64) = {
-                let _middle: f64 = self.pdf(current_position + half_step_length);
-                let _end: f64 = self.pdf(current_position + step_length);
-                (_middle, _end)
-            };
+            let middle: f64 = self.pdf(current_position + half_step_length);
+            let end: f64 = self.pdf(current_position + step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -613,76 +607,29 @@ impl Distribution for Gamma {
 
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let integration_type: euclid::IntegrationType =
-            euclid::IntegrationType::from_bounds(bounds);
-        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds);
+        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds, true);
 
-        let moment: f64 = match integration_type {
-            euclid::IntegrationType::Finite => {
-                let integration_fn = |x: f64| {
-                    let std_inp: f64 = (x + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * self.pdf(x)
-                };
+        let moment: f64 = {
+            // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
 
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-            euclid::IntegrationType::InfiniteToConst => {
-                // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-                let integration_fn = |x: f64| 'integration: {
-                    // x will go from 0.0 to 1.0
-                    if x.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        break 'integration 0.0;
-                    }
-                    let inv_x: f64 = 1.0 / x;
-                    let fn_input: f64 = bounds.1 - (1.0 - x) * inv_x;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * self.pdf(fn_input) * inv_x * inv_x
-                };
+            let integration_fn = |x: f64| 'integration: {
+                // x will go from 0.0 to 1.0
 
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-            euclid::IntegrationType::ConstToInfinite => {
-                // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
+                let x_minus: f64 = x - 1.0;
+                if x_minus.abs() < f64::EPSILON {
+                    // too near singularity, skip
+                    break 'integration 0.0;
+                }
 
-                let integration_fn = |x: f64| 'integration: {
-                    // x will go from 0.0 to 1.0
+                let u: f64 = 1.0 / x_minus;
+                let fn_input: f64 = bounds.0 + x * u;
+                let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
+                std_inp.powi(order_exp) * self.pdf(fn_input) * u * u
+            };
 
-                    let x_minus: f64 = x - 1.0;
-                    if x_minus.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        break 'integration 0.0;
-                    }
-
-                    let u: f64 = 1.0 / x_minus;
-                    let fn_input: f64 = bounds.0 + x * u;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * self.pdf(fn_input) * u * u
-                };
-
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-            euclid::IntegrationType::FullInfinite => {
-                // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                let integration_fn = |x: f64| 'integration: {
-                    // x will go from -1.0 to 1.0
-
-                    let u: f64 = 1.0 - x * x;
-                    if u.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        break 'integration 0.0;
-                    }
-                    let v: f64 = 1.0 / u;
-                    let fn_input: f64 = x * v;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
-                };
-
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-        };
-
+            euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
+        }; 
+        
         return moment;
     }
 

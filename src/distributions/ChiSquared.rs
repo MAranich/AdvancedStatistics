@@ -142,7 +142,7 @@ impl Distribution for ChiSquared {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, true);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -225,7 +225,7 @@ impl Distribution for ChiSquared {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, true);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -414,7 +414,7 @@ impl Distribution for ChiSquared {
 
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds);
+        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds, true);
 
         let moment: f64 = {
             // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt

@@ -160,7 +160,7 @@ impl DiscreteDistribution for Binomial {
 
         let mut accumulator: f64 = 0.0;
 
-        while current_cdf_point <= bounds.0 {
+        while current_cdf_point < bounds.0 {
             ret[current_index] = 0.0;
             match idx_iter.next() {
                 Some(v) => current_index = v,
@@ -170,7 +170,7 @@ impl DiscreteDistribution for Binomial {
         }
 
         for x in domain.iter() {
-            while current_cdf_point <= x {
+            while current_cdf_point < x {
                 ret[current_index] = accumulator;
                 match idx_iter.next() {
                     Some(v) => current_index = v,

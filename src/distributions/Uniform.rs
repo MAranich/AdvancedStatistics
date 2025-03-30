@@ -243,74 +243,17 @@ impl Distribution for Uniform {
     
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let integration_type: crate::euclid::IntegrationType = crate::euclid::IntegrationType::from_bounds(bounds);
-        let (_, num_steps): (f64, usize) = crate::euclid::choose_integration_precision_and_steps(bounds);
+        let (_, num_steps): (f64, usize) = crate::euclid::choose_integration_precision_and_steps(bounds, false);
     
-        let moment: f64 = match integration_type {
-            crate::euclid::IntegrationType::Finite => {
+        let moment: f64 = {
                 let integration_fn = |x: f64| {
                     let std_inp: f64 = (x + minus_mean) * inv_std_dev;
                     std_inp.powi(order_exp) * self.pdf(x)
                 };
     
                 crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-            crate::euclid::IntegrationType::InfiniteToConst => {
-                // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-                let integration_fn = |x: f64| 'integration: {
-                    // x will go from 0.0 to 1.0
-                    if x.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        break 'integration 0.0;
-                    }
-                    let inv_x: f64 = 1.0 / x;
-                    let fn_input: f64 = bounds.1 - (1.0 - x) * inv_x;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * self.pdf(fn_input) * inv_x * inv_x
-                };
-    
-                crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-            crate::euclid::IntegrationType::ConstToInfinite => {
-                // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-    
-                let integration_fn = |x: f64| 'integration: {
-                    // x will go from 0.0 to 1.0
-    
-                    let x_minus: f64 = x - 1.0;
-                    if x_minus.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        break 'integration 0.0;
-                    }
-    
-                    let u: f64 = 1.0 / x_minus;
-                    let fn_input: f64 = bounds.0 + x * u;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * self.pdf(fn_input) * u * u
-                };
-    
-                crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-            crate::euclid::IntegrationType::FullInfinite => {
-                // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-    
-                let integration_fn = |x: f64| 'integration: {
-                    // x will go from -1.0 to 1.0
-    
-                    let u: f64 = 1.0 - x * x;
-                    if u.abs() < f64::EPSILON {
-                        // too near singularity, skip
-                        break 'integration 0.0;
-                    }
-                    let v: f64 = 1.0 / u;
-                    let fn_input: f64 = x * v;
-                    let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                    std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
-                };
-    
-                crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-            }
-        };
+            }; 
+
     
         return moment;
     }

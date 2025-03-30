@@ -193,7 +193,7 @@ impl Distribution for Beta {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, false);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -228,11 +228,8 @@ impl Distribution for Beta {
                 current_cdf_point = points[current_index];
             }
 
-            let (middle, end): (f64, f64) = {
-                let _middle: f64 = self.pdf(current_position + half_step_length);
-                let _end: f64 = self.pdf(current_position + step_length);
-                (_middle, _end)
-            };
+            let middle: f64 = self.pdf(current_position + half_step_length);
+            let end: f64 = self.pdf(current_position + step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -344,7 +341,7 @@ impl Distribution for Beta {
         });
 
         let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds);
+            euclid::choose_integration_precision_and_steps(bounds, false);
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
@@ -406,11 +403,8 @@ impl Distribution for Beta {
                 break 'integration_loop;
             }
 
-            let (middle, end): (f64, f64) = {
-                let _middle: f64 = self.pdf(current_position + half_step_length);
-                let _end: f64 = self.pdf(current_position + step_length);
-                (_middle, _end)
-            };
+            let middle: f64 = self.pdf(current_position + half_step_length);
+            let end: f64 = self.pdf(current_position + step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -561,7 +555,7 @@ impl Distribution for Beta {
 
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds);
+        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds, false);
 
         let moment: f64 = {
             let integration_fn = |x: f64| {

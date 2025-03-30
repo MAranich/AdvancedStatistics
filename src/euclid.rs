@@ -7,7 +7,6 @@ use std::{num::NonZero, usize};
 use crate::{
     configuration::integration::{
         DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64,
-        DEFAULT_INTEGRATION_MINIMUM_STEPS, DEFAULT_INTEGRATION_MINIMUM_STEPS_F64,
         DEFAULT_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,
     },
     domain::{ContinuousDomain, DiscreteDomain},
@@ -31,7 +30,7 @@ pub const LN_2_SQRT_E_OVER_PI: f64 = 0.62078223763524522234551844578164721225185
 /// For example, if we are computing `integral{x: -inf->inf} pmf(x) * x dx`
 /// then we will integrate until we have acummulated enough mass from the pmf
 /// to be equal or greater tho this value.
-pub static mut PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION: f64 = 0.99999;
+pub static mut PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION: f64 = 0.999995;
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
 /// are some values that provide information about the shape of the function.
@@ -96,7 +95,7 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
 
     let bounds: (f64, f64) = domain.get_bounds();
     let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
-    let (_step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds);
+    let (_step_length, max_iters): (f64, usize) = choose_integration_precision_and_steps(bounds, true);
 
     let integral: f64 = match integration_type {
         IntegrationType::Finite => {
@@ -345,80 +344,98 @@ pub fn random_permutation<T>(arr: &mut [T]) {
 /// needed to choose the appropiate step_length (precision), and by consequence
 /// the number of steps.
 ///
-/// If the bounds are non-finite a change of variables for the integration is assumed.
+/// `substitution` determines if a substitution is used if the bounds are not finite. 
 ///
 /// Guarantees:
 ///  - `bounds.0 < bounds.1`
-///  -
-pub fn choose_integration_precision_and_steps(bounds: (f64, f64)) -> (f64, usize) {
+pub fn choose_integration_precision_and_steps(bounds: (f64, f64), substitution: bool) -> (f64, usize) {
     /*
         To select the appropiate step_length (and total_num_steps, indirecly),
         we need to adapt between the possible cases.
         - For standard integration: Use DEFAULT_INTEGRATION_PRECISION unless it's
             too small (if we would do more than DEFAULT_INTEGRATION_MAXIMUM_STEPS)
 
+        If the user does not do substitution but is in a range with infinite domain, 
+        the DEFAULT_INTEGRATION_PRECISION with DEFAULT_INTEGRATION_MAXIMUM_STEPS 
+        will be returned. This allows the user to integrate up to 131072 units. 
 
-        num_steps needs to be odd
+
 
         // SAFETY: all the accesses to static variables shoulb be safe because
         the values at the config file should not be changed during this function call.
     */
 
-    match (bounds.0.is_finite(), bounds.1.is_finite()) {
-        (true, true) => {
-            let range: f64 = bounds.1 - bounds.0;
-            let step_length: f64;
-            let num_steps: usize;
+    let integration_domain: IntegrationType = IntegrationType::from_bounds(bounds); 
+    let step_length: f64;
+    let num_steps: usize;
 
-            if range <= 1.0 {
-                // small range (less than an unit)
-                num_steps = unsafe { SMALL_INTEGRATION_NUM_STEPS };
-                // ^already odd
-                step_length = range / num_steps as f64;
-            } else if unsafe {
-                DEFAULT_INTEGRATION_PRECISION * DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64
-            } < range
-            {
-                // interval is very big, we will increase the step_lenght.
+    let ABSOLUTE_MAX_STEPS: usize = unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS }; 
+    let DEFAULT_PRECISION: f64 = unsafe { DEFAULT_INTEGRATION_PRECISION }; 
 
-                step_length = range / unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 };
-                num_steps = unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS };
-                // ^already odd
-            } else {
-                // *normal* interval
+    if let IntegrationType::Finite = integration_domain {
+        let range: f64 = bounds.1 - bounds.0;
+        assert!(range.is_sign_positive()); 
 
-                let first_num: f64 = range / unsafe { DEFAULT_INTEGRATION_PRECISION };
-                if first_num < unsafe { DEFAULT_INTEGRATION_MINIMUM_STEPS_F64 } {
-                    // too litle steps
-                    num_steps = unsafe { DEFAULT_INTEGRATION_MINIMUM_STEPS };
-                } else {
-                    num_steps = (first_num as usize) | 1;
-                }
-                step_length = range / (num_steps as f64);
-            }
 
-            (step_length, num_steps)
+        let big_range: bool = unsafe {
+            DEFAULT_INTEGRATION_PRECISION * DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64
+        } < range ;
+
+
+
+        if range <= 1.0 {
+            // small range (less than an unit)
+            num_steps = unsafe { SMALL_INTEGRATION_NUM_STEPS };
+            step_length = range / num_steps as f64;
+        } else if big_range {
+            // interval is very big, we will increase the step_lenght.
+
+            step_length = range / unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 };
+            num_steps = ABSOLUTE_MAX_STEPS;
+        } else {
+            // normal range
+            step_length = DEFAULT_PRECISION;
+            num_steps = (range / step_length) as usize; 
         }
-        (false, false) => {
-            // if the interval [0, 1] uses SMALL_INTEGRATION_NUM_STEPS,
-            // then [-1, 1] will use the doule.
-            unsafe {
-                (
-                    SMALL_INTEGRATION_PRECISION,
-                    (SMALL_INTEGRATION_NUM_STEPS * 2) as usize,
-                )
-            }
-        }
-        _ => {
-            /* Cases:
-                (true, false) => {},
-                (false, true) => {},
-            */
 
-            // The range in this case is [0, 1], so we can return the same values.
-            unsafe { (SMALL_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS) }
-        }
+        assert!(0.0 < step_length); 
+
+        return (step_length, num_steps);
     }
+
+    if !substitution {
+        step_length = DEFAULT_PRECISION; 
+        num_steps = ABSOLUTE_MAX_STEPS; 
+    
+        assert!(0.0 < step_length); 
+
+        return (step_length, num_steps);
+    }
+
+    match integration_domain {
+        IntegrationType::Finite => unreachable!("Case already covered. "),
+        IntegrationType::InfiniteToConst | IntegrationType::ConstToInfinite=> {
+            step_length = unsafe {
+                SMALL_INTEGRATION_PRECISION
+            }; 
+            num_steps = unsafe {
+                SMALL_INTEGRATION_NUM_STEPS
+            }; 
+        }, 
+        IntegrationType::FullInfinite => {
+            step_length = unsafe {
+                SMALL_INTEGRATION_PRECISION
+            }; 
+            num_steps = unsafe {
+                SMALL_INTEGRATION_NUM_STEPS * 2
+            }; 
+        },
+    }
+
+    assert!(0.0 < step_length); 
+
+    return (step_length, num_steps);
+
 }
 
 /// Indicates how big is the range to integrate.
@@ -436,6 +453,7 @@ pub enum IntegrationType {
 }
 
 impl IntegrationType {
+    #[inline]
     pub fn from_bounds(bounds: (f64, f64)) -> IntegrationType {
         match (bounds.0.is_finite(), bounds.1.is_finite()) {
             (true, true) => IntegrationType::Finite,
@@ -1046,8 +1064,7 @@ pub fn fast_trigamma(x: f64) -> f64 {
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[6])
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[7])
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[8])
-            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[9])
-            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[10]);
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_NEAR[9]); 
 
         let denominator: f64 = TRIGAMMA_PADE_DENOMINATOR_NEAR[0]
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[1])
@@ -1057,8 +1074,7 @@ pub fn fast_trigamma(x: f64) -> f64 {
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[5])
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[6])
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[7])
-            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[8])
-            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[9]);
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[8]); 
 
         (numerator / denominator).exp()
     } else if x < UPPER_APROXIMATION_TRESHOLD {
@@ -1083,15 +1099,13 @@ pub fn fast_trigamma(x: f64) -> f64 {
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[1])
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[2])
             .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[3])
-            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[4])
-            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[5]);
+            .mul_add(x, TRIGAMMA_PADE_NUMERATOR_FAR[4]); 
 
         let denominator: f64 = TRIGAMMA_PADE_DENOMINATOR_FAR[0]
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[1])
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[2])
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[3])
-            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[4])
-            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[5]);
+            .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_FAR[4]); 
 
         numerator / denominator
     } else {
