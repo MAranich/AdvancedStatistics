@@ -30,7 +30,7 @@ pub const LN_2_SQRT_E_OVER_PI: f64 = 0.62078223763524522234551844578164721225185
 /// For example, if we are computing `integral{x: -inf->inf} pmf(x) * x dx`
 /// then we will integrate until we have acummulated enough mass from the pmf
 /// to be equal or greater tho this value.
-pub static mut PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION: f64 = 0.999995;
+pub static mut PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION: f64 = 0.999999;
 
 /// The [moments](https://en.wikipedia.org/wiki/Moment_(mathematics)) of a function
 /// are some values that provide information about the shape of the function.
