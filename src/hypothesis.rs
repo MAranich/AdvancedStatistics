@@ -218,7 +218,7 @@ pub fn z_test(
     let p: f64 = null.p_value(hypothesys, sample_mean);
 
     let ret: TestResult = if let Some(alpha) = significance {
-        if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+        if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
         let confidence_interval: (f64, f64) = null.confidence_interval(hypothesys, alpha);
@@ -275,6 +275,7 @@ pub fn t_test(
     if len < 2 {
         return Err(TestError::NotEnoughSamples);
     }
+    // all following `unwrap` are safe because the length is at least 2
 
     let mean: f64 = data.mean().unwrap();
     let sample_std_dev: f64 = data.variance().unwrap().sqrt();
@@ -285,7 +286,7 @@ pub fn t_test(
     let p: f64 = t_distr.p_value(hypothesys, t);
 
     let ret: TestResult = if let Some(alpha) = significance {
-        if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+        if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
         let confidence_interval: (f64, f64) = t_distr.confidence_interval(hypothesys, alpha);
@@ -382,7 +383,7 @@ pub fn two_sample_t_test(
 
         let p: f64 = null_student_t.p_value(hypothesys, t);
         let ret: TestResult = if let Some(alpha) = significance {
-            if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+            if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
                 return Err(TestError::InvalidSignificance);
             }
             let confidence_interval: (f64, f64) =
@@ -412,7 +413,7 @@ pub fn two_sample_t_test(
 
         let p: f64 = null_student_t.p_value(hypothesys, t);
         let ret: TestResult = if let Some(alpha) = significance {
-            if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+            if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
                 return Err(TestError::InvalidSignificance);
             }
             let confidence_interval: (f64, f64) =
@@ -451,7 +452,7 @@ pub fn two_sample_t_test(
 
     let p: f64 = null_student_t.p_value(hypothesys, t);
     let ret: TestResult = if let Some(alpha) = significance {
-        if !alpha.is_finite() || 0.0 < alpha && alpha < 1.0 {
+        if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
         let confidence_interval: (f64, f64) = null_student_t.confidence_interval(hypothesys, alpha);
