@@ -816,12 +816,12 @@ impl Distribution for Normal {
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         let neg_mean: f64 = -self.mean;
         let inv_std_dev: f64 = 1.0 / self.standard_deviation;
-        self.std_normal.cdf_multiple(
+        return self.std_normal.cdf_multiple(
             &points
                 .iter()
                 .map(|&x| (x + neg_mean) * inv_std_dev)
                 .collect::<Vec<f64>>(),
-        )
+        ); 
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {

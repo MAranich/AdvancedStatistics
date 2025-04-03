@@ -696,6 +696,8 @@ pub trait Distribution {
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
     /// of the distribution. It represents the most "likely" outcome.
     ///
+    /// ***
+    /// 
     /// The deafult implementation uses gradient descent and has a random component,
     /// wich means that the returned value is guaranteed to be a **local maximum**, but not
     /// the global maximum. Fortunely for functions with only 1 single maximum,
@@ -811,6 +813,8 @@ pub trait Distribution {
     /// you sample a distribution, the median represnts the value that will be
     /// greater than 50% of your samples and also smaller than the other 50%.
     ///
+    /// ***
+    /// 
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
     /// evaluating the [Distribution::quantile] function at `0.5`.
@@ -819,7 +823,7 @@ pub trait Distribution {
     }
 
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
-    /// of the distribution. Measures how asymetric is the distribution.
+    /// of the distribution if it exists. Measures how asymetric is the distribution.
     fn skewness(&self) -> Option<f64> {
         return Some(self.moments(3, Moments::Standarized));
     }
@@ -839,8 +843,10 @@ pub trait Distribution {
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
-    /// of the distribution for the given order. ´mode´ determines if the moment will be
-    /// [Moments::Raw], [Moments::Central] or [Moments::Standarized].
+    /// of the distribution for the given order. `mode` determines if the moment will be: 
+    ///  - [Moments::Raw]
+    ///  - [Moments::Central]
+    ///  - [Moments::Standarized]
     fn moments(&self, order: u8, mode: Moments) -> f64 {
         /*
 
@@ -1090,7 +1096,9 @@ pub trait Distribution {
     /// It returns two values `(lower, upper)` sich that
     ///  > P(lower <= theta <= upper) = 1 - significance_level = 1 - alpha
     ///
-    /// Special cases:
+    /// ***
+    /// 
+    /// Notes:
     ///  - **Panics** if `significance_level` is `+-inf` or a NaN.
     ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS].
     ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`.
@@ -1134,6 +1142,15 @@ pub trait Distribution {
 
     /// The [P value](https://en.wikipedia.org/wiki/P-value) is the probability
     /// of the null hypotesys having generated a statistic this *extreme* or more.
+    /// 
+    /// ***
+    /// 
+    /// For example, if we have a [Hypothesis::RightTail], then the p value is: 
+    /// 
+    /// > p = P(statistic <= X)
+    ///
+    /// Notes: 
+    ///  - **Panics** if `statistic` is non-finite (`+-inf` or NaN)
     fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
         let bounds: (f64, f64) = self.get_domain().get_bounds();
@@ -1426,16 +1443,25 @@ pub trait DiscreteDistribution {
         return ret;
     }
 
-    /// `quantile_multiple` allows to evaluate the [Distribution::quantile] on multiple points.
+
+    /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function) 
+    /// multiple times.
+    ///
+    /// If the cdf is:
+    ///
+    ///  > F(x) = cdf(x) = P(X <= x) = p
+    ///
+    /// Then the quantile function is:
+    ///
+    ///  > Q(p) = x = F^-1(p)
+    ///
+    /// Notes: 
+    ///  - if `x` is outside the range [0.0, 1.0], the respective bound of the domain
+    /// will be returned.
+    ///  - **Panicks** is `x` is a NaN.
+    /// 
     /// It *may* provide a computational advantage over calling [Distribution::quantile]
     /// in a loop.
-    ///
-    /// Notes:
-    ///  - It **panics** if any value is a NaN.
-    ///  - If a value in points is less (or equal) to 0, the minimum value
-    /// in the domain will be returned.
-    ///  - If a value in points is greater (or equal) to 1, the maximum value in the
-    /// domain will be returned.
     ///
     /// ***
     /// ***
@@ -1595,6 +1621,8 @@ pub trait DiscreteDistribution {
     /// Returns the [mode](https://en.wikipedia.org/wiki/Mode_(statistics))
     /// of the distribution. It represents the most likely outcome.
     ///
+    /// ***
+    /// 
     /// If the distribution is very large or infinite, it only checks the first
     /// [configuration::disrete_distribution_deafults::MAXIMUM_STEPS]
     /// values.
@@ -1645,6 +1673,8 @@ pub trait DiscreteDistribution {
     /// you sample a distribution, the median represnts the value that will be
     /// greater than 50% of your samples and also smaller than the other 50%.
     ///
+    /// ***
+    /// 
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
     /// evaluating the [DiscreteDistribution::quantile] function at `0.5`.
@@ -1653,7 +1683,7 @@ pub trait DiscreteDistribution {
     }
 
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
-    /// of the distribution. Measures how asymetric is the distribution.
+    /// of the distribution if it exists. Measures how asymetric is the distribution.
     fn skewness(&self) -> Option<f64> {
         return Some(self.moments(3, Moments::Standarized));
     }
@@ -1675,8 +1705,10 @@ pub trait DiscreteDistribution {
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
-    /// of the distribution for the given order. `mode` determines if the moment will be
-    /// [Moments::Raw], [Moments::Central] or [Moments::Standarized].
+    /// of the distribution for the given order. `mode` determines if the moment will be: 
+    ///  - [Moments::Raw]
+    ///  - [Moments::Central]
+    ///  - [Moments::Standarized]
     fn moments(&self, order: u8, mode: Moments) -> f64 {
         let domain: &DiscreteDomain = self.get_domain();
 
@@ -1887,8 +1919,15 @@ pub trait DiscreteDistribution {
     }
 
     /// The [P value](https://en.wikipedia.org/wiki/P-value) is the probability
-    /// of the null hypotesys having generated a statistic this *extreme* or more.
+    /// of the null hypotesys having generated a statistic this *extreme* or more. 
+    /// 
+    /// ***
+    /// 
+    /// For example, if we have a [Hypothesis::RightTail], then the p value is: 
+    /// 
+    /// > p = P(statistic <= X)
     ///
+    /// Notes: 
     ///  - **Panics** if `statistic` is non-finite (`+-inf` or NaN)
     fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
