@@ -51,7 +51,7 @@ impl StudentT {
             return Err(());
         }
 
-        if 0.0 < degrees_of_freedom {
+        if degrees_of_freedom <= 0.0 {
             return Err(());
         }
 
@@ -111,7 +111,7 @@ impl StudentT {
 
         assert!(0.0 < degrees_of_freedom);
 
-        let ln_c: f64 = ln_gamma((degrees_of_freedom + 1.0) * 0.5)
+        let ln_c: f64 = ln_gamma(degrees_of_freedom * 0.5 + 0.5)
             - ln_gamma(degrees_of_freedom * 0.5)
             - 0.5 * (f64::consts::PI * degrees_of_freedom).ln();
 
@@ -130,11 +130,11 @@ impl StudentT {
 
 impl Distribution for StudentT {
     fn pdf(&self, x: f64) -> f64 {
-        // let norm = gamma((nu-1)/2) / (sqrt(pi * nu) * gamma(nu/2))
+        // let norm = gamma((nu+1)/2) / (sqrt(pi * nu) * gamma(nu/2))
         // pdf(x | nu) = norm(nu) * (1 + x^2 / nu) ^ (-(nu+1)/2)
 
-        let base: f64 = 1.0 + x * x / self.degrees_of_freedom;
-        let exponent: f64 = -(self.degrees_of_freedom + 1.0) / 2.0;
+        let base: f64 = 1.0 + (x * x / self.degrees_of_freedom);
+        let exponent: f64 = -0.5 * (self.degrees_of_freedom + 1.0);
         return base.powf(exponent) * self.normalitzation_constant;
     }
 
@@ -281,6 +281,10 @@ impl Distribution for StudentT {
             We will take advantage that [StudentT] is symetric arround 0 to more
             effitiently integrate. So we will integrate from 0 to inf.
             We will use a ConstToInfinity domain.
+
+        *** 
+        for dof = 2: Q(0.99999) ~= 225
+
         */
 
         if points.is_empty() {
@@ -295,7 +299,6 @@ impl Distribution for StudentT {
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
-        let bounds: (f64, f64) = (f64::NEG_INFINITY, f64::INFINITY);
         let mut sorted_indicies: Vec<(usize, bool)> = (0..points.len())
             .into_iter()
             .map(|i| (i, points[i] < 0.5))
@@ -307,13 +310,31 @@ impl Distribution for StudentT {
             a.partial_cmp(&b).unwrap()
         });
 
-        let (step_length, max_iters): (f64, usize) =
-            crate::euclid::choose_integration_precision_and_steps(bounds, true);
+        let bounds: (f64, f64) = (f64::NEG_INFINITY, f64::INFINITY);
+        let (step_length, max_iters): (f64, usize) = if self.degrees_of_freedom < 2.0 {
+            //distribution may not have exponential bounded tails or be very diluded in space
+            crate::euclid::choose_integration_precision_and_steps((f64::NEG_INFINITY, f64::INFINITY), false)
+
+        } else if self.degrees_of_freedom < 10.0 {
+            // not problematic, but not close enough to Normal distr
+            let aux: (f64, usize) = crate::euclid::choose_integration_precision_and_steps((0.0, f64::INFINITY), false); 
+
+            // more precision and less steps. Nost of the mass is near 0.0. 
+            (aux.0 * 0.125, aux.1 / 8)
+
+        } else {
+            // We can assume it has a density distribution near the one from a 
+            // normal distribution. 
+            crate::euclid::choose_integration_precision_and_steps((0.0, 12.0), false)
+
+        }; 
+
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
 
         let mut idx_iter: std::vec::IntoIter<(usize, bool)> = sorted_indicies.into_iter();
         let (mut current_index, mut is_current_fliped): (usize, bool) = idx_iter.next().unwrap();
+        // ^unwrap is safe
 
         let mut current_quantile: f64 = if is_current_fliped {
             1.0 - points[current_index]
@@ -329,14 +350,15 @@ impl Distribution for StudentT {
         let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
 
         for _ in 0..max_iters {
-            let current_position: f64 = 0.5 + step_length * num_step;
-            while current_quantile <= accumulator {
+            let current_position: f64 = step_length * num_step;
+            while current_quantile < accumulator {
                 let mut quantile: f64 = current_position;
 
                 let pdf_q: f64 = self.pdf(quantile);
                 if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                     // if pdf_q is essentially 0, skip this.
                     // newton's iteration
+                    // q_n+1 = q_n - (cdf(q_n) - q)/pdf(q_n)
                     quantile = quantile - (accumulator - current_quantile) / pdf_q;
                 }
 
@@ -515,33 +537,69 @@ impl Distribution for StudentT {
         let term_2: f64 = (self.degrees_of_freedom.sqrt() * beta).ln();
         return term_1 + term_2;
     }
-
-    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::rng();
-        let domain: &ContinuousDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
-        let range_magnitude: f64 = range.1 - range.0;
-
-        if range_magnitude.is_sign_negative() || range.0 < bounds.0 || bounds.1 < range.1 {
-            // possible early return
-            return Vec::new();
+    
+    fn confidence_interval(&self, hypothesys: crate::hypothesis::Hypothesis, significance_level: f64) -> (f64, f64) {
+        if !significance_level.is_finite() {
+            std::panic!(
+                "Tried to call Distribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "
+            );
         }
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _ in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.random();
-                x = range.0 + x * range_magnitude;
-                let y: f64 = rng.random();
-                if y * pdf_max < self.pdf(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
+    
+        let mut bounds: (f64, f64) = self.get_domain().get_bounds();
+        if significance_level <= 0.0 || bounds.1 - bounds.0 <= 0.0 {
+            return euclid::DEFAULT_EMPTY_DOMAIN_BOUNDS;
         }
+    
+        if 1.0 <= significance_level {
+            return bounds;
+        }
+    
+        // significance_level is a value within (0.0, 1.0).
+    
+        match hypothesys {
+            crate::hypothesis::Hypothesis::RightTail => {
+                let quantile: f64 = self.quantile(1.0 - significance_level);
+                bounds.1 = quantile;
+            }
+            crate::hypothesis::Hypothesis::LeftTail => {
+                let quantile: f64 = self.quantile(significance_level);
+                bounds.0 = quantile;
+            }
+            crate::hypothesis::Hypothesis::TwoTailed => {
+                /*
+                let quantiles: Vec<f64> = self.quantile_multiple(&[significance_level, 1.0 - significance_level]);
+                bounds.0 = quantiles[0];
+                bounds.1 = quantiles[1];
+                 */
 
-        return ret;
+                let quantile: f64 = self.quantile(significance_level);
+                bounds.0 = quantile;
+                bounds.1 = -quantile;
+            }
+        }
+    
+        return bounds;
     }
+    
+    fn p_value(&self, hypothesys: crate::hypothesis::Hypothesis, statistic: f64) -> f64 {
+        // https://en.wikipedia.org/wiki/P-value#Definition
+        let bounds: (f64, f64) = self.get_domain().get_bounds();
+        if bounds.1 - bounds.0 <= 0.0 {
+            return 0.0;
+        }
+    
+        let density: f64 = self.cdf(statistic);
+        let p: f64 = match hypothesys {
+            crate::hypothesis::Hypothesis::RightTail => 1.0 - density,
+            crate::hypothesis::Hypothesis::LeftTail => density,
+            crate::hypothesis::Hypothesis::TwoTailed => 2.0 * density.min(1.0 - density),
+        };
+    
+        return p;
+    }
+
+
+
 }
 
 impl Parametric for StudentT {
