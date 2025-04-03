@@ -159,6 +159,101 @@ impl StdNormal {
     pub fn iter(&self) -> StdNormalGenerator {
         StdNormalGenerator { rng: rand::rng() }
     }
+
+    // A quick approximation for the cdf of the standard normal. 
+    #[inline]
+    pub fn fast_cdf(mut x: f64) -> f64 {
+
+        let flipped: bool = x.is_sign_negative(); 
+        if flipped {
+            x = -x; 
+        }
+
+        let cdf: f64 = if x < 1.4 {
+            // covers 83.8487 % of cases
+            // method 0
+
+            //[Horner's rule](https://en.wikipedia.org/wiki/Horner%27s_method)
+            let numerator: f64 = SECTION_0_NUM[0]
+                .mul_add(x, SECTION_0_NUM[1])
+                .mul_add(x, SECTION_0_NUM[2])
+                .mul_add(x, SECTION_0_NUM[3])
+                .mul_add(x, SECTION_0_NUM[4])
+                .mul_add(x, SECTION_0_NUM[5])
+                .mul_add(x, SECTION_0_NUM[6]);
+
+            let denominator: f64 = SECTION_0_DEN[0]
+                .mul_add(x, SECTION_0_DEN[1])
+                .mul_add(x, SECTION_0_DEN[2])
+                .mul_add(x, SECTION_0_DEN[3])
+                .mul_add(x, SECTION_0_DEN[4])
+                .mul_add(x, SECTION_0_DEN[5])
+                .mul_add(x, SECTION_0_DEN[6]);
+
+            numerator / denominator
+        } else if x < 3.0 {
+            // covers 99.73% of cases
+            // method 2.5
+
+            let y: f64 = x - 2.5; 
+
+            //Horner's rule
+            let numerator: f64 = SECTION_25_NUM[0]
+                .mul_add(y, SECTION_25_NUM[1])
+                .mul_add(y, SECTION_25_NUM[2])
+                .mul_add(y, SECTION_25_NUM[3])
+                .mul_add(y, SECTION_25_NUM[4])
+                .mul_add(y, SECTION_25_NUM[5])
+                .mul_add(y, SECTION_25_NUM[6]);
+
+            let denominator: f64 = SECTION_25_DEN[0]
+                .mul_add(y, SECTION_25_DEN[1])
+                .mul_add(y, SECTION_25_DEN[2])
+                .mul_add(y, SECTION_25_DEN[3])
+                .mul_add(y, SECTION_25_DEN[4])
+                .mul_add(y, SECTION_25_DEN[5])
+                .mul_add(y, SECTION_25_DEN[6]);
+
+            numerator / denominator
+        } else if x < 8.0 {
+            // covers 99.99999999999987558078851456431752968% of cases (according to wolframalpha)
+            // method 4
+            // remember that we will still use this method up to 8.0
+            // even if it doen not retain as much precision.
+            //Horner's rule
+
+            let y = x - 4.0; 
+            let numerator: f64 = SECTION_4_NUM[0]
+                .mul_add(y, SECTION_4_NUM[1])
+                .mul_add(y, SECTION_4_NUM[2])
+                .mul_add(y, SECTION_4_NUM[3])
+                .mul_add(y, SECTION_4_NUM[4])
+                .mul_add(y, SECTION_4_NUM[5])
+                .mul_add(y, SECTION_4_NUM[6]);
+
+            let denominator: f64 = SECTION_4_DEN[0]
+                .mul_add(y, SECTION_4_DEN[1])
+                .mul_add(y, SECTION_4_DEN[2])
+                .mul_add(y, SECTION_4_DEN[3])
+                .mul_add(y, SECTION_4_DEN[4])
+                .mul_add(y, SECTION_4_DEN[5])
+                .mul_add(y, SECTION_4_DEN[6]);
+
+            numerator / denominator
+        } else {
+            // numbers greater than 8.0 are mapped to 0.0 to avoid prolems
+            // this is **extremly** unlikely anyway. probability of ending
+            // in this region: 0.00000000000012441921148543568247032% (according to wolframalpha)
+            0.0
+        }; 
+
+        return if flipped {
+            1.0 - cdf
+        } else {
+            cdf
+        }; 
+
+    }
 }
 
 impl Normal {
@@ -384,6 +479,8 @@ impl Distribution for StdNormal {
         for rand_q in &mut rand_quantiles {
             // just map r to the awnser
 
+            println!("**********************"); 
+
             let (q, flipped): (f64, bool) = if *rand_q < 0.5 {
                 (1.0 - *rand_q, true)
             } else {
@@ -395,90 +492,18 @@ impl Distribution for StdNormal {
             // [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
 
             let mut r: f64 = 4.0 * q - 2.2;
-            let mut last: f64 = -128.0; // arbitrary number, just far away from r
             // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
-            'newton_loop: loop {
-                let cdf: f64 = if r < 1.4 {
-                    // covers 83.8487 % of cases
-                    // method 0
+            let mut last: f64 = -128.0; // arbitrary number, just far away from r
+            loop {
 
-                    //[Horner's rule](https://en.wikipedia.org/wiki/Horner%27s_method)
-                    let numerator: f64 = SECTION_0_NUM[0]
-                        .mul_add(r, SECTION_0_NUM[1])
-                        .mul_add(r, SECTION_0_NUM[2])
-                        .mul_add(r, SECTION_0_NUM[3])
-                        .mul_add(r, SECTION_0_NUM[4])
-                        .mul_add(r, SECTION_0_NUM[5])
-                        .mul_add(r, SECTION_0_NUM[6]);
-
-                    let denominator: f64 = SECTION_0_DEN[0]
-                        .mul_add(r, SECTION_0_DEN[1])
-                        .mul_add(r, SECTION_0_DEN[2])
-                        .mul_add(r, SECTION_0_DEN[3])
-                        .mul_add(r, SECTION_0_DEN[4])
-                        .mul_add(r, SECTION_0_DEN[5])
-                        .mul_add(r, SECTION_0_DEN[6]);
-
-                    numerator / denominator
-                } else if r < 3.0 {
-                    // covers 99.73% of cases
-                    // method 2.5
-
-                    //Horner's rule
-                    let numerator: f64 = SECTION_25_NUM[0]
-                        .mul_add(r, SECTION_25_NUM[1])
-                        .mul_add(r, SECTION_25_NUM[2])
-                        .mul_add(r, SECTION_25_NUM[3])
-                        .mul_add(r, SECTION_25_NUM[4])
-                        .mul_add(r, SECTION_25_NUM[5])
-                        .mul_add(r, SECTION_25_NUM[6]);
-
-                    let denominator: f64 = SECTION_25_DEN[0]
-                        .mul_add(r, SECTION_25_DEN[1])
-                        .mul_add(r, SECTION_25_DEN[2])
-                        .mul_add(r, SECTION_25_DEN[3])
-                        .mul_add(r, SECTION_25_DEN[4])
-                        .mul_add(r, SECTION_25_DEN[5])
-                        .mul_add(r, SECTION_25_DEN[6]);
-
-                    numerator / denominator
-                } else if r < 8.0 {
-                    // covers 99.99999999999987558078851456431752968% of cases (according to wolframalpha)
-                    // method 4
-                    // remember that we will still use this method up to 8.0
-                    // even if it doen not retain as much precision.
-                    //Horner's rule
-                    let numerator: f64 = SECTION_4_NUM[0]
-                        .mul_add(r, SECTION_4_NUM[1])
-                        .mul_add(r, SECTION_4_NUM[2])
-                        .mul_add(r, SECTION_4_NUM[3])
-                        .mul_add(r, SECTION_4_NUM[4])
-                        .mul_add(r, SECTION_4_NUM[5])
-                        .mul_add(r, SECTION_4_NUM[6]);
-
-                    let denominator: f64 = SECTION_4_DEN[0]
-                        .mul_add(r, SECTION_4_DEN[1])
-                        .mul_add(r, SECTION_4_DEN[2])
-                        .mul_add(r, SECTION_4_DEN[3])
-                        .mul_add(r, SECTION_4_DEN[4])
-                        .mul_add(r, SECTION_4_DEN[5])
-                        .mul_add(r, SECTION_4_DEN[6]);
-
-                    numerator / denominator
-                } else {
-                    // numbers greater than 8.0 are mapped to 0.0 to avoid prolems
-                    // this is **extremly** unlikely anyway. probability of ending
-                    // in this region: 0.00000000000012441921148543568247032% (according to wolframalpha)
-                    r = 0.0;
-                    break 'newton_loop;
-                };
+                let cdf: f64 = StdNormal::fast_cdf(r); 
 
                 /*
                 Newton's method: for finding a root for a function f(x)
 
                 x_n+1 = x_n - f(x_n)/f'(x_n)
 
-                In pur particular case:
+                In our particular case:
 
                 r_n+1 = r_n - (cdf(r_n) - q)/pdf(r_n)
 
@@ -487,22 +512,32 @@ impl Distribution for StdNormal {
                 1/pdf(x) = sqrt(2*pi) * exp(0.5 * x^2)
                  = inv_pdf(x)
 
+                Instead of computing 1/pdf; compute a modified version of pdf
+
                 Therefore:
                 r_n+1 = r_n - (cdf(r_n) - q) * inv_pdf(r_n)
                 r_n+1 = r_n - (cdf(r_n) - q) * sqrt(2*pi) * exp(0.5 * r_n^2)
-                r_n+1 = r_n + (q - cdf(r_n)) * sqrt(2*pi) * exp(0.5 * r_n * r_n)
+                r_n+1 = r_n - (cdf(r_n) - q) * euclid::SQRT_2_PI * exp(0.5 * r_n * r_n)
 
                 So, the only non-trivial computations are `cdf(x)` and `exp(x)`.
 
                 */
-                // Instead of computing 1/pdf; compute a modified version of pdf
-                let sqrt_2_pi: f64 = (2.0 * PI).sqrt();
-                let inv_pdf: f64 = sqrt_2_pi * (0.5 * r * r).exp();
-                r = r + (q - cdf) * inv_pdf;
+                
+                let inv_pdf: f64 = euclid::SQRT_2_PI * (0.5 * r * r).exp();
+                r = r - (cdf - q) * inv_pdf;
 
-                if (r - last).abs() < 0.00001 {
+                if r.is_sign_negative() {
+                    println!("Negative_sign. "); 
+                }
+
+                let diff: f64 = (r - last).abs(); 
+                if diff < 0.00001 {
+                    println!("Sampled! "); 
                     break;
                 }
+                println!("r: {r} \tdiff: {diff}"); 
+
+
                 last = r;
             }
 
@@ -1398,79 +1433,7 @@ impl Iterator for StdNormalGenerator {
         let mut last: f64 = -128.0; // arbitrary number, just far away from r
         // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
         let ret: f64 = 'newton_loop: loop {
-            let cdf: f64 = if r < 1.4 {
-                // covers 83.8487 % of cases
-                // method 0
-
-                //Horner's rule
-                let numerator: f64 = SECTION_0_NUM[0]
-                    .mul_add(r, SECTION_0_NUM[1])
-                    .mul_add(r, SECTION_0_NUM[2])
-                    .mul_add(r, SECTION_0_NUM[3])
-                    .mul_add(r, SECTION_0_NUM[4])
-                    .mul_add(r, SECTION_0_NUM[5])
-                    .mul_add(r, SECTION_0_NUM[6]);
-
-                let denominator: f64 = SECTION_0_DEN[0]
-                    .mul_add(r, SECTION_0_DEN[1])
-                    .mul_add(r, SECTION_0_DEN[2])
-                    .mul_add(r, SECTION_0_DEN[3])
-                    .mul_add(r, SECTION_0_DEN[4])
-                    .mul_add(r, SECTION_0_DEN[5])
-                    .mul_add(r, SECTION_0_DEN[6]);
-
-                numerator / denominator
-            } else if r < 3.0 {
-                // covers 99.73% of cases
-                // method 2.5
-
-                //Horner's rule
-                let numerator: f64 = SECTION_25_NUM[0]
-                    .mul_add(r, SECTION_25_NUM[1])
-                    .mul_add(r, SECTION_25_NUM[2])
-                    .mul_add(r, SECTION_25_NUM[3])
-                    .mul_add(r, SECTION_25_NUM[4])
-                    .mul_add(r, SECTION_25_NUM[5])
-                    .mul_add(r, SECTION_25_NUM[6]);
-
-                let denominator: f64 = SECTION_25_DEN[0]
-                    .mul_add(r, SECTION_25_DEN[1])
-                    .mul_add(r, SECTION_25_DEN[2])
-                    .mul_add(r, SECTION_25_DEN[3])
-                    .mul_add(r, SECTION_25_DEN[4])
-                    .mul_add(r, SECTION_25_DEN[5])
-                    .mul_add(r, SECTION_25_DEN[6]);
-
-                numerator / denominator
-            } else if r < 8.0 {
-                // covers 99.99999999999987558078851456431752968% of cases (according to wolframalpha)
-                // method 4
-                // remember that we will still use this method up to 8.0
-                // even if it doen not retain as much precision.
-                //Horner's rule
-                let numerator: f64 = SECTION_4_NUM[0]
-                    .mul_add(r, SECTION_4_NUM[1])
-                    .mul_add(r, SECTION_4_NUM[2])
-                    .mul_add(r, SECTION_4_NUM[3])
-                    .mul_add(r, SECTION_4_NUM[4])
-                    .mul_add(r, SECTION_4_NUM[5])
-                    .mul_add(r, SECTION_4_NUM[6]);
-
-                let denominator: f64 = SECTION_4_DEN[0]
-                    .mul_add(r, SECTION_4_DEN[1])
-                    .mul_add(r, SECTION_4_DEN[2])
-                    .mul_add(r, SECTION_4_DEN[3])
-                    .mul_add(r, SECTION_4_DEN[4])
-                    .mul_add(r, SECTION_4_DEN[5])
-                    .mul_add(r, SECTION_4_DEN[6]);
-
-                numerator / denominator
-            } else {
-                // numbers greater than 8.0 are mapped to 0.0 to avoid prolems
-                // this is **extremly** unlikely anyway. probability of ending
-                // in this region: 0.00000000000012441921148543568247032% (according to wolframalpha)
-                break 'newton_loop 0.0;
-            };
+            let cdf: f64 = StdNormal::fast_cdf(r); 
 
             // Newton's method
             //r_n+1 = r_n + (q - cdf(r_n)) * sqrt(2*pi) * exp(0.5 * r_n * r_n)
