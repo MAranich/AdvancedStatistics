@@ -106,8 +106,7 @@
 use std::hint::assert_unchecked;
 
 use crate::{
-    Samples::Samples, distribution_trait::Distribution, distributions::StudentT::StudentT,
-    errors::TestError,
+    distribution_trait::Distribution, distributions::{Normal::STD_NORMAL, StudentT::StudentT}, errors::TestError, Samples::Samples
 };
 
 /// Defines Wich kind of test are we doing.
@@ -130,10 +129,10 @@ pub enum Hypothesis {
 /// Contains the result of the test
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TestResult {
-    /// The obtained [P value](https://en.wikipedia.org/wiki/P-value)
-    PValue(f64),
-    /// The obtained [P value](https://en.wikipedia.org/wiki/P-value) and the confidence interval
-    PValueCI(f64, (f64, f64)),
+    /// The obtained statistic and [P value](https://en.wikipedia.org/wiki/P-value)
+    PValue(f64, f64),
+    /// The obtained statistic, [P value](https://en.wikipedia.org/wiki/P-value) and the confidence interval
+    PValueCI(f64, f64, (f64, f64)),
 }
 
 impl TestResult {
@@ -141,14 +140,21 @@ impl TestResult {
     pub fn p(&self) -> f64 {
         // convinience method for quickly retriving the p value
         return match self {
-            TestResult::PValue(p) | TestResult::PValueCI(p, _) => *p,
+            TestResult::PValue(_, p) | TestResult::PValueCI(_, p, _) => *p,
+        };
+    }
+
+    pub fn statisitc(&self) -> f64 {
+        // convinience method for quickly retriving the statisitc value
+        return match self {
+            TestResult::PValue(s, _) | TestResult::PValueCI(s, _, _) => *s,
         };
     }
 }
 
 impl Default for TestResult {
     fn default() -> Self {
-        TestResult::PValue(0.0)
+        TestResult::PValue(f64::NAN, -0.0)
     }
 }
 
@@ -215,16 +221,18 @@ pub fn z_test(
         None => return Err(TestError::NotEnoughSamples),
     };
 
-    let p: f64 = null.p_value(hypothesys, sample_mean);
+    let statistic: f64 = (sample_mean - null.get_mean()) * (data.count() as f64).sqrt() / (null.get_standard_deviation()); 
+
+    let p: f64 = STD_NORMAL.p_value(hypothesys, statistic);
 
     let ret: TestResult = if let Some(alpha) = significance {
         if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
         let confidence_interval: (f64, f64) = null.confidence_interval(hypothesys, alpha);
-        TestResult::PValueCI(p, confidence_interval)
+        TestResult::PValueCI(statistic, p, confidence_interval)
     } else {
-        TestResult::PValue(p)
+        TestResult::PValue(statistic, p)
     };
 
     return Ok(ret);
@@ -289,10 +297,15 @@ pub fn t_test(
         if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
-        let confidence_interval: (f64, f64) = t_distr.confidence_interval(hypothesys, alpha);
-        TestResult::PValueCI(p, confidence_interval)
+        // compute cponfidence interval: 
+        // knowing that the statistic is the mean, 
+        let std_err: f64 = sample_std_dev / (len as f64).sqrt(); 
+        let precentile: f64 = t_distr.quantile(1.0 - alpha); 
+        let confidence_interval: (f64, f64) = (mean - precentile * std_err, mean + precentile * std_err); 
+
+        TestResult::PValueCI(t, p, confidence_interval)
     } else {
-        TestResult::PValue(p)
+        TestResult::PValue(t, p)
     };
 
     return Ok(ret);
@@ -388,9 +401,9 @@ pub fn two_sample_t_test(
             }
             let confidence_interval: (f64, f64) =
                 null_student_t.confidence_interval(hypothesys, alpha);
-            TestResult::PValueCI(p, confidence_interval)
+            TestResult::PValueCI(t, p, confidence_interval)
         } else {
-            TestResult::PValue(p)
+            TestResult::PValue(t, p)
         };
 
         return Ok(ret);
@@ -418,9 +431,9 @@ pub fn two_sample_t_test(
             }
             let confidence_interval: (f64, f64) =
                 null_student_t.confidence_interval(hypothesys, alpha);
-            TestResult::PValueCI(p, confidence_interval)
+            TestResult::PValueCI(t, p, confidence_interval)
         } else {
-            TestResult::PValue(p)
+            TestResult::PValue(t, p)
         };
 
         return Ok(ret);
@@ -456,9 +469,9 @@ pub fn two_sample_t_test(
             return Err(TestError::InvalidSignificance);
         }
         let confidence_interval: (f64, f64) = null_student_t.confidence_interval(hypothesys, alpha);
-        TestResult::PValueCI(p, confidence_interval)
+        TestResult::PValueCI(t, p, confidence_interval)
     } else {
-        TestResult::PValue(p)
+        TestResult::PValue(t, p)
     };
 
     return Ok(ret);

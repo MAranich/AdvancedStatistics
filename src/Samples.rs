@@ -190,7 +190,7 @@ impl Samples {
             mean += s;
         }
 
-        mean = mean / n as f64;
+        mean = mean / (n as f64);
 
         // Store for use in the future.
         self.properties.mean = Some(mean);
@@ -223,14 +223,21 @@ impl Samples {
 
         // get mean, it always exists because there is more than 1 sample
         let mean: f64 = self.mean().unwrap();
+        let minus_mean: f64 = -mean; 
         let mut variance: f64 = 0.0;
 
         for &s in &self.data {
-            variance += s * s;
+            let a: f64 = s + minus_mean; 
+            variance += a * a;
         }
+        
+        let BIASED_VARIANCE: bool = false; 
+        if BIASED_VARIANCE {
+            variance = variance / n;
 
-        variance = variance / (n - 1.0);
-        variance = variance - mean * mean;
+        } else {
+            variance = variance / (n - 1.0);
+        }
 
         self.properties.variance = Some(variance);
         return Some(variance);

@@ -1,19 +1,35 @@
 use std::num::NonZero;
 
 use AdvancedStatistics::{
-    euclid::{digamma, fast_digamma},
-    *,
+    distributions::{Normal::{StdNormal, STD_NORMAL}, StudentT::StudentT}, euclid::{digamma, fast_digamma}, *
 };
 ///! General testing section
 use distribution_trait::{DiscreteDistribution, Distribution};
 use distributions::{Binomial::Binomial, Exponential::Exponential};
 use domain::*;
 
+
+
+
 #[test]
 fn temporal() {
-    println!("{:?}", 0.0);
 
-    //panic!();
+    //let a: Vec<f64> = STD_NORMAL.quantile_multiple(&[0.1, 0.3, 0.6, 0.85]); 
+    let a: f64 = STD_NORMAL.quantile(0.55); 
+    println!("{:?}", a); 
+    panic!();
+}
+
+pub fn print_vec(data: &[f64]) {
+    if data.len() == 0 {
+        print!("[  ]"); 
+        return; 
+    }
+    print!("["); 
+    for d in &data[..(data.len() - 1)] {
+        print!("{:.4}, ", *d); 
+    }
+    println!("{:.4}] ", data.last().unwrap()); 
 }
 
 struct MyExp {
@@ -455,4 +471,111 @@ fn precision_fast_digamma() {
             panic!("Error over the trehold in precision_fast_digamma");
         }
     }
+}
+
+
+#[test]
+fn test_fast_std_normal_cdf() {
+
+    println!("*********************************"); 
+
+
+    let l: f64 = -4.0; 
+    let d: f64 = 0.2; 
+    
+    let mut i: f64 = 0.0; 
+    let mut x: f64 = l; 
+
+    while x <= 4.0 {
+        let s: f64 = StdNormal::fast_cdf(x); 
+        println!("cdf({x}) = {s}"); 
+        i += 1.0; 
+        x = l + d * i; 
+    }
+
+    //panic!("\n\nShow results! "); 
+}
+
+#[test]
+fn test_quantile_student_t() {
+
+    println!("*********************************"); 
+
+    let k: f64 = 5.0; 
+    let student: StudentT = StudentT::new(k).unwrap(); 
+    // ^dof
+
+    let l: f64 = 0.000001; 
+    let d: f64 = 0.15; 
+    
+    let mut i: f64 = 0.0; 
+    let mut x: f64 = l; 
+
+    while x < 1.0 {
+        let s: f64 = student.quantile(x); 
+        println!("quantile({x}) = {s}"); 
+        i += 1.0; 
+        x = l + d * i; 
+    }
+
+    //panic!("\n\nShow results! "); 
+}
+
+
+#[test]
+fn test_quantile_std_normal() {
+
+    println!("*********************************"); 
+
+    let l: f64 = 0.000001; 
+    let d: f64 = 0.15; 
+    
+    let mut i: f64 = 0.0; 
+    let mut x: f64 = l; 
+
+    while x < 1.0 {
+        let s: f64 = STD_NORMAL.quantile(x); 
+        println!("quantile({x}) = {s}"); 
+        i += 1.0; 
+        x = l + d * i; 
+    }
+
+    panic!("\n\nShow results! "); 
+}
+
+#[test]
+fn test_cdf_student_t() {
+
+    println!("*********************************"); 
+
+    let k: f64 = 5.0; 
+    let student: StudentT = StudentT::new(k).unwrap(); 
+    // ^dof
+
+    let l: f64 = -3.0; 
+    let d: f64 = 0.15; 
+    
+    let mut i: f64 = 0.0; 
+    let mut x: f64 = l; 
+
+    let mut indexes: Vec<f64> = Vec::with_capacity(((3.0 - l) / d) as usize + 1); 
+    let mut simple_calls: Vec<f64> = Vec::with_capacity(((3.0 - l) / d) as usize + 1); 
+
+    while x < 3.0 {
+        indexes.push(x);
+        let s: f64 = student.cdf(x); 
+        simple_calls.push(s);
+        println!("cdf({x}) = {s}"); 
+        i += 1.0; 
+        x = l + d * i; 
+    }
+
+    let multi_call: Vec<f64> = student.cdf_multiple(&indexes); 
+    print!("cdf( "); 
+    print_vec(&indexes);
+
+    print!(" ) = \n"); 
+    print_vec(&multi_call);
+
+    //panic!("\n\nShow results! "); 
 }

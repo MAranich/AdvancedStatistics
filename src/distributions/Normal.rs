@@ -19,10 +19,13 @@ use rand::Rng;
 use std::f64::consts::{E, PI};
 
 use crate::{
+    configuration,
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
     euclid,
 };
+
+pub const STD_NORMAL: StdNormal = StdNormal::new();
 
 // coefitients for the (aprox) computation of the inverse cdf of the std normal
 const B_ZERO_COEFITIENT: f64 = 2.92678600515804815402;
@@ -118,15 +121,13 @@ const SECTION_4_DEN: [f64; 7] = [
     1.0,
 ];
 
-pub const NORMAL_DOMAIN: ContinuousDomain = ContinuousDomain::Reals; 
+pub const NORMAL_DOMAIN: ContinuousDomain = ContinuousDomain::Reals;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StdNormal {
-}
+pub struct StdNormal {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Normal {
-    std_normal: StdNormal,
     /// The mean of the distribution
     mean: f64,
     /// The standard deviation of the distribution
@@ -160,13 +161,12 @@ impl StdNormal {
         StdNormalGenerator { rng: rand::rng() }
     }
 
-    // A quick approximation for the cdf of the standard normal. 
+    // A quick approximation for the cdf of the standard normal.
     #[inline]
     pub fn fast_cdf(mut x: f64) -> f64 {
-
-        let flipped: bool = x.is_sign_negative(); 
+        let flipped: bool = x.is_sign_negative();
         if flipped {
-            x = -x; 
+            x = -x;
         }
 
         let cdf: f64 = if x < 1.4 {
@@ -195,7 +195,7 @@ impl StdNormal {
             // covers 99.73% of cases
             // method 2.5
 
-            let y: f64 = x - 2.5; 
+            let y: f64 = x - 2.5;
 
             //Horner's rule
             let numerator: f64 = SECTION_25_NUM[0]
@@ -222,7 +222,7 @@ impl StdNormal {
             // even if it doen not retain as much precision.
             //Horner's rule
 
-            let y = x - 4.0; 
+            let y = x - 4.0;
             let numerator: f64 = SECTION_4_NUM[0]
                 .mul_add(y, SECTION_4_NUM[1])
                 .mul_add(y, SECTION_4_NUM[2])
@@ -245,14 +245,9 @@ impl StdNormal {
             // this is **extremly** unlikely anyway. probability of ending
             // in this region: 0.00000000000012441921148543568247032% (according to wolframalpha)
             0.0
-        }; 
+        };
 
-        return if flipped {
-            1.0 - cdf
-        } else {
-            cdf
-        }; 
-
+        return if flipped { 1.0 - cdf } else { cdf };
     }
 }
 
@@ -269,9 +264,7 @@ impl Normal {
             return Err(());
         }
 
-        let std_normal: StdNormal = StdNormal::new();
         return Ok(Normal {
-            std_normal,
             mean,
             standard_deviation,
         });
@@ -286,9 +279,7 @@ impl Normal {
     /// If those conditions are not fullfiled, the returned distribution
     /// will be invalid.
     pub const unsafe fn new_unchecked(mean: f64, standard_deviation: f64) -> Normal {
-        let std_normal: StdNormal = StdNormal::new();
         return Normal {
-            std_normal,
             mean,
             standard_deviation,
         };
@@ -331,36 +322,6 @@ impl Distribution for StdNormal {
     }
 
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the cdf function of StdNormal with a NaN value. \n");
-        }
-        let aux: [f64; 1] = [x];
-        let aux_2: Vec<f64> = self.cdf_multiple(&aux);
-        return aux_2[0];
-    }
-
-    fn sample(&self) -> f64 {
-        let aux: Vec<f64> = self.sample_multiple(1);
-        return aux[0];
-    }
-
-    fn quantile(&self, x: f64) -> f64 {
-        // just call [Distribution::quantile_multiple]
-
-        if x.is_nan() {
-            // x is not valid
-            std::panic!(
-                "Tried to evaluate the quantile function of StdNormal with a NaN value. \n"
-            );
-        }
-
-        let value: [f64; 1] = [x];
-        let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
-        return quantile_vec[0];
-    }
-
-    fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
         We will use the aproximation by:
         Dia, Yaya D. (2023). "Approximate Incomplete Integrals, Application to Complementary Error Function". SSRN. doi:10.2139/ssrn.4487559. S2CID 259689086.
@@ -386,56 +347,128 @@ impl Distribution for StdNormal {
 
         */
 
-        let mut ret: Vec<f64> = Vec::with_capacity(points.len());
-        for pnt in points {
-            let (point, flipped): (f64, bool) = if *pnt < 0.0 {
-                (-*pnt, true)
-            } else {
-                (*pnt, false)
-            };
+        if x.is_nan() {
+            // x is not valid
+            std::panic!("Tried to evaluate the cdf function of StdNormal with a NaN value. \n");
+        }
 
-            // let term_zero: f64 = 1.0 / (point + b_zero_coefitient);
+        let (point, flipped): (f64, bool) = if x < 0.0 { (-x, true) } else { (x, false) };
 
+        let term_0: f64 = 1.0 / (point + B_ZERO_COEFITIENT);
+
+        let term_1: f64 = {
             let term_1_num: f64 =
                 (point + C_TWO_COEFITIENTS[0]).mul_add(point, C_ONE_COEFITIENTS[0]);
             let term_1_den: f64 =
                 (point + B_TWO_COEFITIENTS[0]).mul_add(point, B_ONE_COEFITIENTS[0]);
+            term_1_num / term_1_den
+        };
 
+        let term_2: f64 = {
             let term_2_num: f64 =
                 (point + C_TWO_COEFITIENTS[1]).mul_add(point, C_ONE_COEFITIENTS[1]);
             let term_2_den: f64 =
                 (point + B_TWO_COEFITIENTS[1]).mul_add(point, B_ONE_COEFITIENTS[1]);
+            term_2_num / term_2_den
+        };
 
+        let term_3: f64 = {
             let term_3_num: f64 =
                 (point + C_TWO_COEFITIENTS[2]).mul_add(point, C_ONE_COEFITIENTS[2]);
             let term_3_den: f64 =
                 (point + B_TWO_COEFITIENTS[2]).mul_add(point, B_ONE_COEFITIENTS[2]);
+            term_3_num / term_3_den
+        };
 
+        let term_4: f64 = {
             let term_4_num: f64 =
                 (point + C_TWO_COEFITIENTS[3]).mul_add(point, C_ONE_COEFITIENTS[3]);
             let term_4_den: f64 =
                 (point + B_TWO_COEFITIENTS[3]).mul_add(point, B_ONE_COEFITIENTS[3]);
+            term_4_num / term_4_den
+        };
 
+        let term_5: f64 = {
             let term_5_num: f64 =
                 (point + C_TWO_COEFITIENTS[4]).mul_add(point, C_ONE_COEFITIENTS[4]);
             let term_5_den: f64 =
                 (point + B_TWO_COEFITIENTS[4]).mul_add(point, B_ONE_COEFITIENTS[4]);
+            term_5_num / term_5_den
+        };
 
-            let numerator: f64 = term_1_num * term_2_num * term_3_num * term_4_num * term_5_num;
-            let denomiantor: f64 = term_1_den * term_2_den * term_3_den * term_4_den * term_5_den;
+        //let m: f64 = 1.0 / (point + B_ZERO_COEFITIENT) * term_1 * term_2 * term_3 * term_4 * term_5;
+        let m: f64 = term_0 * term_1 * term_2 * term_3 * term_4 * term_5;
+        // `aproximation` = `1 - cdf(x)`
+        let aproximation: f64 = m * STD_NORMAL.pdf(point);
 
-            let m: f64 = numerator / (denomiantor * (point + B_ZERO_COEFITIENT));
-            // `aproximation` = `1 - cdf(x)`
-            let aproximation: f64 = m * self.pdf(point);
+        return if flipped {
+            aproximation
+        } else {
+            1.0 - aproximation
+        };
+    }
 
-            ret.push(if flipped {
-                aproximation
-            } else {
-                1.0 - aproximation
-            });
+    fn sample(&self) -> f64 {
+        let aux: Vec<f64> = self.sample_multiple(1);
+        return aux[0];
+    }
+
+    fn quantile(&self, x: f64) -> f64 {
+        // just call [Distribution::quantile_multiple]
+
+        if x.is_nan() {
+            // x is not valid
+            std::panic!(
+                "Tried to evaluate the quantile function of StdNormal with a NaN value. \n"
+            );
         }
 
-        return ret;
+        if x <= 0.0 {
+            return f64::NEG_INFINITY;
+        } else if 1.0 <= x {
+            return f64::INFINITY;
+        }
+
+        let mut last_guess: f64 = 128.0;
+        // ^arbitrary value far away from `guess`
+        let mut guess: f64 = 0.626 * (x / (1.0 - x)).ln();
+
+        loop {
+            /*
+                Newton's method: for finding a root for a function f(x)
+
+                x_n+1 = x_n - f(x_n)/f'(x_n)
+
+                In pur particular case:
+
+                g_n+1 = g_n - (cdf(g_n) - q)/pdf(g_n)
+
+                knowing that:
+                pdf(x) = 1/sqrt(2*pi) * exp(-0.5 * x^2)
+                1/pdf(x) = sqrt(2*pi) * exp(0.5 * x^2)
+                    = inv_pdf(x)
+
+                Therefore:
+                g_n+1 = g_n - (cdf(g_n) - q) * inv_pdf(g_n)
+                g_n+1 = g_n - (cdf(g_n) - q) * sqrt(2*pi) * exp(0.5 * g_n * g_n)
+
+                So, the only non-trivial computations are `cdf(x)` and `exp(x)`.
+
+            */
+
+            let inv_pdf: f64 = euclid::SQRT_2_PI * (0.5 * guess * guess).exp();
+            //let inv_pdf: f64 = 1.0 / STD_NORMAL.pdf(guess);
+            guess = guess - (STD_NORMAL.cdf(guess) - x) * inv_pdf;
+
+            if (guess - last_guess).abs() < 0.00001 {
+                return guess;
+            }
+            last_guess = guess;
+        }
+    }
+
+    fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
+        points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
@@ -476,10 +509,11 @@ impl Distribution for StdNormal {
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
+        let CONVERGENCE_CRITERIA: f64 =
+            unsafe { configuration::newtons_method::NEWTONS_CONVERGENCE_DIFFERENCE_CRITERIA };
+
         for rand_q in &mut rand_quantiles {
             // just map r to the awnser
-
-            println!("**********************"); 
 
             let (q, flipped): (f64, bool) = if *rand_q < 0.5 {
                 (1.0 - *rand_q, true)
@@ -495,8 +529,7 @@ impl Distribution for StdNormal {
             // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
             let mut last: f64 = -128.0; // arbitrary number, just far away from r
             loop {
-
-                let cdf: f64 = StdNormal::fast_cdf(r); 
+                let cdf: f64 = StdNormal::fast_cdf(r);
 
                 /*
                 Newton's method: for finding a root for a function f(x)
@@ -522,22 +555,20 @@ impl Distribution for StdNormal {
                 So, the only non-trivial computations are `cdf(x)` and `exp(x)`.
 
                 */
-                
+
                 let inv_pdf: f64 = euclid::SQRT_2_PI * (0.5 * r * r).exp();
                 r = r - (cdf - q) * inv_pdf;
 
-                if r.is_sign_negative() {
-                    println!("Negative_sign. "); 
-                }
+                /*
+                   if r.is_sign_negative() {
+                       println!("Negative_sign!!!!!!!!!!!!!! ");
+                   }
+                */
 
-                let diff: f64 = (r - last).abs(); 
-                if diff < 0.00001 {
-                    println!("Sampled! "); 
+                let diff: f64 = (r - last).abs();
+                if diff < CONVERGENCE_CRITERIA {
                     break;
                 }
-                println!("r: {r} \tdiff: {diff}"); 
-
-
                 last = r;
             }
 
@@ -548,80 +579,10 @@ impl Distribution for StdNormal {
     }
 
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
-        /*
-            Plan:
-
-            We will just use Newton's method with the `cdf` function.
-            It will give us a lot of precision and a better performance
-            than just integrating numerically.
-        */
-
-        if points.is_empty() {
-            return Vec::new();
-        }
-
-        // return error if NAN is found
-        for (i, point) in points.iter().enumerate() {
-            if point.is_nan() {
-                std::panic!(
-                    "Found NaN in `quantile_multiple` for StdNormal in position {}. \n",
-                    i
-                );
-            }
-        }
-
-        let ret: Vec<f64> = points
+        return points
             .iter()
-            .map(|&q| 'quantile: {
-                if q <= 0.0 {
-                    break 'quantile f64::NEG_INFINITY;
-                } else if 1.0 <= q {
-                    break 'quantile f64::INFINITY;
-                }
-
-                let mut last_guess: f64 = -128.0;
-                // ^arbitrary value but far away from `guess`
-                let mut guess: f64 = 1.25331413732 + 2.50662827463 * q;
-                // ^initial guess, 1 deg. Taylor series of quantile(x).
-                let final_guess: f64 = loop {
-                    /*
-                    Newton's method: for finding a root for a function f(x)
-
-                    x_n+1 = x_n - f(x_n)/f'(x_n)
-
-                    In pur particular case:
-
-                    g_n+1 = g_n - (cdf(g_n) - q)/pdf(g_n)
-
-                    knowing that:
-                    pdf(x) = 1/sqrt(2*pi) * exp(-0.5 * x^2)
-                    1/pdf(x) = sqrt(2*pi) * exp(0.5 * x^2)
-                     = inv_pdf(x)
-
-                    Therefore:
-                    g_n+1 = g_n - (cdf(g_n) - q) * inv_pdf(g_n)
-                    g_n+1 = g_n - (cdf(g_n) - q) * sqrt(2*pi) * exp(0.5 * g_n^2)
-                    g_n+1 = g_n + (q - cdf(g_n)) * sqrt(2*pi) * exp(0.5 * g_n * g_n)
-
-                    So, the only non-trivial computations are `cdf(x)` and `exp(x)`.
-
-                    */
-
-                    let sqrt_2_pi: f64 = (2.0 * PI).sqrt();
-                    let inv_pdf: f64 = sqrt_2_pi * (0.5 * guess * guess).exp();
-                    guess = guess + (q - self.cdf(q)) * inv_pdf;
-
-                    if (guess - last_guess).abs() < 0.000000001 {
-                        break guess;
-                    }
-                    last_guess = guess;
-                };
-
-                final_guess
-            })
+            .map(|&x| self.quantile(x))
             .collect::<Vec<f64>>();
-
-        return ret;
     }
 
     fn expected_value(&self) -> Option<f64> {
@@ -739,13 +700,8 @@ impl Distribution for StdNormal {
                 std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
             };
 
-            crate::euclid::numerical_integration_finite(
-                integration_fn,
-                bounds,
-                num_steps as u64,
-            )
-        }; 
-        
+            crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
+        };
 
         return moment;
     }
@@ -812,8 +768,13 @@ impl Distribution for StdNormal {
 
 impl Distribution for Normal {
     fn pdf(&self, x: f64) -> f64 {
+        /*
         let inv_std: f64 = 1.0 / self.standard_deviation;
         return self.std_normal.pdf((x - self.mean) * inv_std) * inv_std;
+        */
+        let inv_std: f64 = 1.0 / self.standard_deviation;
+        let c: f64 = x - self.mean;
+        return euclid::INV_SQRT_2_PI * inv_std * (-c * c * 0.5 * inv_std * inv_std).exp();
     }
 
     fn get_domain(&self) -> &ContinuousDomain {
@@ -851,20 +812,19 @@ impl Distribution for Normal {
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         let neg_mean: f64 = -self.mean;
         let inv_std_dev: f64 = 1.0 / self.standard_deviation;
-        return self.std_normal.cdf_multiple(
+        return STD_NORMAL.cdf_multiple(
             &points
                 .iter()
                 .map(|&x| (x + neg_mean) * inv_std_dev)
                 .collect::<Vec<f64>>(),
-        ); 
+        );
     }
 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let ret: Vec<f64> = self
-            .std_normal
+        let ret: Vec<f64> = STD_NORMAL
             .sample_multiple(n)
             .iter()
-            .map(|&x| (x + self.mean) * self.standard_deviation)
+            .map(|&x| x.mul_add(self.standard_deviation, self.mean))
             .collect::<Vec<f64>>();
 
         return ret;
@@ -884,7 +844,7 @@ impl Distribution for Normal {
 
         let neg_mean: f64 = -self.mean;
         let inv_std_dev: f64 = 1.0 / self.standard_deviation;
-        return self.std_normal.quantile_multiple(
+        return STD_NORMAL.quantile_multiple(
             &points
                 .iter()
                 .map(|&x| (x + neg_mean) * inv_std_dev)
@@ -1007,12 +967,8 @@ impl Distribution for Normal {
                 std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
             };
 
-            crate::euclid::numerical_integration_finite(
-                integration_fn,
-                bounds,
-                num_steps as u64,
-            )
-        }; 
+            crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
+        };
 
         return moment;
     }
@@ -1023,8 +979,7 @@ impl Distribution for Normal {
     }
 
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        return self
-            .std_normal
+        return STD_NORMAL
             .rejection_sample(n, pdf_max)
             .into_iter()
             .map(|x| (x + self.mean) * self.standard_deviation)
@@ -1048,7 +1003,7 @@ impl Distribution for Normal {
                 let mut x: f64 = rng.random();
                 x = range.0 + x * range_magnitude;
                 let y: f64 = rng.random();
-                if y * pdf_max * self.standard_deviation < self.std_normal.pdf(x - self.mean) {
+                if y * pdf_max * self.standard_deviation < STD_NORMAL.pdf(x - self.mean) {
                     // ^small optimitzation it avoid a division
                     break x;
                 }
@@ -1433,7 +1388,7 @@ impl Iterator for StdNormalGenerator {
         let mut last: f64 = -128.0; // arbitrary number, just far away from r
         // ^seed (bad aproximation for inv cdf(x) [0.5, 1.0] but good enough as first guess)
         let ret: f64 = 'newton_loop: loop {
-            let cdf: f64 = StdNormal::fast_cdf(r); 
+            let cdf: f64 = StdNormal::fast_cdf(r);
 
             // Newton's method
             //r_n+1 = r_n + (q - cdf(r_n)) * sqrt(2*pi) * exp(0.5 * r_n * r_n)

@@ -65,12 +65,6 @@ pub mod disrete_distribution_deafults {
     pub static mut MAXIMUM_STEPS: u64 = 1 << 20;
 }
 
-/// Determines if a Newton's method iteration is used in the (deafult)
-/// quantile function (continuous).
-///
-/// It generally improves precision, but you may want to disable it
-/// if it leads to errors.
-pub static mut QUANTILE_USE_NEWTONS_ITER: bool = true;
 
 pub mod derivation {
 
@@ -143,4 +137,19 @@ pub mod maximum_likelihood_estimation {
     pub static mut CONVERGENCE_DIFFERENCE_CRITERIA: f64 = 0.0001;
 
     pub static mut MAX_ITERATIONS: u32 = 1 << 16;
+}
+
+
+/// Determines if a Newton's method iteration is used in the (deafult)
+/// quantile function (continuous).
+///
+/// It generally improves precision, but you may want to disable it
+/// if it leads to errors.
+pub static mut QUANTILE_USE_NEWTONS_ITER: bool = true;
+
+pub mod newtons_method {
+    /// Convergence criteria for Newton's method. 
+    /// 
+    /// =`1.52587890625e-05`
+    pub static mut NEWTONS_CONVERGENCE_DIFFERENCE_CRITERIA: f64 = f64::from_bits(4535124824762089472); 
 }
