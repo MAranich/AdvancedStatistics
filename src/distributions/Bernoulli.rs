@@ -334,7 +334,7 @@ impl Parametric for Bernoulli {
         parameters[0] = parameters[0].clamp(0.0, 1.0);
     }
 
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+    fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         // Reserve a vector with exacly 1 elements
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(1);

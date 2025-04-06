@@ -896,7 +896,7 @@ impl Parametric for Beta {
         parameters[1] = parameters[1].max(ep * ep * ep);
     }
 
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+    fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
 
             Using Maximum Likelyhood estimation:

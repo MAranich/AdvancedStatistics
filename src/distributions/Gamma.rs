@@ -869,7 +869,7 @@ impl Parametric for Gamma {
 
     fn parameter_restriction(&self, _parameters: &mut [f64]) {}
 
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+    fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
                 Using Maximum Likelyhood estimation:
             Assuming k samples.

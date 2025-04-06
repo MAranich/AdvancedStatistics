@@ -5,7 +5,7 @@
 
 use distribution_trait::Distribution;
 use distributions::Exponential::Exponential;
-use AdvancedStatistics::{distribution_trait::Parametric, Samples::Samples, *};
+use AdvancedStatistics::{distribution_trait::Parametric, samples::Samples, *};
 
 #[test]
 fn exponential_samples() {

@@ -315,7 +315,7 @@ impl Parametric for Geometric {
         parameters[0] = parameters[0].max(ep * ep * ep)
     }
 
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+    fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         let mut parameters: Vec<f64> = Vec::new();
         parameters.reserve_exact(1);
 

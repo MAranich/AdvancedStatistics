@@ -386,7 +386,7 @@ impl Parametric for Uniform {
         return ret; 
     }
     
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+    fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
             The uniform is a special case since the d/dab pdf does not have a maximum. 
             For this reason we will use: 

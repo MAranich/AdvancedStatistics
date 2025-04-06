@@ -295,7 +295,7 @@ impl Parametric for Exponential {
         parameters[0] = parameters[0].max(ep * ep * ep);
     }
 
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+    fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
 
         /*

@@ -2,7 +2,7 @@ use std::usize;
 
 use rand::Rng;
 
-use crate::Samples::Samples;
+use crate::samples::Samples;
 use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.

@@ -100,7 +100,7 @@
 
 use distribution_trait::Distribution;
 
-pub mod Samples;
+pub mod samples;
 pub mod configuration;
 pub mod distribution_trait;
 pub mod distributions;

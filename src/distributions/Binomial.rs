@@ -565,7 +565,7 @@ impl Parametric for Binomial {
     /// (MLE). (Using the analytical solution for the Binomial).
     ///
     /// If there are no samples in the data or `n = 0`, `p` will be set to `0`.
-    fn fit(&self, data: &mut crate::Samples::Samples) -> Vec<f64> {
+    fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
            If we want to maximize f(x), we should find f'(x) = 0
            sumatory{x_i} d/dp ln(P(x_i)) = sumatory{x_i} x_i/p + (x_i-n)/(1-p)

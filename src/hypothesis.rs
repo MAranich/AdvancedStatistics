@@ -106,7 +106,7 @@
 use std::hint::assert_unchecked;
 
 use crate::{
-    distribution_trait::Distribution, distributions::{Normal::STD_NORMAL, StudentT::StudentT}, errors::TestError, Samples::Samples
+    distribution_trait::Distribution, distributions::{Normal::STD_NORMAL, StudentT::StudentT}, errors::TestError, samples::Samples
 };
 
 /// Defines Wich kind of test are we doing.

@@ -4,7 +4,7 @@
 //!
 //!
 
-use AdvancedStatistics::Samples::*;
+use AdvancedStatistics::samples::*;
 use AdvancedStatistics::distribution_trait::Distribution;
 use AdvancedStatistics::distributions::Normal::*;
 use AdvancedStatistics::hypothesis::*;

@@ -234,7 +234,6 @@ impl Samples {
         let BIASED_VARIANCE: bool = false; 
         if BIASED_VARIANCE {
             variance = variance / n;
-
         } else {
             variance = variance / (n - 1.0);
         }
