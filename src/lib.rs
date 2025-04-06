@@ -13,12 +13,14 @@
 //! - [ ] Multiple tests (hypothesys testing)
 //! - [ ] Computing P values and confidence intervals
 //! - [x] Parameter estimation
-//! - [ ] Outlier detection
+//! - [x] Outlier detection
 //! - [ ] Resampling methods
 //! - [ ] Multidimensional data support
 //! - [ ] ANOVA / MANOVA
 //! - [ ] Bayesian statistics
-//! - [ ] Update rust 2024 version
+//! - [x] Updated to rust 2024 version
+//! 
+//! This is an open source project: [github](https://github.com/MAranich/AdvancedStatistics). 
 //!
 //! ## Distributions
 //!
