@@ -212,15 +212,41 @@ mod poisson_tests {
         let poisson: Poisson = Poisson::new(10.0).expect("Parameter should be valid");
 
         {
-            let (lower, upper) = poisson.confidence_interval(Hypothesis::default(), 0.05);
+            let significance_level: f64 = 0.05; 
+            let (lower, upper) = poisson.confidence_interval(Hypothesis::default(), significance_level);
 
-            let mut acc: f64 = 0.0;
-            for x in (lower as i64)..=(upper as i64) {
-                acc += poisson.pmf(x as f64);
-            }
+            // stricly
+            let area_within: f64 = {
+                let mut acc: f64 = 0.0;
+                for x in (lower as i64)..=(upper as i64) {
+                    acc += poisson.pmf(x as f64);
+                }
+                acc
+            }; 
 
-            println!("{}", acc);
-            assert!(0.95 <= acc);
+            let area_before: f64 = {
+                let mut acc: f64 = 0.0;
+                for x in 0..(lower as i64) {
+                    acc += poisson.pmf(x as f64);
+                }
+                acc 
+            }; 
+
+            let area_after: f64 = {
+                let mut acc: f64 = 0.0;
+                for x in (upper as i64 + 1)..200 {
+                    acc += poisson.pmf(x as f64);
+                }
+                acc 
+            }; 
+
+
+            println!("Area stricly within the c.i.: {:.6}", area_within);
+            println!("lower: {} \tupper: {}", lower, upper); 
+            println!("Area before the c.i.: {:.6}", area_before);
+            println!("Area after the c.i.: {:.6}", area_after);
+
+            assert!(0.95 <= area_within);
 
             // TODO: complete this. make sure (lower, upper) cannot be higher/lower
             // and still fullfill

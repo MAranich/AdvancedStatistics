@@ -249,7 +249,7 @@ impl DiscreteDistribution for Poisson {
 
         let mut accumulator: f64 = 0.0;
 
-        while current_quantile_point < 0.0 {
+        while current_quantile_point <= 0.0 {
             ret[current_index] = 0.0;
             match idx_iter.next() {
                 Some(v) => current_index = v,
@@ -260,6 +260,7 @@ impl DiscreteDistribution for Poisson {
 
         let mut ln_gamma: f64 = 0.0;
         let mut x: f64 = 0.0;
+        let mut previous_x: f64 = 0.0; 
         loop {
 
             let inner_exp: f64 = x * self.lambda.ln() - self.lambda - ln_gamma;
@@ -270,7 +271,12 @@ impl DiscreteDistribution for Poisson {
             //println!("cdf({})\t = {}", x, accumulator); 
 
             while current_quantile_point <= accumulator {
-                ret[current_index] = x;
+                //policy
+                ret[current_index] = if current_quantile_point < 0.5 {
+                    previous_x
+                } else {
+                    x
+                }; 
                 match idx_iter.next() {
                     Some(v) => current_index = v,
                     None => return ret,
@@ -278,6 +284,7 @@ impl DiscreteDistribution for Poisson {
                 current_quantile_point = points[current_index];
             }
 
+            previous_x = x; 
             x += 1.0;
             ln_gamma += x.ln();
         }

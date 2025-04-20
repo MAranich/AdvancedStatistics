@@ -134,6 +134,8 @@ pub trait Distribution {
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
     ///
+    /// ## Implementing this method
+    /// 
     /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -383,6 +385,8 @@ pub trait Distribution {
     /// wich may be expensive. Consider using [Distribution::rejection_sample] or 
     /// [Distribution::rejection_sample_range] if possible.
     ///
+    /// ## Implementing this method
+    /// 
     /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -425,6 +429,8 @@ pub trait Distribution {
     /// on multiple points. It provides a computational advantage over calling the 
     /// normal [Distribution::quantile] multiple times.
     ///
+    /// ## Implementing this method
+    /// 
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1228,6 +1234,11 @@ pub trait DiscreteDistribution {
 
     /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function).
     ///
+    /// ## Explanation
+    /// 
+    /// The quantile function is the inverse function of [Distribution::cdf]. Note that
+    /// the deafult implemetation requieres discrete integration and may be expensive. 
+    /// 
     /// If the cdf is:
     ///
     ///  > F(x) = cdf(x) = P(X <= x) = p
@@ -1236,13 +1247,27 @@ pub trait DiscreteDistribution {
     ///
     ///  > Q(p) = x = F^-1(p)
     ///
+    /// ## Special cases
+    /// 
     ///  - if `x` is outside the range [0.0, 1.0], the bounds of the domain will be retruned.
     ///  - **Panicks** is `x` is a NaN.
     ///
-    /// The quantile function is the inverse function of [Distribution::cdf]. Note that
-    /// the deafult implemetation requieres numerical integration and may be expensive.
+    /// 
+    /// ## Policy
+    /// 
+    /// Policy for quantiles: most of the times, there is no single value that corresponds 
+    /// to exacly the askes probability (it is between 2 values). Therefore we take 
+    /// the following policy to determine the appropiate quantile: if `point < 0.5`, then 
+    /// we round down to the previous value in the domain. Otherwise we round it up. 
+    /// 
+    /// This is done to ensure that if you use the quantiles to perform a test, 
+    /// the results are the correct ones. Concretely: If we divide the distribution by the 
+    /// quantile, the tail (the smaller region) contains *no more than* `1 - point`. 
+    /// Equivalently, the central area contains *at least* the given area. 
     ///
-    /// Also, if you are considering calling this function multiple times, use
+    /// ## Using the multiple version
+    /// 
+    /// If you are considering calling this function multiple times, use
     /// [Distribution::quantile_multiple] for better performance.
     fn quantile(&self, x: f64) -> f64 {
         if x.is_nan() {
@@ -1277,6 +1302,8 @@ pub trait DiscreteDistribution {
     ///
     /// ***
     /// ***
+    /// 
+    /// ## Implementing this method
     ///
     /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for:
     ///
@@ -1426,6 +1453,9 @@ pub trait DiscreteDistribution {
     /// ***
     /// ***
     ///
+    /// ## Implementing this method
+    /// 
+    /// 
     /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1444,9 +1474,13 @@ pub trait DiscreteDistribution {
     }
 
 
-    /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function) 
-    /// multiple times.
+    /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function).
     ///
+    /// ## Explanation
+    /// 
+    /// The quantile function is the inverse function of [Distribution::cdf]. Note that
+    /// the deafult implemetation requieres discrete integration and may be expensive. 
+    /// 
     /// If the cdf is:
     ///
     ///  > F(x) = cdf(x) = P(X <= x) = p
@@ -1455,17 +1489,26 @@ pub trait DiscreteDistribution {
     ///
     ///  > Q(p) = x = F^-1(p)
     ///
-    /// Notes: 
-    ///  - if `x` is outside the range [0.0, 1.0], the respective bound of the domain
-    /// will be returned.
-    ///  - **Panicks** is `x` is a NaN.
+    /// ## Special cases
     /// 
-    /// It *may* provide a computational advantage over calling [Distribution::quantile]
-    /// in a loop.
+    ///  - if `x` is outside the range [0.0, 1.0], the bounds of the domain will be retruned.
+    ///  - **Panicks** is `x` is a NaN.
     ///
-    /// ***
-    /// ***
+    /// 
+    /// ## Policy
+    /// 
+    /// Policy for quantiles: most of the times, there is no single value that corresponds 
+    /// to exacly the askes probability (it is between 2 values). Therefore we take 
+    /// the following policy to determine the appropiate quantile: if `point < 0.5`, then 
+    /// we round down to the previous value in the domain. Otherwise we round it up. 
+    /// 
+    /// This is done to ensure that if you use the quantiles to perform a test, 
+    /// the results are the correct ones. Concretely: If we divide the distribution by the 
+    /// quantile, the tail (the smaller region) contains *no more than* `1 - point`. 
+    /// Equivalently, the central area contains *at least* the given area. 
     ///
+    /// ## Implementing this method
+    /// 
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1537,11 +1580,13 @@ pub trait DiscreteDistribution {
 
         let mut accumulator: f64 = 0.0;
 
+        let mut previous_x: f64 = 0.0; 
+
         match integration_type {
             IntegrationType::Finite
             | IntegrationType::ConstToInfinite
             | IntegrationType::FullInfinite => {
-                while current_quantile_point < 0.0 {
+                while current_quantile_point <= 0.0 {
                     ret[current_index] = bounds.0;
                     match idx_iter.next() {
                         Some(v) => current_index = v,
@@ -1571,7 +1616,12 @@ pub trait DiscreteDistribution {
                 | IntegrationType::ConstToInfinite
                 | IntegrationType::FullInfinite => {
                     while current_quantile_point < accumulator {
-                        ret[current_index] = x;
+                        // policy
+                        ret[current_index] = if current_quantile_point < 0.5 {
+                            previous_x
+                        } else {
+                            x
+                        }; 
                         match idx_iter.next() {
                             Some(v) => current_index = v,
                             None => return ret,
@@ -1581,7 +1631,13 @@ pub trait DiscreteDistribution {
                 }
                 IntegrationType::InfiniteToConst => {
                     while 1.0 - accumulator <= current_quantile_point {
-                        ret[current_index] = x;
+                        // TODO: recheck this. the branches *could* be swapped
+                        if current_quantile_point < 0.5 {
+                            ret[current_index] = previous_x;
+                        } else {
+                            ret[current_index] = x;
+                        }
+                        // ret[current_index] = x;
                         match idx_iter.next() {
                             Some(v) => current_index = v,
                             None => return ret,
@@ -1590,6 +1646,7 @@ pub trait DiscreteDistribution {
                     }
                 }
             }
+            previous_x = x; 
         }
 
         ret[current_index] = bounds.1;
@@ -1909,7 +1966,7 @@ pub trait DiscreteDistribution {
             }
             Hypothesis::TwoTailed => {
                 let quantiles: Vec<f64> =
-                    self.quantile_multiple(&[significance_level, 1.0 - significance_level]);
+                    self.quantile_multiple(&[significance_level * 0.5, 1.0 - significance_level * 0.5]);
                 bounds.0 = quantiles[0];
                 bounds.1 = quantiles[1];
             }
