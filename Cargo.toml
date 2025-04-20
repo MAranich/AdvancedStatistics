@@ -1,12 +1,12 @@
 [package]
 name = "AdvancedStatistics"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 
 [dependencies]
 
 # Versions of most rust libraries use [SemVer](https://semver.org/): {major}.{minor}.{patch}
-# We also DO follow SemVer
+# We also follow SemVer
 
 # https://crates.io/crates/rand     https://docs.rs/rand/0.8.5/rand/
 # We need rand to generate random numbers
@@ -22,7 +22,7 @@ thiserror = "^2.0"
 
 # https://crates.io/crates/serde        https://docs.rs/serde/1.0.215/serde/
 # We need serde for compatability
-serde = "^1.0"
+# serde = "^1.0"
 
 [dev-dependencies]
 # pretty_assertions = "1"

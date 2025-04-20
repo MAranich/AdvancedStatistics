@@ -213,11 +213,6 @@ impl DiscreteDistribution for Binomial {
                     count += 1.0;
                 }
 
-                /*  Equivalent to:
-                if self.p < r {
-                    count += 1.0;
-                }
-                 */
             }
 
             ret.push(count);

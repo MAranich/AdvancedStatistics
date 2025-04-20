@@ -19,8 +19,8 @@
 //! - [ ] ANOVA / MANOVA
 //! - [ ] Bayesian statistics
 //! - [x] Updated to rust 2024 version
-//! 
-//! This is an open source project: [github](https://github.com/MAranich/AdvancedStatistics). 
+//!
+//! This is an open source project: [github](https://github.com/MAranich/AdvancedStatistics).
 //!
 //! ## Distributions
 //!
@@ -82,16 +82,15 @@
 //!
 //! We also provided an implemetation of common tests:
 //!
-//!  - [x] [Z-test](hypotesys::z_test) ([Wiki](https://en.wikipedia.org/wiki/Z-test))
-//!  - [x] [t-test](hypotesys::t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#One-sample_t-test))
-//!  - [x] [2 sample t-test](hypotesys::two_sample_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests))
-//!  - [x] [Paired t-test](hypotesys::paired_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test))
-//!  - [ ] [F-test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/F-test))
-//!  - [ ] [Sign test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/Sign_test))
-//!  - [ ] [Wilcoxon signed-rank test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test))
-//!  - [ ] [Chi-squared test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/Chi-squared_test))
-//!  - [ ] [Pearson's chi-squared test](hypotesys::test_function) ([Wiki](https://en.wikipedia.org/wiki/Pearson%27s_chi-squared_test))
-//!  - [ ] [Test name](hypotesys::test_function) ([Wiki](wiki_link))
+//!  - [x] [Z-test](hypothesis::z_test) ([Wiki](https://en.wikipedia.org/wiki/Z-test))
+//!  - [x] [t-test](hypothesis::t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#One-sample_t-test))
+//!  - [x] [2 sample t-test](hypothesis::two_sample_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests))
+//!  - [x] [Paired t-test](hypothesis::paired_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test))
+//!  - [ ] [F-test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/F-test))
+//!  - [ ] [Sign test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Sign_test))
+//!  - [ ] [Wilcoxon signed-rank test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test))
+//!  - [ ] [Chi-squared test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Chi-squared_test))
+//!  - [ ] [Pearson's chi-squared test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Pearson%27s_chi-squared_test))
 //!  - [ ] ... (more to come (?))
 //!
 //!
@@ -100,7 +99,6 @@
 
 use distribution_trait::Distribution;
 
-pub mod samples;
 pub mod configuration;
 pub mod distribution_trait;
 pub mod distributions;
@@ -109,6 +107,7 @@ pub mod errors;
 pub mod euclid;
 pub mod hypothesis;
 pub mod mixed_distribution;
+pub mod samples;
 
 // Todo: Do this struct that allows to shift the location of a distribution
 /// This Structure is not implemented yet. It is currenly useless.

@@ -177,7 +177,7 @@ impl DiscreteDistribution for Poisson {
             The method is aprox. O(lambda), wich means that it is very fast for
             small lambdas but very slow for higher ones.
 
-            Todo: search a better algorithm for bugger lambdas.
+            Todo: search a better algorithm for bigger lambdas.
 
         */
         let mut rng: rand::prelude::ThreadRng = rand::rng();

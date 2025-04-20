@@ -72,6 +72,21 @@ impl Samples {
         });
     }
 
+    /// Creates a new instance of [Samples] with the given `data` without checking 
+    /// for the absence of NaNs or infinities (`+-inf`).
+    /// 
+    /// If the condition is not fullfilled, the datastructure will be invalid 
+    /// and may return wrong/nonsensical results. 
+    ///
+    /// If you want to just move the data without copying it,
+    /// use [Samples::new_move] / [Samples::new_move_unchecked].
+    pub unsafe fn new_unchecked(data: &[f64]) -> Samples {
+        return Samples {
+            data: Vec::from(data),
+            properties: SampleProperties::empty(),
+        };
+    }
+
     /// Creates a new instance of [Samples] with the given `data`.
     ///
     /// `data` must not contain NaNs or infinities (`+-inf`).
@@ -89,6 +104,22 @@ impl Samples {
             properties: SampleProperties::empty(),
         });
     }
+
+    /// Creates a new instance of [Samples] with the given `data` without checking 
+    /// for the absence of NaNs or infinities (`+-inf`).
+    /// 
+    /// If the condition is not fullfilled, the datastructure will be invalid 
+    /// and may return wrong/nonsensical results. 
+    ///
+    /// If you don't want to move the data (to keep ownership of it),
+    /// use [Samples::new] / [Samples::new_unchecked]. 
+    pub unsafe fn new_move_uncheched(data: Vec<f64>) -> Samples {
+        return Samples {
+            data,
+            properties: SampleProperties::empty(),
+        }; 
+    }
+
 
     /// Gives a reference to the contained data.
     ///
@@ -755,6 +786,8 @@ impl Samples {
         return ret;
     }
 
+    /// Returns a vector of indicies of all the samples marked as otliers byt the 
+    /// selected [OutlierDetectionMethod]. 
     pub fn outlier_detection(&mut self, method: OutlierDetectionMethod) -> Vec<usize> {
         let mut ret: Vec<usize> = Vec::new();
 
@@ -824,6 +857,26 @@ impl Samples {
         }
 
         return ret;
+    }
+
+    /// Returns 2 Samples structures `(inliners, outliers)` from self and the given 
+    /// outliers. 
+    pub fn outlier_removal(self, outliers_idx: Vec<usize>) -> (Samples, Samples) {
+
+        let mut original_data: Vec<f64> = self.get_data(); 
+
+        let mut outliers_data: Vec<f64>  = Vec::with_capacity(outliers_idx.len());  
+        for o in outliers_idx {
+            let outlier: f64 = original_data.swap_remove(o); 
+            outliers_data.push(outlier); 
+        }
+
+        let inliners: Samples = unsafe {Samples::new_move_uncheched(original_data)}; 
+        let outliers: Samples = unsafe {Samples::new_move_uncheched(outliers_data)}; 
+        // SAFETY: since the data comes from a valid Samples, both parts of 
+        // the splitted data are also valid. 
+
+        return (inliners, outliers); 
     }
 }
 

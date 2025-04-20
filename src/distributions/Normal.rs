@@ -146,7 +146,12 @@ pub struct NormalGenerator {
 
 impl StdNormal {
     /// Create a Standard normal distribution. Has a mean of `0.0` and a standard
-    /// deviation of `1.0`.
+    /// deviation of `1.0`. 
+    /// 
+    /// In order to change the parameters, use instead [Normal::new]. 
+    /// 
+    /// This datastructure contains no information, therefore you can use [STD_NORMAL]
+    /// to direcly call the necessary methods. 
     pub const fn new() -> StdNormal {
         return StdNormal {};
     }

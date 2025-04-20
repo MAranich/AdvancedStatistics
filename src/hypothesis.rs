@@ -106,7 +106,10 @@
 use std::hint::assert_unchecked;
 
 use crate::{
-    distribution_trait::Distribution, distributions::{Normal::STD_NORMAL, StudentT::StudentT}, errors::TestError, samples::Samples
+    distribution_trait::Distribution,
+    distributions::{Normal::STD_NORMAL, StudentT::StudentT},
+    errors::TestError,
+    samples::Samples,
 };
 
 /// Defines Wich kind of test are we doing.
@@ -221,7 +224,8 @@ pub fn z_test(
         None => return Err(TestError::NotEnoughSamples),
     };
 
-    let statistic: f64 = (sample_mean - null.get_mean()) * (data.count() as f64).sqrt() / (null.get_standard_deviation()); 
+    let statistic: f64 = (sample_mean - null.get_mean()) * (data.count() as f64).sqrt()
+        / (null.get_standard_deviation());
 
     let p: f64 = STD_NORMAL.p_value(hypothesys, statistic);
 
@@ -297,11 +301,17 @@ pub fn t_test(
         if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
-        // compute cponfidence interval: 
-        // knowing that the statistic is the mean, 
-        let std_err: f64 = sample_std_dev / (len as f64).sqrt(); 
-        let precentile: f64 = t_distr.quantile(1.0 - alpha); 
-        let confidence_interval: (f64, f64) = (mean - precentile * std_err, mean + precentile * std_err); 
+        // compute confidence interval:
+        // knowing that the statistic is the mean,
+        let std_err: f64 = sample_std_dev / (len as f64).sqrt();
+        let precentile: f64 = if let Hypothesis::TwoTailed = hypothesys {
+            t_distr.quantile(1.0 - 0.5 * alpha)
+        } else {
+            t_distr.quantile(1.0 - alpha)
+        };
+
+        let confidence_interval: (f64, f64) =
+            (mean - precentile * std_err, mean + precentile * std_err);
 
         TestResult::PValueCI(t, p, confidence_interval)
     } else {

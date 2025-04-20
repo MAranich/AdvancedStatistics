@@ -195,8 +195,8 @@ impl Distribution for StudentT {
             crate::euclid::choose_integration_precision_and_steps((0.0, 9.0), false)
         };
 
-        //println!("Cdf params: (step_length: {step_length}, max_iters: {max_iters})"); 
-        //println!("Degreed of freedom t: {}", self.degrees_of_freedom); 
+        //println!("Cdf params: (step_length: {step_length}, max_iters: {max_iters})");
+        //println!("Degreed of freedom t: {}", self.degrees_of_freedom);
 
         let half_step_length: f64 = 0.5 * step_length;
         let step_len_over_6: f64 = step_length / 6.0;
@@ -212,7 +212,7 @@ impl Distribution for StudentT {
         };
 
         let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.5; 
+        let mut accumulator: f64 = 0.5;
 
         // We can take the "bound" since it's well defined
         let mut last_pdf_evaluation: f64 = self.pdf(0.0);
@@ -350,7 +350,7 @@ impl Distribution for StudentT {
         };
 
         let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.5; 
+        let mut accumulator: f64 = 0.5;
 
         // We can take the "bound" since it's well defined
         let mut last_pdf_evaluation: f64 = self.pdf(0.0);
@@ -390,7 +390,7 @@ impl Distribution for StudentT {
             let middle: f64 = self.pdf(current_position + half_step_length);
             let end: f64 = self.pdf(current_position + step_length);
 
-            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
+            accumulator += step_len_over_6 * (last_pdf_evaluation + end + 4.0 * middle);
 
             last_pdf_evaluation = end;
             num_step += 1.0;
