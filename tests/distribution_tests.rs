@@ -213,7 +213,8 @@ mod poisson_tests {
 
         {
             let significance_level: f64 = 0.05; // 0.025 for each side
-            let (lower, upper): (f64, f64) = poisson.confidence_interval(Hypothesis::default(), significance_level);
+            let (lower, upper): (f64, f64) =
+                poisson.confidence_interval(Hypothesis::default(), significance_level);
 
             // let (lower, upper): (f64, f64) = (4.0, 17.0); // correct
 
@@ -224,32 +225,31 @@ mod poisson_tests {
                     acc += poisson.pmf(x as f64);
                 }
                 acc
-            }; 
+            };
 
             let area_before: f64 = {
                 let mut acc: f64 = 0.0;
                 for x in 0..(lower as i64) {
                     acc += poisson.pmf(x as f64);
                 }
-                acc 
-            }; 
+                acc
+            };
 
             let area_after: f64 = {
                 let mut acc: f64 = 0.0;
                 for x in (upper as i64 + 1)..200 {
                     acc += poisson.pmf(x as f64);
                 }
-                acc 
-            }; 
-
+                acc
+            };
 
             println!("Area stricly within the c.i.: {:.6}", area_within);
-            println!("lower: {} \tupper: {}", lower, upper); 
+            println!("lower: {} \tupper: {}", lower, upper);
             println!("Area before the c.i.: {:.6}", area_before);
             println!("Area after the c.i.: {:.6}", area_after);
 
             assert!(0.95 <= area_within);
-            panic!("Show results"); 
+            // panic!("Show results");
         }
 
         // let (lower, upper) = poisson.confidence_interval(Hypothesis::LeftTail, 0.05);
@@ -261,13 +261,11 @@ mod poisson_tests {
         // assert_approx_eq!(upper, 15.033968233512021);
     }
 
-    
-
     // TODO: creates test properly
 
     #[test]
     fn test_poisson_p_value() {
-        /* 
+        /*
             Area stricly within the c.i.: 0.975386
             lower: 4        upper: 17
             Area before the c.i.: 0.010336
@@ -276,12 +274,10 @@ mod poisson_tests {
 
         let poisson: Poisson = Poisson::new(10.0).expect("Parameter should be valid");
         let p_value: f64 = poisson.p_value(Hypothesis::TwoTailed, 18.0);
-        println!("P value: {:.6}", p_value); 
-        assert!(p_value < 0.05); 
-        // panic!("Show results! "); 
-
+        println!("P value: {:.6}", p_value);
+        assert!(p_value < 0.05);
+        // panic!("Show results! ");
     }
-    
 }
 
 #[cfg(test)]
@@ -338,8 +334,6 @@ mod normal_tests {
             assert_approx_eq!(results[1], correct_results[i][1]);
             assert_approx_eq!(results[2], correct_results[i][2]);
             assert_approx_eq!(results[3], correct_results[i][3]);
-
-
         }
     }
 
@@ -365,26 +359,25 @@ mod normal_tests {
 
         for (i, (m, s)) in params.iter().enumerate() {
             let normal: Normal = Normal::new(*m, *s).expect("Parameters should be ok. ");
-            
+
             let results: Vec<f64> = vec![
                 normal.cdf(0.0),
                 normal.cdf(1.0),
                 normal.cdf(-1.0),
                 normal.cdf(4.0),
             ];
-            
+
             assert_approx_eq!(results[0], correct_results[i][0]);
             assert_approx_eq!(results[1], correct_results[i][1]);
             assert_approx_eq!(results[2], correct_results[i][2]);
             assert_approx_eq!(results[3], correct_results[i][3]);
-            println!("({m}, {s})"); 
+            println!("({m}, {s})");
 
             normal
                 .cdf_multiple(&[0.0, 1.0, -1.0, 4.0])
                 .iter()
                 .zip(results.iter())
-                .for_each(|(a, b)| {
-                    assert_approx_eq!(a, b)})
+                .for_each(|(a, b)| assert_approx_eq!(a, b))
         }
     }
 }

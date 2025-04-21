@@ -98,7 +98,7 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
     let (_step_length, max_steps): (f64, usize) =
         choose_integration_precision_and_steps(bounds, true); 
 
-    println!("Steps choosen: {}", max_steps); 
+    // println!("Steps choosen: {}", max_steps); 
 
     let integral: f64 = match integration_type {
         IntegrationType::Finite => {
@@ -404,7 +404,7 @@ pub fn choose_integration_precision_and_steps(
             */
             // The precision decreases logarithmically (slowly) as the range increases
             let incr: f64 = (1.0 + range).ln(); 
-            let l: f64 = DEFAULT_PRECISION * 0.2 * incr * incr; 
+            let l: f64 = DEFAULT_PRECISION * 0.012 * incr * incr; 
            
             step_length = l.max(unsafe { SMALL_INTEGRATION_PRECISION });
             num_steps = (range / step_length) as usize;

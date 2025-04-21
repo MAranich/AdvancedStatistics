@@ -81,7 +81,7 @@ impl Exponential {
 
 impl Distribution for Exponential {
     fn pdf(&self, x: f64) -> f64 {
-        self.lambda * (-self.lambda * x).exp()
+        return self.lambda * (-self.lambda * x).exp(); 
     }
 
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {

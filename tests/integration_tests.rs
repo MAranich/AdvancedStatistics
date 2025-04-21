@@ -146,7 +146,7 @@ fn integration_tests_infinite() {
         domain: ContinuousDomain::Reals,
     };
 
-    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
+    let c: f64 = euclid::numerical_integration(|x: f64| d.pdf(x), d.get_domain());
 
     println!("{} || {}", c * c, PI);
     assert!((c * c - PI).abs() < 0.0000001);

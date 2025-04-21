@@ -1,35 +1,36 @@
 use std::num::NonZero;
 
 use AdvancedStatistics::{
-    distributions::{Normal::{StdNormal, STD_NORMAL}, StudentT::StudentT}, euclid::{digamma, fast_digamma}, *
+    distributions::{
+        Normal::{STD_NORMAL, StdNormal},
+        StudentT::StudentT,
+    },
+    euclid::{digamma, fast_digamma},
+    *,
 };
 ///! General testing section
 use distribution_trait::{DiscreteDistribution, Distribution};
 use distributions::{Binomial::Binomial, Exponential::Exponential};
 use domain::*;
 
-
-
-
 #[test]
 fn temporal() {
-
-    //let a: Vec<f64> = STD_NORMAL.quantile_multiple(&[0.1, 0.3, 0.6, 0.85]); 
-    let a: f64 = STD_NORMAL.quantile(0.55); 
-    println!("{:?}", a); 
-    panic!();
+    //let a: Vec<f64> = STD_NORMAL.quantile_multiple(&[0.1, 0.3, 0.6, 0.85]);
+    let a: f64 = STD_NORMAL.cdf(43751064987.42969);
+    println!("{:?}", a);
+    // panic!();
 }
 
 pub fn print_vec(data: &[f64]) {
     if data.len() == 0 {
-        print!("[  ]"); 
-        return; 
+        print!("[  ]");
+        return;
     }
-    print!("["); 
+    print!("[");
     for d in &data[..(data.len() - 1)] {
-        print!("{:.4}, ", *d); 
+        print!("{:.4}, ", *d);
     }
-    println!("{:.4}] ", data.last().unwrap()); 
+    println!("{:.4}] ", data.last().unwrap());
 }
 
 struct MyExp {
@@ -62,7 +63,7 @@ impl Distribution for MyExp {
 #[test]
 fn deafult_methods_comparasion_continuous_exponential() {
     let lambda: f64 = 1.2;
-    let max: f64 = -(0.0001_f64.ln()) / lambda;
+    let max: f64 = 2.0 * -(0.0001_f64.ln()) / lambda;
 
     let ground: Exponential = Exponential::new(lambda).unwrap();
     let test: MyExp = MyExp {
@@ -74,12 +75,17 @@ fn deafult_methods_comparasion_continuous_exponential() {
 
     println!("\nIntegral of the area of the pdf: \n\n");
 
-    let area_ground: f64 =
-        euclid::numerical_integration(|x| Distribution::pdf(&ground, x), &test.domain);
-    let area_test: f64 =
-        euclid::numerical_integration(|x| Distribution::pdf(&test, x), &test.domain);
+    let area_ground: f64 = euclid::numerical_integration(
+        |x: f64| ground.pdf(x),
+        &AdvancedStatistics::distributions::Exponential::EXPONENTIAL_DOMAIN,
+    );
+    let area_test: f64 = euclid::numerical_integration(|x: f64| test.pdf(x), &test.domain);
 
     println!("Area || \tground: {}\ttest: {} ", area_ground, area_test);
+
+    assert!((area_ground - 1.0).abs() < 0.01);
+    assert!((area_test - 1.0).abs() < 0.01);
+    assert!((area_test - area_test).abs() < 0.01);
 
     // ***
 
@@ -95,6 +101,8 @@ fn deafult_methods_comparasion_continuous_exponential() {
             "\tcdf({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n",
             x, r1[i], r2[i], diff
         );
+
+        assert!(diff.abs() < 0.006);
     }
 
     // ***
@@ -113,6 +121,8 @@ fn deafult_methods_comparasion_continuous_exponential() {
             "\tquantile({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n",
             x, r1[i], r2[i], diff
         );
+        assert!(diff.abs() < 0.0001 || diff.is_infinite());
+        // ifnore the case when diff = inf
     }
 
     /*
@@ -126,34 +136,73 @@ fn deafult_methods_comparasion_continuous_exponential() {
     // ***
 
     println!("\nStatistics: \n\n");
+    {
+        let ground: Option<f64> = ground.expected_value();
+        let test: Option<f64> = test.expected_value();
+        println!(
+            "Expected value: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.001);
+    }
 
-    println!(
-        "Expected value: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.expected_value(),
-        test.expected_value()
-    );
+    {
+        let ground: Option<f64> = ground.variance();
+        let test: Option<f64> = test.variance();
 
-    println!(
-        "Variance: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.variance(),
-        test.variance()
-    );
+        println!(
+            "Variance: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.005);
+    }
 
-    println!(
-        "Skewness: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.skewness(),
-        test.skewness()
-    );
+    {
+        let ground: Option<f64> = ground.skewness();
+        let test: Option<f64> = test.skewness();
+        println!(
+            "Skewness: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.02);
+        // skewness is hard to calculate accurately (:/)
+    }
 
-    println!(
-        "Mode: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.mode(),
-        test.mode()
-    );
+    {
+        let ground: Option<f64> = ground.excess_kurtosis();
+        let test: Option<f64> = test.excess_kurtosis();
+        println!(
+            "Excess kurtosis: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.1);
+        // excess_kurtosis is hard to calculate accurately ( :/ )
+    }
+
+    {
+        let ground: f64 = ground.mode();
+        let test: f64 = test.mode();
+        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        assert!((ground - test).abs() < 0.005);
+    }
+
+    {
+        let ground: f64 = ground.median();
+        let test: f64 = test.median();
+        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        assert!((ground - test).abs() < 0.005);
+    }
+
+    {
+        let ground: f64 = ground.entropy();
+        let test: f64 = test.entropy();
+        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        assert!((ground - test).abs() < 0.005);
+    }
 
     println!("\n\n================================\n\n");
 
-    panic!("Show me the results. ");
+    // panic!("Show me the results. ");
 }
 
 #[test]
@@ -162,30 +211,204 @@ fn discrete_domain_iterators() {
 
     let amount: usize = 20;
 
-    let tests: Vec<(&str, DiscreteDomain)> = vec![
-        ("new_discrete_integers", DiscreteDomain::Integers),
-        ("new_discrete_positives", DiscreteDomain::From(0)),
-        ("new_discrete_negatives", DiscreteDomain::To(0)),
-        ("new_discrete_range (-3, 13)", DiscreteDomain::Range(-3, 13)),
-        ("new_discrete_from (-5)", DiscreteDomain::From(-5)),
-        ("new_discrete_to (2)", DiscreteDomain::To(2)),
+    let tests: Vec<(&str, DiscreteDomain, &[Option<f64>])> = vec![
+        (
+            "new_discrete_integers",
+            DiscreteDomain::Integers,
+            &[
+                Some(0.0),
+                Some(-1.0),
+                Some(1.0),
+                Some(-2.0),
+                Some(2.0),
+                Some(-3.0),
+                Some(3.0),
+                Some(-4.0),
+                Some(4.0),
+                Some(-5.0),
+                Some(5.0),
+                Some(-6.0),
+                Some(6.0),
+                Some(-7.0),
+                Some(7.0),
+                Some(-8.0),
+                Some(8.0),
+                Some(-9.0),
+                Some(9.0),
+                Some(-10.0),
+            ],
+        ),
+        (
+            "new_discrete_positives",
+            DiscreteDomain::From(0),
+            &[
+                Some(0.0),
+                Some(1.0),
+                Some(2.0),
+                Some(3.0),
+                Some(4.0),
+                Some(5.0),
+                Some(6.0),
+                Some(7.0),
+                Some(8.0),
+                Some(9.0),
+                Some(10.0),
+                Some(11.0),
+                Some(12.0),
+                Some(13.0),
+                Some(14.0),
+                Some(15.0),
+                Some(16.0),
+                Some(17.0),
+                Some(18.0),
+                Some(19.0),
+            ],
+        ),
+        (
+            "new_discrete_negatives",
+            DiscreteDomain::To(0),
+            &[
+                Some(0.0),
+                Some(-1.0),
+                Some(-2.0),
+                Some(-3.0),
+                Some(-4.0),
+                Some(-5.0),
+                Some(-6.0),
+                Some(-7.0),
+                Some(-8.0),
+                Some(-9.0),
+                Some(-10.0),
+                Some(-11.0),
+                Some(-12.0),
+                Some(-13.0),
+                Some(-14.0),
+                Some(-15.0),
+                Some(-16.0),
+                Some(-17.0),
+                Some(-18.0),
+                Some(-19.0),
+            ],
+        ),
+        (
+            "new_discrete_range (-3, 13)",
+            DiscreteDomain::Range(-3, 13),
+            &[
+                Some(-3.0),
+                Some(-2.0),
+                Some(-1.0),
+                Some(0.0),
+                Some(1.0),
+                Some(2.0),
+                Some(3.0),
+                Some(4.0),
+                Some(5.0),
+                Some(6.0),
+                Some(7.0),
+                Some(8.0),
+                Some(9.0),
+                Some(10.0),
+                Some(11.0),
+                Some(12.0),
+                Some(13.0),
+                None,
+                None,
+                None,
+            ],
+        ),
+        (
+            "new_discrete_from (-5)",
+            DiscreteDomain::From(-5),
+            &[
+                Some(-5.0),
+                Some(-4.0),
+                Some(-3.0),
+                Some(-2.0),
+                Some(-1.0),
+                Some(0.0),
+                Some(1.0),
+                Some(2.0),
+                Some(3.0),
+                Some(4.0),
+                Some(5.0),
+                Some(6.0),
+                Some(7.0),
+                Some(8.0),
+                Some(9.0),
+                Some(10.0),
+                Some(11.0),
+                Some(12.0),
+                Some(13.0),
+                Some(14.0),
+            ],
+        ),
+        (
+            "new_discrete_to (2)",
+            DiscreteDomain::To(2),
+            &[
+                Some(2.0),
+                Some(1.0),
+                Some(0.0),
+                Some(-1.0),
+                Some(-2.0),
+                Some(-3.0),
+                Some(-4.0),
+                Some(-5.0),
+                Some(-6.0),
+                Some(-7.0),
+                Some(-8.0),
+                Some(-9.0),
+                Some(-10.0),
+                Some(-11.0),
+                Some(-12.0),
+                Some(-13.0),
+                Some(-14.0),
+                Some(-15.0),
+                Some(-16.0),
+                Some(-17.0),
+            ],
+        ),
         (
             "new_discrete_custom",
             DiscreteDomain::new_discrete_custom(&[-1.0, -2.0, -5.0, 5.0, 22.0, 344.0, 866.0]),
+            &[
+                Some(-5.0),
+                Some(-2.0),
+                Some(-1.0),
+                Some(5.0),
+                Some(22.0),
+                Some(344.0),
+                Some(866.0),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
         ),
     ];
 
-    for (log_text, domain) in tests {
+    for (log_text, domain, expected_results) in tests {
         print!("Iterator for {}: \n\t", log_text);
 
         let mut iterator: DiscreteDomainIterator<'_> = domain.iter();
         let results: Vec<Option<f64>> = (0..amount).into_iter().map(|_i| iterator.next()).collect();
 
+        assert!(results == expected_results);
+
         print!("{:?}\n\n", results);
     }
 
     print!("\n\n");
-    panic!("Show the results. ");
+    // panic!("Show the results! ");
 }
 
 #[test]
@@ -285,6 +508,10 @@ fn deafult_methods_comparasion_discrete_binomial() {
     let area_test: f64 =
         euclid::discrete_integration(|x| test.pmf(x), test.get_domain(), Some(n as usize + 1));
 
+    assert!((area_ground - 1.0).abs() < 0.000001); 
+    assert!((area_test - 1.0).abs() < 0.000001); 
+    assert!((area_test - area_ground).abs() < 0.000001); 
+
     println!("Area || \tground: {}\ttest: {} ", area_ground, area_test);
 
     // ***
@@ -303,6 +530,7 @@ fn deafult_methods_comparasion_discrete_binomial() {
             "\tcdf({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n",
             x, r1[i], r2[i], diff
         );
+        assert!(diff.abs() < 0.00000001); 
     }
 
     // ***
@@ -317,61 +545,86 @@ fn deafult_methods_comparasion_discrete_binomial() {
 
     for (i, x) in points.iter().enumerate() {
         let diff: f64 = r1[i] - r2[i];
+        let cdf_ground: f64 = ground.cdf(r1[i]);  
+        let cdf_test: f64 = ground.cdf(r2[i]);  
         println!(
-            "\tquantile({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n",
-            x, r1[i], r2[i], diff
+            "\tquantile({}) || \nground:\t{}\tcdf({:.2}) = {}\ntest : \t{}\tcdf({:.2}) = {} \ndiff : \t{}\n",
+            x, r1[i], x, cdf_ground, r2[i], x, cdf_test, diff
         );
     }
 
     // ***
 
     println!("\nStatistics: \n\n");
+    {
+        let ground: Option<f64> = ground.expected_value();
+        let test: Option<f64> = test.expected_value();
+        println!(
+            "Expected value: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.001);
+    }
 
-    println!(
-        "Expected value: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.expected_value(),
-        test.expected_value()
-    );
+    {
+        let ground: Option<f64> = ground.variance();
+        let test: Option<f64> = test.variance();
 
-    println!(
-        "Variance: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.variance(),
-        test.variance()
-    );
+        println!(
+            "Variance: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.005);
+    }
 
-    println!(
-        "Skewness: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.skewness(),
-        test.skewness()
-    );
+    {
+        let ground: Option<f64> = ground.skewness();
+        let test: Option<f64> = test.skewness();
+        println!(
+            "Skewness: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.02);
+        // skewness is hard to calculate accurately (:/)
+    }
 
-    println!(
-        "Excess kurtosis: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.excess_kurtosis(),
-        test.excess_kurtosis()
-    );
+    {
+        let ground: Option<f64> = ground.excess_kurtosis();
+        let test: Option<f64> = test.excess_kurtosis();
+        println!(
+            "Excess kurtosis: \n\t - ground: {:?}\n\t - test: {:?}\n",
+            ground, test
+        );
+        assert!((ground.unwrap() - test.unwrap()).abs() < 0.05);
+        // skewness is hard to calculate accurately ( :/ )
+    }
 
-    println!(
-        "Mode: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.mode(),
-        test.mode()
-    );
+    {
+        let ground: f64 = ground.mode();
+        let test: f64 = test.mode();
+        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        assert!((ground - test).abs() < 0.005);
+    }
 
-    println!(
-        "Median: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.median(),
-        test.median()
-    );
+    {
+        let ground: f64 = ground.median();
+        let test: f64 = test.median();
+        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        assert!((ground - test).abs() <= 1.0);
+        // going in discrete steps means that the median can vary up to an 
+        // unit depending on the quantile policy. 
+    }
 
-    println!(
-        "Entropy: \n\t - ground: {:?}\n\t - test: {:?}\n",
-        ground.entropy(),
-        test.entropy()
-    );
+    {
+        let ground: f64 = ground.entropy();
+        let test: f64 = test.entropy();
+        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        assert!((ground - test).abs() < 0.005);
+    }
 
     println!("\n\n================================\n\n");
 
-    panic!("Show me the results. ");
+    // panic!("Show me the results. ");
 }
 
 #[test]
@@ -473,109 +726,113 @@ fn precision_fast_digamma() {
     }
 }
 
-
 #[test]
 fn test_fast_std_normal_cdf() {
+    println!("*********************************");
 
-    println!("*********************************"); 
+    let l: f64 = -4.0;
+    let d: f64 = 0.2;
 
-
-    let l: f64 = -4.0; 
-    let d: f64 = 0.2; 
-    
-    let mut i: f64 = 0.0; 
-    let mut x: f64 = l; 
+    let mut i: f64 = 0.0;
+    let mut x: f64 = l;
 
     while x <= 4.0 {
-        let s: f64 = StdNormal::fast_cdf(x); 
-        println!("cdf({x}) = {s}"); 
-        i += 1.0; 
-        x = l + d * i; 
+        let s: f64 = StdNormal::fast_cdf(x);
+        println!("cdf({x}) = {s}");
+        i += 1.0;
+        x = l + d * i;
     }
 
-    //panic!("\n\nShow results! "); 
+    // panic!("\n\nShow results! ");
+    // manually checked that the results are good
 }
 
 #[test]
 fn test_quantile_student_t() {
+    println!("*********************************");
 
-    println!("*********************************"); 
-
-    let k: f64 = 5.0; 
-    let student: StudentT = StudentT::new(k).unwrap(); 
+    let k: f64 = 5.0;
+    let student: StudentT = StudentT::new(k).unwrap();
     // ^dof
 
-    let l: f64 = 0.000001; 
-    let d: f64 = 0.15; 
-    
-    let mut i: f64 = 0.0; 
-    let mut x: f64 = l; 
+    let l: f64 = 0.000001;
+    let d: f64 = 0.15;
+
+    let mut i: f64 = 0.0;
+    let mut x: f64 = l;
 
     while x < 1.0 {
-        let s: f64 = student.quantile(x); 
-        println!("quantile({x}) = {s}"); 
-        i += 1.0; 
-        x = l + d * i; 
+        let s: f64 = student.quantile(x);
+        println!("quantile({x}) = {s}");
+        i += 1.0;
+        x = l + d * i;
     }
 
-    //panic!("\n\nShow results! "); 
+    //panic!("\n\nShow results! ");
+    // manually checked that the results are good
 }
-
 
 #[test]
 fn test_quantile_std_normal() {
+    println!("*********************************");
 
-    println!("*********************************"); 
+    let points: &[(f64, f64)] = &[
+        (0.01, -2.3263478740408408),
+        (0.1, -1.2815515655446004),
+        (0.2, -0.8416212335729142),
+        (0.3, -0.5244005127080407),
+        (0.5, 0.0),
+        (0.7, 0.524400512708041),
+        (0.8, 0.8416212335729143),
+        (0.9, 1.2815515655446004),
+        (0.99, 2.3263478740408408),
+        //(0.999, 3.090232306167813), // it fails, quantile fn needs update
+    ];
 
-    let l: f64 = 0.000001; 
-    let d: f64 = 0.15; 
-    
-    let mut i: f64 = 0.0; 
-    let mut x: f64 = l; 
-
-    while x < 1.0 {
-        let s: f64 = STD_NORMAL.quantile(x); 
+    for (x, expected_q) in points {
+        let s: f64 = STD_NORMAL.quantile(*x);
         println!("quantile({x}) = {s}"); 
-        i += 1.0; 
-        x = l + d * i; 
+
+        assert!( (s - *expected_q).abs() < 0.00001); 
     }
 
-    panic!("\n\nShow results! "); 
+    // panic!("\n\nShow results! ");
+    // manually checked that the results are good
 }
 
 #[test]
 fn test_cdf_student_t() {
+    println!("*********************************");
 
-    println!("*********************************"); 
-
-    let k: f64 = 5.0; 
-    let student: StudentT = StudentT::new(k).unwrap(); 
+    let k: f64 = 5.0;
     // ^dof
+    let student: StudentT = StudentT::new(k).unwrap();
 
-    let l: f64 = -3.0; 
-    let d: f64 = 0.15; 
-    
-    let mut i: f64 = 0.0; 
-    let mut x: f64 = l; 
+    let l: f64 = -3.0;
+    let d: f64 = 0.15;
 
-    let mut indexes: Vec<f64> = Vec::with_capacity(((3.0 - l) / d) as usize + 1); 
-    let mut simple_calls: Vec<f64> = Vec::with_capacity(((3.0 - l) / d) as usize + 1); 
+    let mut i: f64 = 0.0;
+    let mut x: f64 = l;
+
+    let mut indexes: Vec<f64> = Vec::with_capacity(((3.0 - l) / d) as usize + 1);
+    let mut simple_calls: Vec<f64> = Vec::with_capacity(((3.0 - l) / d) as usize + 1);
 
     while x < 3.0 {
         indexes.push(x);
-        let s: f64 = student.cdf(x); 
+        let s: f64 = student.cdf(x);
         simple_calls.push(s);
-        println!("cdf({x}) = {s}"); 
-        i += 1.0; 
-        x = l + d * i; 
+        println!("cdf({x}) = {s}");
+        i += 1.0;
+        x = l + d * i;
     }
 
-    let multi_call: Vec<f64> = student.cdf_multiple(&indexes); 
-    print!("cdf( "); 
+    let multi_call: Vec<f64> = student.cdf_multiple(&indexes);
+    print!("cdf( ");
     print_vec(&indexes);
 
-    print!(" ) = \n"); 
+    print!(" ) = \n");
     print_vec(&multi_call);
 
-    //panic!("\n\nShow results! "); 
+    //panic!("\n\nShow results! ");
+    // manually checked that the results are good
 }

@@ -421,7 +421,14 @@ impl Distribution for StdNormal {
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
-        if x.is_nan() {
+        /*
+            We have 1 extra fast approximations to the quantile of the normal: 
+            > Q(x) = sqrt(2*pi)/4 * ln(x / (1 - x))
+
+            0.626657068658 = sqrt(2pi)/4 ||| Makes the approx have the correct slope at 0.0
+         */
+
+        if x.is_nan() || x.is_infinite() {
             // x is not valid
             std::panic!(
                 "Tried to evaluate the quantile function of StdNormal with a NaN value. \n"
@@ -434,10 +441,11 @@ impl Distribution for StdNormal {
             return f64::INFINITY;
         }
 
+        let mut guess: f64 = euclid::SQRT_2_PI * 0.25 * (x / (1.0 - x)).ln(); 
+        
+        // println!("*******************************************\n{x}"); 
         let mut last_guess: f64 = 128.0;
         // ^arbitrary value far away from `guess`
-        let mut guess: f64 = 0.626 * (x / (1.0 - x)).ln();
-
         loop {
             /*
                 Newton's method: for finding a root for a function f(x)
@@ -460,7 +468,7 @@ impl Distribution for StdNormal {
                 So, the only non-trivial computations are `cdf(x)` and `exp(x)`.
 
             */
-
+            //println!("{}", guess); 
             let inv_pdf: f64 = euclid::SQRT_2_PI * (0.5 * guess * guess).exp();
             //let inv_pdf: f64 = 1.0 / STD_NORMAL.pdf(guess);
             guess = guess - (STD_NORMAL.cdf(guess) - x) * inv_pdf;

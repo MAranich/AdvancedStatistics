@@ -2,12 +2,12 @@ use std::usize;
 
 use rand::Rng;
 
-use crate::samples::Samples;
 use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
 ///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::{self, *};
 use crate::hypothesis::Hypothesis;
+use crate::samples::Samples;
 
 /// The trait for any continuous distribution.
 ///
@@ -116,7 +116,6 @@ pub trait Distribution {
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
 
-
     /// Evaluates the [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
     /// (Cumulative distribution function) on multiple points.
     ///
@@ -128,14 +127,14 @@ pub trait Distribution {
     ///
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
-    /// 
+    ///
     /// ***
-    /// 
+    ///
     /// cdf_multiple allows to evaluate the [Distribution::cdf] at multiple points.
     /// It may provide a computational advantage.  
     ///
     /// ## Implementing this method
-    /// 
+    ///
     /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -210,11 +209,12 @@ pub trait Distribution {
             }
         });
 
-        
         let (step_length, max_iters): (f64, usize) = {
             let doing_substitutuon: bool = if let IntegrationType::FullInfinite = integration_type {
                 true
-            } else {false};
+            } else {
+                false
+            };
             choose_integration_precision_and_steps(bounds, doing_substitutuon)
         };
         let half_step_length: f64 = 0.5 * step_length;
@@ -250,7 +250,7 @@ pub trait Distribution {
             match integration_type {
                 IntegrationType::Finite | IntegrationType::ConstToInfinite => {
                     current_position = bounds.0 + step_length * num_step;
-                    while current_cdf_point < current_position {
+                    while current_cdf_point <= current_position {
                         ret[current_index] = accumulator;
 
                         // update `current_cdf_point` to the next value or exit if we are done
@@ -364,7 +364,6 @@ pub trait Distribution {
         return ret;
     }
 
-
     /// Samples the distribution at random multiple times.
     ///
     /// The deafult method is [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling)
@@ -373,20 +372,20 @@ pub trait Distribution {
     /// (the [Distribution::quantile] function) and returns the result.
     ///
     /// Note that the deafult implemetation requieres numerical integration and
-    /// may be expensive. 
-    /// 
+    /// may be expensive.
+    ///
     /// ***
-    /// 
+    ///
     /// [Distribution::sample_multiple] allows to evaluate the [Distribution::sample]
-    /// at multiple points. It may provide a computational advantage in comparasion 
+    /// at multiple points. It may provide a computational advantage in comparasion
     /// to [Distribution::sample].
     ///
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
-    /// wich may be expensive. Consider using [Distribution::rejection_sample] or 
+    /// wich may be expensive. Consider using [Distribution::rejection_sample] or
     /// [Distribution::rejection_sample_range] if possible.
     ///
     /// ## Implementing this method
-    /// 
+    ///
     /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -404,8 +403,7 @@ pub trait Distribution {
         return ret;
     }
 
-
-    /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function) 
+    /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function)
     /// multiple times.
     ///
     /// If the cdf is:
@@ -424,13 +422,13 @@ pub trait Distribution {
     /// the deafult implemetation requieres numerical integration and may be expensive.
     ///
     /// ***
-    /// 
-    /// [Distribution::quantile_multiple] acts the same as [Distribution::quantile] but 
-    /// on multiple points. It provides a computational advantage over calling the 
+    ///
+    /// [Distribution::quantile_multiple] acts the same as [Distribution::quantile] but
+    /// on multiple points. It provides a computational advantage over calling the
     /// normal [Distribution::quantile] multiple times.
     ///
     /// ## Implementing this method
-    /// 
+    ///
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -507,7 +505,9 @@ pub trait Distribution {
         let (step_length, max_iters): (f64, usize) = {
             let doing_substitutuon: bool = if let IntegrationType::FullInfinite = integration_type {
                 true
-            } else {false};
+            } else {
+                false
+            };
             choose_integration_precision_and_steps(bounds, doing_substitutuon)
         };
         let half_step_length: f64 = 0.5 * step_length;
@@ -703,7 +703,7 @@ pub trait Distribution {
     /// of the distribution. It represents the most "likely" outcome.
     ///
     /// ***
-    /// 
+    ///
     /// The deafult implementation uses gradient descent and has a random component,
     /// wich means that the returned value is guaranteed to be a **local maximum**, but not
     /// the global maximum. Fortunely for functions with only 1 single maximum,
@@ -820,7 +820,7 @@ pub trait Distribution {
     /// greater than 50% of your samples and also smaller than the other 50%.
     ///
     /// ***
-    /// 
+    ///
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
     /// evaluating the [Distribution::quantile] function at `0.5`.
@@ -849,7 +849,7 @@ pub trait Distribution {
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
-    /// of the distribution for the given order. `mode` determines if the moment will be: 
+    /// of the distribution for the given order. `mode` determines if the moment will be:
     ///  - [Moments::Raw]
     ///  - [Moments::Central]
     ///  - [Moments::Standarized]
@@ -1103,7 +1103,7 @@ pub trait Distribution {
     ///  > P(lower <= theta <= upper) = 1 - significance_level = 1 - alpha
     ///
     /// ***
-    /// 
+    ///
     /// Notes:
     ///  - **Panics** if `significance_level` is `+-inf` or a NaN.
     ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS].
@@ -1148,14 +1148,14 @@ pub trait Distribution {
 
     /// The [P value](https://en.wikipedia.org/wiki/P-value) is the probability
     /// of the null hypotesys having generated a statistic this *extreme* or more.
-    /// 
+    ///
     /// ***
-    /// 
-    /// For example, if we have a [Hypothesis::RightTail], then the p value is: 
-    /// 
+    ///
+    /// For example, if we have a [Hypothesis::RightTail], then the p value is:
+    ///
     /// > p = P(statistic <= X)
     ///
-    /// Notes: 
+    /// Notes:
     ///  - **Panics** if `statistic` is non-finite (`+-inf` or NaN)
     fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
@@ -1206,7 +1206,7 @@ pub trait DiscreteDistribution {
     ///
     ///  > F(x) = cdf(x) = P(X <= x) = p
     ///
-    /// The cdf **includes** the `x` itself. Note that the deafult implemetation 
+    /// The cdf **includes** the `x` itself. Note that the deafult implemetation
     /// requieres evaluating the pmf many times and may be expensive.
     fn cdf(&self, x: f64) -> f64 {
         if x.is_nan() {
@@ -1235,10 +1235,10 @@ pub trait DiscreteDistribution {
     /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function).
     ///
     /// ## Explanation
-    /// 
+    ///
     /// The quantile function is the inverse function of [Distribution::cdf]. Note that
-    /// the deafult implemetation requieres discrete integration and may be expensive. 
-    /// 
+    /// the deafult implemetation requieres discrete integration and may be expensive.
+    ///
     /// If the cdf is:
     ///
     ///  > F(x) = cdf(x) = P(X <= x) = p
@@ -1248,25 +1248,25 @@ pub trait DiscreteDistribution {
     ///  > Q(p) = x = F^-1(p)
     ///
     /// ## Special cases
-    /// 
+    ///
     ///  - if `x` is outside the range [0.0, 1.0], the bounds of the domain will be retruned.
     ///  - **Panicks** is `x` is a NaN.
     ///
-    /// 
+    ///
     /// ## Policy
-    /// 
-    /// Policy for quantiles: most of the times, there is no single value that corresponds 
-    /// to exacly the askes probability (it is between 2 values). Therefore we take 
-    /// the following policy to determine the appropiate quantile: if `point < 0.5`, then 
-    /// we round down to the previous value in the domain. Otherwise we round it up. 
-    /// 
-    /// This is done to ensure that if you use the quantiles to perform a test, 
-    /// the results are the correct ones. Concretely: If we divide the distribution by the 
-    /// quantile, the tail (the smaller region) contains *no more than* `1 - point`. 
-    /// Equivalently, the central area contains *at least* the given area. 
+    ///
+    /// Policy for quantiles: most of the times, there is no single value that corresponds
+    /// to exacly the askes probability (it is between 2 values). Therefore we take
+    /// the following policy to determine the appropiate quantile: if `point < 0.5`, then
+    /// we round down to the previous value in the domain. Otherwise we round it up.
+    ///
+    /// This is done to ensure that if you use the quantiles to perform a test,
+    /// the results are the correct ones. Concretely: If we divide the distribution by the
+    /// quantile, the tail (the smaller region) contains *no more than* `1 - point`.
+    /// Equivalently, the central area contains *at least* the given area.
     ///
     /// ## Using the multiple version
-    /// 
+    ///
     /// If you are considering calling this function multiple times, use
     /// [Distribution::quantile_multiple] for better performance.
     fn quantile(&self, x: f64) -> f64 {
@@ -1291,18 +1291,18 @@ pub trait DiscreteDistribution {
     ///
     ///  > F(x) = cdf(x) = P(X <= x) = p
     ///
-    /// The cdf **includes** the `x` itself. Note that the deafult implemetation 
+    /// The cdf **includes** the `x` itself. Note that the deafult implemetation
     /// requieres evaluating the pmf many times and may be expensive.
-    /// 
+    ///
     /// ***
-    /// 
-    /// [Distribution::cdf_multiple] allows to evaluate the [Distribution::cdf] at 
-    /// multiple points. It *may* provide a computational advantage over calling 
+    ///
+    /// [Distribution::cdf_multiple] allows to evaluate the [Distribution::cdf] at
+    /// multiple points. It *may* provide a computational advantage over calling
     /// [Distribution::cdf] in a loop.  
     ///
     /// ***
     /// ***
-    /// 
+    ///
     /// ## Implementing this method
     ///
     /// If an effitient [Distribution::cdf] has been implemented, it can be replaced for:
@@ -1436,9 +1436,9 @@ pub trait DiscreteDistribution {
         return ret;
     }
 
-    /// [Distribution::sample_multiple] samples the distribution 
-    /// at random `n` times. 
-    /// 
+    /// [Distribution::sample_multiple] samples the distribution
+    /// at random `n` times.
+    ///
     /// The deafult method is [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling)
     /// unless the deadult method is overriden. Inverse transform sampling simply
     /// generates a random uniform number and evaluates the inverse cdf function
@@ -1446,7 +1446,7 @@ pub trait DiscreteDistribution {
     ///
     /// The deafult implementation uses the [Distribution::quantile_multiple] function,
     /// wich may be expensive. Consider using [Distribution::rejection_sample] if possible.
-    /// 
+    ///
     /// It *may* provide a computational advantage in
     /// comparasion to calling [Distribution::sample] in a loop.
     ///
@@ -1454,8 +1454,8 @@ pub trait DiscreteDistribution {
     /// ***
     ///
     /// ## Implementing this method
-    /// 
-    /// 
+    ///
+    ///
     /// If an effitient [Distribution::sample] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1473,14 +1473,13 @@ pub trait DiscreteDistribution {
         return ret;
     }
 
-
     /// Evaluates the [quantile function](https://en.wikipedia.org/wiki/Quantile_function).
     ///
     /// ## Explanation
-    /// 
+    ///
     /// The quantile function is the inverse function of [Distribution::cdf]. Note that
-    /// the deafult implemetation requieres discrete integration and may be expensive. 
-    /// 
+    /// the deafult implemetation requieres discrete integration and may be expensive.
+    ///
     /// If the cdf is:
     ///
     ///  > F(x) = cdf(x) = P(X <= x) = p
@@ -1490,25 +1489,25 @@ pub trait DiscreteDistribution {
     ///  > Q(p) = x = F^-1(p)
     ///
     /// ## Special cases
-    /// 
+    ///
     ///  - if `x` is outside the range [0.0, 1.0], the bounds of the domain will be retruned.
     ///  - **Panicks** is `x` is a NaN.
     ///
-    /// 
+    ///
     /// ## Policy
-    /// 
-    /// Policy for quantiles: most of the times, there is no single value that corresponds 
-    /// to exacly the askes probability (it is between 2 values). Therefore we take 
-    /// the following policy to determine the appropiate quantile: if `point < 0.5`, then 
-    /// we round down to the previous value in the domain. Otherwise we round it up. 
-    /// 
-    /// This is done to ensure that if you use the quantiles to perform a test, 
-    /// the results are the correct ones. Concretely: If we divide the distribution by the 
-    /// quantile, the tail (the smaller region) contains *no more than* `1 - point`. 
-    /// Equivalently, the central area contains *at least* the given area. 
+    ///
+    /// Policy for quantiles: most of the times, there is no single value that corresponds
+    /// to exacly the askes probability (it is between 2 values). Therefore we take
+    /// the following policy to determine the appropiate quantile: if `point < 0.5`, then
+    /// we round down to the previous value in the domain. Otherwise we round it up.
+    ///
+    /// This is done to ensure that if you use the quantiles to perform a test,
+    /// the results are the correct ones. Concretely: If we divide the distribution by the
+    /// quantile, the tail (the smaller region) contains *no more than* `1 - point`.
+    /// Equivalently, the central area contains *at least* the given area.
     ///
     /// ## Implementing this method
-    /// 
+    ///
     /// If an effitient [Distribution::quantile] has been implemented, it can be replaced for:
     ///
     /// ```
@@ -1580,7 +1579,7 @@ pub trait DiscreteDistribution {
 
         let mut accumulator: f64 = 0.0;
 
-        let mut previous_x: f64 = 0.0; 
+        let mut previous_x: f64 = 0.0;
 
         match integration_type {
             IntegrationType::Finite
@@ -1608,9 +1607,8 @@ pub trait DiscreteDistribution {
         }
 
         for x in domain.iter() {
-            
             accumulator += self.pmf(x);
-            
+
             match integration_type {
                 IntegrationType::Finite
                 | IntegrationType::ConstToInfinite
@@ -1621,7 +1619,7 @@ pub trait DiscreteDistribution {
                             previous_x
                         } else {
                             x
-                        }; 
+                        };
                         match idx_iter.next() {
                             Some(v) => current_index = v,
                             None => return ret,
@@ -1646,7 +1644,7 @@ pub trait DiscreteDistribution {
                     }
                 }
             }
-            previous_x = x; 
+            previous_x = x;
         }
 
         ret[current_index] = bounds.1;
@@ -1679,7 +1677,7 @@ pub trait DiscreteDistribution {
     /// of the distribution. It represents the most likely outcome.
     ///
     /// ***
-    /// 
+    ///
     /// If the distribution is very large or infinite, it only checks the first
     /// [configuration::disrete_distribution_deafults::MAXIMUM_STEPS]
     /// values.
@@ -1731,7 +1729,7 @@ pub trait DiscreteDistribution {
     /// greater than 50% of your samples and also smaller than the other 50%.
     ///
     /// ***
-    /// 
+    ///
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
     /// evaluating the [DiscreteDistribution::quantile] function at `0.5`.
@@ -1762,7 +1760,7 @@ pub trait DiscreteDistribution {
     }
 
     /// Returns the [moment](https://en.wikipedia.org/wiki/Moment_(mathematics))
-    /// of the distribution for the given order. `mode` determines if the moment will be: 
+    /// of the distribution for the given order. `mode` determines if the moment will be:
     ///  - [Moments::Raw]
     ///  - [Moments::Central]
     ///  - [Moments::Standarized]
@@ -1933,8 +1931,8 @@ pub trait DiscreteDistribution {
     /// It returns two values `(lower, upper)` sich that
     ///  > P(lower <= theta <= upper) >= 1 - significance_level = 1 - alpha
     ///
-    /// ## Special cases 
-    /// 
+    /// ## Special cases
+    ///
     ///  - **Panics** if `significance_level` is `+-inf` or a NaN.
     ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS].
     ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`.
@@ -1966,8 +1964,8 @@ pub trait DiscreteDistribution {
                 bounds.0 = quantile;
             }
             Hypothesis::TwoTailed => {
-                let quantiles: Vec<f64> =
-                    self.quantile_multiple(&[significance_level * 0.5, 1.0 - significance_level * 0.5]);
+                let quantiles: Vec<f64> = self
+                    .quantile_multiple(&[significance_level * 0.5, 1.0 - significance_level * 0.5]);
                 bounds.0 = quantiles[0];
                 bounds.1 = quantiles[1];
             }
@@ -1977,15 +1975,15 @@ pub trait DiscreteDistribution {
     }
 
     /// The [P value](https://en.wikipedia.org/wiki/P-value) is the probability
-    /// of the null hypotesys having generated a statistic this *extreme* or more. 
-    /// 
+    /// of the null hypotesys having generated a statistic this *extreme* or more.
+    ///
     /// ***
-    /// 
-    /// For example, if we have a [Hypothesis::RightTail], then the p value is: 
-    /// 
+    ///
+    /// For example, if we have a [Hypothesis::RightTail], then the p value is:
+    ///
     /// > p = P(statistic <= X)
     ///
-    /// Notes: 
+    /// Notes:
     ///  - **Panics** if `statistic` is non-finite (`+-inf` or NaN)
     fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
