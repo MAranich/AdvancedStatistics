@@ -22,6 +22,11 @@ pub mod integration {
     //! precision comes with an extra computational cost. We recommend changing the values
     //! to fit your needs. This values are just a mere recomendation.
 
+
+    /// Multiplies the number of steps when performing a numerical integration 
+    /// in a **finite** domain. 
+    pub static mut MULTIPLIER_STEPS_FINITE_INTEGRATION: f64 = 1.0; 
+
     /// The deafult integration precision is `1/8`.
     pub static mut DEFAULT_INTEGRATION_PRECISION: f64 = 0.125;
 

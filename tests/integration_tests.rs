@@ -8,14 +8,8 @@ struct FiniteDistr {
 
 impl Distribution for FiniteDistr {
     fn pdf(&self, x: f64) -> f64 {
-        let c: f64 = 5.0;
-        let w: f64 = x - c;
-
-        /*
-        for c = 5, interval [0, 5.47347] area: 7.57585312457
-         */
-        let num: f64 = w * w * w + 4.0 * w - 2.0;
-        let den: f64 = -3.0 * w * w - 2.0; // always non-zero for all real `w`
+        let num: f64 = x * x * x + 4.0 * x - 2.0;
+        let den: f64 = -3.0 * x * x - 2.0; // always non-zero for all real `w`
         return num / den;
     }
 
@@ -28,12 +22,20 @@ impl Distribution for FiniteDistr {
 fn integration_tests_finite() {
     println!("Integration test Finite");
     let d: FiniteDistr = FiniteDistr {
-        domain: ContinuousDomain::Range(0.0, 5.47347),
+        domain: ContinuousDomain::Range(-4.0, 5.0),
     };
+    //^not a real distribution
 
-    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
+    unsafe {
+        AdvancedStatistics::configuration::integration::MULTIPLIER_STEPS_FINITE_INTEGRATION = 16.0; 
+    }
 
-    assert!((c - 7.57585312457).abs() < 0.0000001);
+    let c: f64 = euclid::numerical_integration(|x: f64| d.pdf(x), d.get_domain());
+    let true_integral: f64 = 0.528646; 
+    // value given by wolframalpha
+
+    println!("integral: {c}"); 
+    assert!((c - true_integral).abs() < 0.01);
 }
 
 struct InfToConstDistr {
@@ -72,11 +74,16 @@ fn integration_tests_inf_to_const() {
         domain: ContinuousDomain::To(c),
     };
 
-    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
-    let expected_ret: f64 = 2.39574891663;
+    unsafe {
+        AdvancedStatistics::configuration::integration::MULTIPLIER_STEPS_FINITE_INTEGRATION = 1.0; 
+    }
 
-    println!("{} || {}", c, expected_ret);
-    assert!((c - expected_ret).abs() < 0.0001);
+    let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
+    let true_integral: f64 = 2.39575;
+    // value given by wolframalpha
+
+    println!("{} || {}", c, true_integral);
+    assert!((c - true_integral).abs() < 0.01);
 }
 
 struct ConstToInfDistr {

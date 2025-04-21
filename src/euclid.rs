@@ -6,8 +6,7 @@ use std::{num::NonZero, usize};
 
 use crate::{
     configuration::integration::{
-        DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64,
-        DEFAULT_INTEGRATION_PRECISION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,
+        DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION, MULTIPLIER_STEPS_FINITE_INTEGRATION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION
     },
     domain::{ContinuousDomain, DiscreteDomain},
 };
@@ -173,20 +172,22 @@ pub fn numerical_integration_finite(
     let step_length: f64 = (bounds.1 - bounds.0) / num_steps as f64;
     let half_step_length: f64 = 0.5 * step_length;
 
-    let mut num_step: f64 = 0.0;
+    let mut num_step: f64 = 1.0;
 
     let first_pdf_evaluation: f64 = {
         let middle: f64 = func(bounds.0 + half_step_length);
         let end: f64 = func(bounds.0 + step_length);
         2.0 * middle - end
-    };
+    }; 
+
+
     //  ^todo substitute
     ret += first_pdf_evaluation;
 
     for i in 1..(2 * num_steps - 1) {
         let current_position: f64 = bounds.0 + half_step_length * num_step;
         let evaluation: f64 = func(current_position);
-
+        
         let multiplier: f64 = if (i & 1) == 0 { 4.0 } else { 2.0 };
         //let multiplier: f64 = core::intrinsics::select_unpredictable((i & 1) == 0, 4.0, 2.0);
         // todo: use select unpredictable when stabilized
@@ -378,6 +379,7 @@ pub fn choose_integration_precision_and_steps(
 
     let ABSOLUTE_MAX_STEPS: usize = unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS };
     let DEFAULT_PRECISION: f64 = unsafe { DEFAULT_INTEGRATION_PRECISION };
+    let STEP_MULT: f64 = unsafe {MULTIPLIER_STEPS_FINITE_INTEGRATION}; 
 
     if let IntegrationType::Finite = integration_domain {
         let range: f64 = bounds.1 - bounds.0;
@@ -404,7 +406,7 @@ pub fn choose_integration_precision_and_steps(
             */
             // The precision decreases logarithmically (slowly) as the range increases
             let incr: f64 = (1.0 + range).ln(); 
-            let l: f64 = DEFAULT_PRECISION * 0.012 * incr * incr; 
+            let l: f64 = DEFAULT_PRECISION * 0.012 * incr * incr / STEP_MULT; 
            
             step_length = l.max(unsafe { SMALL_INTEGRATION_PRECISION });
             num_steps = (range / step_length) as usize;

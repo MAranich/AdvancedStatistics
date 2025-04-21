@@ -30,6 +30,9 @@ fn exponential_samples() {
         1.0 / mean
     );
 
-    panic!("Show results! ");
+    assert!((real_lambda - infered_lambda).abs() < 0.1); 
+    // ^this may fail if unlucky
+
+    // panic!("Show results! ");
     // for now it looks mostly good
 }
