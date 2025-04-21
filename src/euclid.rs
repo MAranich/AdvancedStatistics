@@ -95,13 +95,15 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
 
     let bounds: (f64, f64) = domain.get_bounds();
     let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
-    let (_step_length, max_iters): (f64, usize) =
-        choose_integration_precision_and_steps(bounds, true);
+    let (_step_length, max_steps): (f64, usize) =
+        choose_integration_precision_and_steps(bounds, true); 
+
+    println!("Steps choosen: {}", max_steps); 
 
     let integral: f64 = match integration_type {
         IntegrationType::Finite => {
             let func = pdf;
-            numerical_integration_finite(func, bounds, max_iters as u64)
+            numerical_integration_finite(func, bounds, max_steps as u64)
         }
         IntegrationType::ConstToInfinite => {
             /*
@@ -115,7 +117,7 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
                 let u: f64 = 1.0 / (1.0 - t);
                 pdf(bounds.0 + t * u) * u * u
             };
-            numerical_integration_finite(func, (0.0, 1.0), max_iters as u64)
+            numerical_integration_finite(func, (0.0, 1.0), max_steps as u64)
         }
         IntegrationType::InfiniteToConst => {
             /*
@@ -131,7 +133,7 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
                 let u: f64 = 1.0 / t;
                 pdf(bounds.1 + (t - 1.0) * u) * u * u
             };
-            numerical_integration_finite(func, (0.0, 1.0), max_iters as u64)
+            numerical_integration_finite(func, (0.0, 1.0), max_steps as u64)
         }
         IntegrationType::FullInfinite => {
             /*
@@ -146,7 +148,7 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
                 let u: f64 = 1.0 / (1.0 - t * t);
                 pdf(t * u) * (1.0 + t * t) * u * u
             };
-            numerical_integration_finite(func, (-1.0, 1.0), max_iters as u64)
+            numerical_integration_finite(func, (-1.0, 1.0), max_steps as u64)
         }
     };
 
@@ -165,7 +167,7 @@ pub fn numerical_integration_finite(
 ) -> f64 {
     // using composite simpson's rule:
     // https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule
-    let mut ret: f64 = -0.0;
+    let mut ret: f64 = 0.0;
 
     let bounds: (f64, f64) = integration_range;
     let step_length: f64 = (bounds.1 - bounds.0) / num_steps as f64;
@@ -187,7 +189,7 @@ pub fn numerical_integration_finite(
 
         let multiplier: f64 = if (i & 1) == 0 { 4.0 } else { 2.0 };
         //let multiplier: f64 = core::intrinsics::select_unpredictable((i & 1) == 0, 4.0, 2.0);
-        // todo: use sekect unpredictable when stabilized
+        // todo: use select unpredictable when stabilized
 
         ret += multiplier * evaluation;
 
@@ -202,7 +204,7 @@ pub fn numerical_integration_finite(
 
     ret += last_pdf_evaluation;
 
-    ret = ret * (step_length / 3.0);
+    ret = ret * (step_length / 6.0);
     return ret;
 }
 
