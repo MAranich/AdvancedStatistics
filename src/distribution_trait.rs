@@ -1931,9 +1931,10 @@ pub trait DiscreteDistribution {
     /// `1 - significance_level`.
     ///
     /// It returns two values `(lower, upper)` sich that
-    ///  > P(lower <= theta <= upper) = 1 - significance_level = 1 - alpha
+    ///  > P(lower <= theta <= upper) >= 1 - significance_level = 1 - alpha
     ///
-    /// Special cases:
+    /// ## Special cases 
+    /// 
     ///  - **Panics** if `significance_level` is `+-inf` or a NaN.
     ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS].
     ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`.
@@ -2002,9 +2003,9 @@ pub trait DiscreteDistribution {
 
         let density: f64 = self.cdf(statistic);
         let p: f64 = match hypothesys {
-            Hypothesis::RightTail => 1.0 - density,
+            Hypothesis::RightTail => 1.0 - density + self.pmf(statistic),
             Hypothesis::LeftTail => density,
-            Hypothesis::TwoTailed => 2.0 * density.min(1.0 - density),
+            Hypothesis::TwoTailed => 2.0 * density.min(1.0 - density + self.pmf(statistic)),
         };
 
         return p;

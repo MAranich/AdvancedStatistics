@@ -212,8 +212,10 @@ mod poisson_tests {
         let poisson: Poisson = Poisson::new(10.0).expect("Parameter should be valid");
 
         {
-            let significance_level: f64 = 0.05; 
-            let (lower, upper) = poisson.confidence_interval(Hypothesis::default(), significance_level);
+            let significance_level: f64 = 0.05; // 0.025 for each side
+            let (lower, upper): (f64, f64) = poisson.confidence_interval(Hypothesis::default(), significance_level);
+
+            // let (lower, upper): (f64, f64) = (4.0, 17.0); // correct
 
             // stricly
             let area_within: f64 = {
@@ -247,13 +249,7 @@ mod poisson_tests {
             println!("Area after the c.i.: {:.6}", area_after);
 
             assert!(0.95 <= area_within);
-
-            // TODO: complete this. make sure (lower, upper) cannot be higher/lower
-            // and still fullfill
-
-            // These values are approximate and depend on the exact implementation.
-            // assert_approx_eq!(lower, 4.091176527552552);
-            // assert_approx_eq!(upper, 15.908823472447448);
+            panic!("Show results"); 
         }
 
         // let (lower, upper) = poisson.confidence_interval(Hypothesis::LeftTail, 0.05);
@@ -265,23 +261,27 @@ mod poisson_tests {
         // assert_approx_eq!(upper, 15.033968233512021);
     }
 
-    /*
+    
 
     // TODO: creates test properly
 
     #[test]
     fn test_poisson_p_value() {
-        let poisson: Poisson = Poisson::new(5.0).expect("Parameter should be valid");
-        let p_value: f64 = poisson.p_value(Hypothesis::TwoTailed, 7.0);
-        assert_approx_eq!(p_value, 0.616333535978712);
+        /* 
+            Area stricly within the c.i.: 0.975386
+            lower: 4        upper: 17
+            Area before the c.i.: 0.010336
+            Area after the c.i.: 0.014278
+        */
 
-        let p_value: f64 = poisson.p_value(Hypothesis::LeftTail, 3.0);
-        assert_approx_eq!(p_value, 0.2650259152973715);
+        let poisson: Poisson = Poisson::new(10.0).expect("Parameter should be valid");
+        let p_value: f64 = poisson.p_value(Hypothesis::TwoTailed, 18.0);
+        println!("P value: {:.6}", p_value); 
+        assert!(p_value < 0.05); 
+        // panic!("Show results! "); 
 
-        let p_value: f64 = poisson.p_value(Hypothesis::RightTail, 8.0);
-        assert_approx_eq!(p_value, 0.1334033238692683);
     }
-     */
+    
 }
 
 #[cfg(test)]
