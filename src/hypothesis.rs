@@ -163,6 +163,8 @@ impl Default for TestResult {
 
 /// Performs a general test and returns the probability (P value) of `statistic` being
 /// drawn from the `null` distribution.
+///
+/// *do not use*: may be deprecated in the future or completely re-written
 pub fn general_test<T: crate::distribution_trait::Distribution>(
     hypothesys: Hypothesis,
     statistic: f64,
@@ -175,7 +177,7 @@ pub fn general_test<T: crate::distribution_trait::Distribution>(
 /// with the given `data` and `hypotesys`. This test can be used to test if the mean of
 /// a dataset is different from the null hypothesys when the variance is known.
 ///
-/// Usually a [t-test](t_test) is prefered.
+/// Usually a [t-test](t_test) is prefered for most cases unless the sample size is *very big*.
 ///
 /// ## Assumptions of the test
 ///
@@ -187,10 +189,13 @@ pub fn general_test<T: crate::distribution_trait::Distribution>(
 ///         if it applies.
 ///      - Can also be assumed if it is known that the samples are drawn
 ///             from a [Normal](crate::distributions::Normal) distribution.
-/// 3. The mean and standard deviation of the null distribution are known
+/// 3. The mean (= 0.0) and standard deviation of the null distribution are known
 ///      - (Or estimated with high accuracy)
 ///
+/// If the conditions for the test are **not** fullfilled, then the result is meaningless.
+///
 /// ## Inputs:
+///
 /// 1. `data`: all the samples collected to perform the test.
 /// 2. `hypothesys`: (optional) determines if a 2-tailed/left-tailed/right-tailed will be used
 ///      - The default is a 2 tailed test.
@@ -242,7 +247,7 @@ pub fn z_test(
     return Ok(ret);
 }
 
-/// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Z-test) for the mean.
+/// Performs a one sample [t-test](https://en.wikipedia.org/wiki/Student%27s_t-test) for the mean.
 /// Can be used to determine if a the mean of the data is different to the one form
 /// the null distribution (usally mean = 0).
 ///
@@ -258,7 +263,10 @@ pub fn z_test(
 /// 3. The mean of the null distribution are known
 ///      - (Or estimated with high accuracy)
 ///
+/// If the conditions for the test are **not** fullfilled, then the result is meaningless.
+///
 /// ## Inputs:
+///
 /// 1. `data`: all the samples collected to perform the test.
 /// 2. `hypothesys`: (optional) determines if a 2-tailed/left-tailed/right-tailed will be used
 ///      - The default is a 2 tailed test.
@@ -269,12 +277,20 @@ pub fn z_test(
 ///     will be computed.
 ///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
+///
 /// ## Results
 ///
 /// If the test is performed correcly, it returns a [TestResult] with the P value
 /// and the confidence interval if `significance` was provided.
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
+///
+/// ## Notes:
+///
+/// If the sample size is very big, the t-test is equivalent to the [Z-test](z_test).
+///
+/// Although teoretically we cannot do it, in practice we know that the t-tests are
+/// robust to violations on it's assumptions.
 ///
 #[bon::builder]
 pub fn t_test(
@@ -326,6 +342,8 @@ pub fn t_test(
 /// their means are different or not. The null hypotesys assumes that the 2 means
 /// are equal (there is no difference).
 ///
+/// ## Handling differnet variances or sample size
+///
 /// This function will ajust to the given datasets and perform different computations:
 ///  - [Equal sample sizes and variance](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_sample_sizes_and_variance)
 ///  - [Equal or unequal sample sizes, similar variances](https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_or_unequal_sample_sizes,_similar_variances_(%E2%81%A01/2%E2%81%A0_%3C_%E2%81%A0sX1/sX2%E2%81%A0_%3C_2))
@@ -333,7 +351,7 @@ pub fn t_test(
 ///      - Known as [Welch's t-test](https://en.wikipedia.org/wiki/Welch%27s_t-test)
 ///
 /// Variances are considered similar iff `1/2 <= var(a)/var(b) <= 2.0`, where `var(x)`
-/// is the unbiased sample variance of the dataset x.
+/// represents the unbiased sample variance of the dataset x.
 ///
 /// ## Assumptions of the test
 ///
@@ -345,9 +363,11 @@ pub fn t_test(
 ///      - Can also be assumed if it is known that the samples are drawn
 ///             from a [Normal](crate::distributions::Normal) distribution.
 ///
+/// If the conditions for the test are **not** fullfilled, then the result is meaningless.
+///
 /// ## Inputs:
 /// 1. `data_a`: The samples collected for group A.
-/// 2. `data_b`: The samples collected for group b.
+/// 2. `data_b`: The samples collected for group B.
 /// 3. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
 ///      - The default is a 2 tailed test.
 /// 4. `significance`: (optional) If left empty, only the P-value will be computed.
@@ -487,7 +507,7 @@ pub fn two_sample_t_test(
     return Ok(ret);
 }
 
-/// Performs a paired [t-test](https://en.wikipedia.org/wiki/Student's_t-test) for the mean.
+/// Performs a paired [t-test](https://en.wikipedia.org/wiki/Student%27s_t-test) for the mean.
 /// Can be used to determine if a there is a shift from the first observation to the second.
 ///
 /// To do this, we compute a difference dataset where each sample is the difference between
@@ -506,8 +526,11 @@ pub fn two_sample_t_test(
 ///             form a normal distribution, only their difference.
 ///
 /// ## Inputs:
-/// 1. `data_pre`: the samples collected to perform the test before the treatment.
-/// 2. `data_post`: the samples collected to perform the test after the treatment.
+///
+/// 1. `data_pre`: the samples collected to perform the test before
+/// the treatment (gropu A).
+/// 2. `data_post`: the samples collected to perform the test after
+/// the treatment (gropu B).
 /// 3. `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
 ///      - The default is a 2 tailed test.
 /// 4. `significance`: (optional) If left empty, only the P-value will be computed.
@@ -515,6 +538,8 @@ pub fn two_sample_t_test(
 ///     will be computed.
 ///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
+///
+/// If the conditions for the test are **not** fullfilled, then the result is meaningless.
 ///
 /// ## Results
 ///
