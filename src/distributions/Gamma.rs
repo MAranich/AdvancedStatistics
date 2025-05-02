@@ -25,6 +25,7 @@ use crate::{
     configuration,
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
+    errors::AdvStatError,
     euclid,
 };
 
@@ -62,31 +63,39 @@ impl Gamma {
     ///  - `theta <= 0.0`
     ///  - The values for `alpha` and `theta` are too large to model properly
     ///      - This means that a [f64] value is not precise enough.
-    ///      - Use [Gamma::new_unchecked] if you don't need to evaluate 
-    ///         the pdf direcly or indirecly. 
+    ///      - Use [Gamma::new_unchecked] if you don't need to evaluate
+    ///         the pdf direcly or indirecly.
     ///
-    pub fn new(alpha: f64, theta: f64) -> Result<Gamma, ()> {
+    pub fn new(alpha: f64, theta: f64) -> Result<Gamma, AdvStatError> {
         if !alpha.is_finite() {
-            return Err(());
+            if alpha.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if alpha.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if !theta.is_finite() {
-            return Err(());
+            if theta.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if theta.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if alpha <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         if theta <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         let norm_const: f64 = euclid::gamma(alpha) * theta.powf(alpha);
 
         if !norm_const.is_finite() {
             // we do not have enough precision to do the computations
-            return Err(());
+            return Err(AdvStatError::NumericalError);
         }
 
         return Ok(Gamma {
@@ -99,7 +108,11 @@ impl Gamma {
     /// Creates a new [Gamma] distribution with parameters `alpha` and `theta`
     /// without checking for their correcness.
     ///
-    /// The [Gamma] structure will be invalid if:
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    ///
     ///  - `alpha` is `+-inf` or a NaN
     ///  - `theta` is `+-inf` or a NaN
     ///  - `alpha <= 0.0`
@@ -107,8 +120,6 @@ impl Gamma {
     ///  - The values for `alpha` and `theta` are too large to model properly
     ///      - This means that a [f64] value is not precise enough.
     ///
-    /// If those conditions are not fullfiled, the returned distribution
-    /// will be invalid.
     pub unsafe fn new_unchecked(alpha: f64, theta: f64) -> Gamma {
         let norm_const: f64 = euclid::gamma(alpha) * theta.powf(alpha);
 
@@ -219,7 +230,7 @@ impl Distribution for Gamma {
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -249,9 +260,8 @@ impl Distribution for Gamma {
         };
 
         for _ in 0..max_iters {
-            let current_position: f64;
+            let current_position: f64 = bounds.0 + step_length * num_step;
 
-            current_position = bounds.0 + step_length * num_step;
             while current_cdf_point < current_position {
                 ret[current_index] = accumulator;
 
@@ -414,7 +424,7 @@ impl Distribution for Gamma {
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -457,13 +467,14 @@ impl Distribution for Gamma {
         let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
 
         'integration_loop: for _ in 0..max_iters {
-            let current_position: f64;
+            let current_position: f64 = bounds.0 + step_length * num_step;
 
-            current_position = bounds.0 + step_length * num_step;
             while current_quantile <= accumulator {
                 let mut quantile: f64 = current_position;
 
                 let pdf_q: f64 = self.pdf(quantile);
+                // result of pdf is always finite
+                #[allow(clippy::neg_cmp_op_on_partial_ord)]
                 if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                     // if pdf_q is essentially 0, skip this.
                     // newton's iteration
@@ -607,7 +618,8 @@ impl Distribution for Gamma {
 
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds, true);
+        let (_, num_steps): (f64, usize) =
+            euclid::choose_integration_precision_and_steps(bounds, true);
 
         let moment: f64 = {
             // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
@@ -628,8 +640,8 @@ impl Distribution for Gamma {
             };
 
             euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-        }; 
-        
+        };
+
         return moment;
     }
 
@@ -1006,10 +1018,10 @@ impl Parametric for Gamma {
             //a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)*h / (Digamma(a_i + h) - Digamma(a_i) - h/a_i)
 
             let digamma: f64 = euclid::digamma(a);
-            let trigamma: f64= euclid::fast_trigamma(a); 
+            let trigamma: f64 = euclid::fast_trigamma(a);
 
             let num: f64 = digamma - a.ln() + s;
-            let den: f64 = trigamma - 1.0/a; 
+            let den: f64 = trigamma - 1.0 / a;
 
             difference = num / den;
             a = a - difference;

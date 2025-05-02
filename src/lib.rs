@@ -1,4 +1,9 @@
-#![allow(non_snake_case)]
+#![allow(
+    non_snake_case,
+    clippy::needless_return,
+    clippy::assign_op_pattern,
+    clippy::excessive_precision
+)]
 // ^Disable warning "crate `AdvancedStatistics` should have a snake case name convert the identifier to snake case: `advanced_statistics`"
 // The rest of the names will follow the snake_case convention.
 
@@ -30,7 +35,7 @@
 //! to implement are:
 //!  - [pdf](distribution_trait::Distribution::pdf): the pdf of the distribution.
 //!  - [get_domain](distribution_trait::Distribution::get_domain): the [domain]
-//! of the pdf of the distribution.
+//!     of the pdf of the distribution.
 //!
 //! After this, a wide array of funcions are avaliable (check
 //! [distribution_trait::Distribution] for more details). Note that this deafult

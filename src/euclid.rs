@@ -2,11 +2,13 @@
 
 use core::f64;
 use rand::Rng;
-use std::{num::NonZero, usize};
+use std::num::NonZero;
 
 use crate::{
     configuration::integration::{
-        DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64, DEFAULT_INTEGRATION_PRECISION, MULTIPLIER_STEPS_FINITE_INTEGRATION, SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION
+        DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64,
+        DEFAULT_INTEGRATION_PRECISION, MULTIPLIER_STEPS_FINITE_INTEGRATION,
+        SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,
     },
     domain::{ContinuousDomain, DiscreteDomain},
 };
@@ -95,9 +97,9 @@ pub fn numerical_integration(pdf: impl Fn(f64) -> f64, domain: &ContinuousDomain
     let bounds: (f64, f64) = domain.get_bounds();
     let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
     let (_step_length, max_steps): (f64, usize) =
-        choose_integration_precision_and_steps(bounds, true); 
+        choose_integration_precision_and_steps(bounds, true);
 
-    // println!("Steps choosen: {}", max_steps); 
+    // println!("Steps choosen: {}", max_steps);
 
     let integral: f64 = match integration_type {
         IntegrationType::Finite => {
@@ -178,8 +180,7 @@ pub fn numerical_integration_finite(
         let middle: f64 = func(bounds.0 + half_step_length);
         let end: f64 = func(bounds.0 + step_length);
         2.0 * middle - end
-    }; 
-
+    };
 
     //  ^todo substitute
     ret += first_pdf_evaluation;
@@ -187,7 +188,7 @@ pub fn numerical_integration_finite(
     for i in 1..(2 * num_steps - 1) {
         let current_position: f64 = bounds.0 + half_step_length * num_step;
         let evaluation: f64 = func(current_position);
-        
+
         let multiplier: f64 = if (i & 1) == 0 { 4.0 } else { 2.0 };
         //let multiplier: f64 = core::intrinsics::select_unpredictable((i & 1) == 0, 4.0, 2.0);
         // todo: use select unpredictable when stabilized
@@ -377,9 +378,9 @@ pub fn choose_integration_precision_and_steps(
     let step_length: f64;
     let num_steps: usize;
 
-    let ABSOLUTE_MAX_STEPS: usize = unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS };
-    let DEFAULT_PRECISION: f64 = unsafe { DEFAULT_INTEGRATION_PRECISION };
-    let STEP_MULT: f64 = unsafe {MULTIPLIER_STEPS_FINITE_INTEGRATION}; 
+    let absolute_max_steps: usize = unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS };
+    let default_precision: f64 = unsafe { DEFAULT_INTEGRATION_PRECISION };
+    let step_mult: f64 = unsafe { MULTIPLIER_STEPS_FINITE_INTEGRATION };
 
     if let IntegrationType::Finite = integration_domain {
         let range: f64 = bounds.1 - bounds.0;
@@ -397,7 +398,7 @@ pub fn choose_integration_precision_and_steps(
             // interval is very big, we will increase the step_lenght.
 
             step_length = range / unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 };
-            num_steps = ABSOLUTE_MAX_STEPS;
+            num_steps = absolute_max_steps;
         } else {
             // normal range
             /*
@@ -405,9 +406,9 @@ pub fn choose_integration_precision_and_steps(
             num_steps = (range / step_length) as usize;
             */
             // The precision decreases logarithmically (slowly) as the range increases
-            let incr: f64 = (1.0 + range).ln(); 
-            let l: f64 = DEFAULT_PRECISION * 0.012 * incr * incr / STEP_MULT; 
-           
+            let incr: f64 = (1.0 + range).ln();
+            let l: f64 = default_precision * 0.012 * incr * incr / step_mult;
+
             step_length = l.max(unsafe { SMALL_INTEGRATION_PRECISION });
             num_steps = (range / step_length) as usize;
         }
@@ -418,8 +419,8 @@ pub fn choose_integration_precision_and_steps(
     }
 
     if !substitution {
-        step_length = DEFAULT_PRECISION;
-        num_steps = ABSOLUTE_MAX_STEPS;
+        step_length = default_precision;
+        num_steps = absolute_max_steps;
 
         assert!(0.0 < step_length);
 
@@ -470,12 +471,13 @@ impl IntegrationType {
 }
 
 pub mod combinatorics {
+    use crate::errors::AdvStatError;
 
     /// Compute the [binomial coefficient](https://en.wikipedia.org/wiki/Binomial_coefficient).
     ///
     /// Returns an error if there was a problem with the computation (overflow),
     /// if `n` or `k` are negative or if `n < k`.
-    pub fn binomial_coefficient(n: u64, mut k: u64) -> Result<u128, ()> {
+    pub fn binomial_coefficient(n: u64, mut k: u64) -> Result<u128, AdvStatError> {
         // todo: https://math.stackexchange.com/questions/202554/how-do-i-compute-binomial-coefficients-efficiently
 
         /*
@@ -531,14 +533,15 @@ pub mod combinatorics {
             k = n - k;
         }
 
-        let N: u128 = n as u128;
-        let K: u128 = k as u128;
+        // shadowing
+        let n: u128 = n as u128;
+        let k: u128 = k as u128;
 
         let mut ret: u128 = 1;
-        for i in 1..=K {
-            match ret.checked_mul(N - K + i) {
+        for i in 1..=k {
+            match ret.checked_mul(n - k + i) {
                 Some(v) => ret = v,
-                None => return Err(()),
+                None => return Err(AdvStatError::NumericalError),
             }
             ret = ret / i;
         }
@@ -895,6 +898,9 @@ const DIGAMMA_PADE_DENOMINATOR: [f64; 10] = [
     f64::from_bits(4464699609586934289), // 3.172226528805559e-10 * 1
 ];
 
+const FAST_DIGAMMA_UPPER_APROXIMATION_TRESHOLD: f64 = 2.5;
+const FAST_DIGAMMA_LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
+
 /// Evaluate the [Digamma function](https://en.wikipedia.org/wiki/Digamma_function)
 /// but in a faster les precise way.
 ///
@@ -925,13 +931,10 @@ pub fn fast_digamma(x: f64) -> f64 {
 
     */
 
-    let UPPER_APROXIMATION_TRESHOLD: f64 = 2.5;
-    let LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
-
-    let ret: f64 = if UPPER_APROXIMATION_TRESHOLD < x {
+    let ret: f64 = if FAST_DIGAMMA_UPPER_APROXIMATION_TRESHOLD < x {
         // error of ~0.0100518357 at 2.5 and then decreases as x increases.
         (x - 0.5).ln()
-    } else if x < LOWER_APROXIMATION_TRESHOLD {
+    } else if x < FAST_DIGAMMA_LOWER_APROXIMATION_TRESHOLD {
         // this aproximation is probably has the most error.
         // This is the part that could use some improvement.
         // digamma(0.01) ~= -100.560885458
@@ -1013,6 +1016,9 @@ const TRIGAMMA_PADE_DENOMINATOR_FAR: [f64; 5] = [
     f64::from_bits(4553543097738502949),
 ];
 
+const TRIGAMMA_UPPER_APROXIMATION_TRESHOLD: f64 = 3.0;
+const TRIGAMMA_LOWER_APROXIMATION_TRESHOLD: f64 = 0.5;
+
 /// Evaluate the [Trigamma function](https://en.wikipedia.org/wiki/Digamma_function)
 /// but in a faster les precise way.
 ///
@@ -1025,10 +1031,7 @@ const TRIGAMMA_PADE_DENOMINATOR_FAR: [f64; 5] = [
 pub fn fast_trigamma(x: f64) -> f64 {
     assert!(0.0 < x);
 
-    let UPPER_APROXIMATION_TRESHOLD: f64 = 3.0;
-    let LOWER_APROXIMATION_TRESHOLD: f64 = 0.5;
-
-    let ret: f64 = if x < LOWER_APROXIMATION_TRESHOLD {
+    let ret: f64 = if x < TRIGAMMA_LOWER_APROXIMATION_TRESHOLD {
         /*
 
            Numerator parameters:
@@ -1082,7 +1085,7 @@ pub fn fast_trigamma(x: f64) -> f64 {
             .mul_add(x, TRIGAMMA_PADE_DENOMINATOR_NEAR[8]);
 
         (numerator / denominator).exp()
-    } else if x < UPPER_APROXIMATION_TRESHOLD {
+    } else if x < TRIGAMMA_UPPER_APROXIMATION_TRESHOLD {
         /*
 
            Numerator parameters:

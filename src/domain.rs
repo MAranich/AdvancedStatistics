@@ -19,11 +19,11 @@ use crate::euclid::DEFAULT_EMPTY_DOMAIN_BOUNDS;
 /// [DiscreteDomain] assumes that most discrete domains only include integers.
 /// If your domain does not fit this description, here are some possible solutions:
 ///  - If your domain is a constant factor from the integers (pdf(x) can be evaluated
-/// at every `x = k/2` for some integer `k`, you can compute a new pfd_2(x) {pdf(x * 2)}).
+///     at every `x = k/2` for some integer `k`, you can compute a new pfd_2(x) {pdf(x * 2)}).
 ///  - In a more general way, you can generate a function `map_domain()` that maps from
-/// the original domain to the integers. (so you can call `pdf(map_domain(x))`)
+///     the original domain to the integers. (so you can call `pdf(map_domain(x))`)
 ///  - Otherwise you may be interested on the [DiscreteDomain::Custom] variant, wich allows
-/// you to maually indicate the values you want to include on your domain.
+///     you to maually indicate the values you want to include on your domain.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum DiscreteDomain {
     /// All integers
@@ -80,7 +80,7 @@ impl DiscreteDomain {
     pub fn new_discrete_custom(values: &[f64]) -> Self {
         let mut points: Vec<f64> = values
             .iter()
-            .map(|x| *x)
+            .copied()
             .filter(|&x| x.is_finite())
             .collect::<Vec<f64>>();
         points.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -144,7 +144,7 @@ impl DiscreteDomain {
     pub fn iter(&self) -> DiscreteDomainIterator {
         // current_value being a NaN sybmolyzes that no values have been given yet
         DiscreteDomainIterator {
-            domain: &self,
+            domain: self,
             current_value: f64::NAN,
             custom_domain_index: 0,
         }
@@ -194,7 +194,7 @@ pub struct DiscreteDomainIterator<'a> {
     custom_domain_index: usize,
 }
 
-impl<'a> Iterator for DiscreteDomainIterator<'a> {
+impl Iterator for DiscreteDomainIterator<'_> {
     type Item = f64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -251,7 +251,7 @@ impl<'a> Iterator for DiscreteDomainIterator<'a> {
 
                     self.custom_domain_index = 0;
 
-                    return vec.get(0).copied();
+                    return vec.first().copied();
                 }
 
                 return vec.get(self.custom_domain_index).copied();

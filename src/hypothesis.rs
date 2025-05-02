@@ -235,6 +235,7 @@ pub fn z_test(
     let p: f64 = STD_NORMAL.p_value(hypothesys, statistic);
 
     let ret: TestResult = if let Some(alpha) = significance {
+        #[allow(clippy::nonminimal_bool)]
         if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
@@ -314,6 +315,7 @@ pub fn t_test(
     let p: f64 = t_distr.p_value(hypothesys, t);
 
     let ret: TestResult = if let Some(alpha) = significance {
+        #[allow(clippy::nonminimal_bool)]
         if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }
@@ -404,7 +406,7 @@ pub fn two_sample_t_test(
     let var_b: f64 = data_b.variance().unwrap();
     let similar_var: bool = {
         let var_ratio: f64 = var_a / var_b;
-        0.5 <= var_ratio && var_ratio <= 2.0
+        (0.5..=2.0).contains(&var_ratio)
     };
 
     if n_a == n_b && similar_var {
@@ -426,6 +428,7 @@ pub fn two_sample_t_test(
 
         let p: f64 = null_student_t.p_value(hypothesys, t);
         let ret: TestResult = if let Some(alpha) = significance {
+            #[allow(clippy::nonminimal_bool)]
             if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
                 return Err(TestError::InvalidSignificance);
             }
@@ -456,6 +459,7 @@ pub fn two_sample_t_test(
 
         let p: f64 = null_student_t.p_value(hypothesys, t);
         let ret: TestResult = if let Some(alpha) = significance {
+            #[allow(clippy::nonminimal_bool)]
             if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
                 return Err(TestError::InvalidSignificance);
             }
@@ -495,6 +499,7 @@ pub fn two_sample_t_test(
 
     let p: f64 = null_student_t.p_value(hypothesys, t);
     let ret: TestResult = if let Some(alpha) = significance {
+        #[allow(clippy::nonminimal_bool)]
         if !alpha.is_finite() || !(0.0 < alpha && alpha < 1.0) {
             return Err(TestError::InvalidSignificance);
         }

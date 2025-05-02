@@ -14,10 +14,7 @@
 use std::{f64, hint::assert_unchecked, num::NonZero};
 
 use crate::{
-    configuration,
-    distribution_trait::{Distribution, Parametric},
-    domain::ContinuousDomain,
-    euclid::{self, digamma, ln_gamma},
+    configuration, distribution_trait::{Distribution, Parametric}, domain::ContinuousDomain, errors::AdvStatError, euclid::{self, digamma, ln_gamma}
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,9 +30,9 @@ impl ChiSquared {
     /// `k` = `degrees_of_freedom`.
     ///
     /// It will return error if `degrees_of_freedom` is 0.
-    pub fn new(degrees_of_freedom: u64) -> Result<ChiSquared, ()> {
+    pub fn new(degrees_of_freedom: u64) -> Result<ChiSquared, AdvStatError> {
         if degrees_of_freedom == 0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         let c: f64 = ChiSquared::compute_normalitzation_constant(degrees_of_freedom as f64);
@@ -48,14 +45,29 @@ impl ChiSquared {
 
     /// Creates a new [ChiSquared] distribution with parameter
     /// `k` = `degrees_of_freedom` without checking if it is not 0 (or an integer).
-    ///
-    /// If the preconditions are not fullfiled, the returned distribution
+    /// 
+    /// ## Safety 
+    /// 
+    /// If the the following conditions are not fullfiled, the returned distribution
     /// will be invalid.
+    /// 
+    ///  - `degrees_of_freedom` is finite. 
+    ///  - `degrees_of_freedom` is an integer. 
+    ///  - `0.0 < degrees_of_freedom`
+    /// 
+    /// ## Note
+    /// 
+    /// We let `degrees_of_freedom` be a float although theoretically it should be 
+    /// a positive integer. You may try using different non-integer numbers 
+    /// (and assuming the other conditions are fullfilled), you should get results 
+    /// without errors. However we do not make any guarantee if `degrees_of_freedom` 
+    /// is not an integer. 
+    /// 
     pub unsafe fn new_unchecked(degrees_of_freedom: f64) -> ChiSquared {
         let c: f64 = ChiSquared::compute_normalitzation_constant(degrees_of_freedom);
 
         return ChiSquared {
-            degrees_of_freedom: degrees_of_freedom,
+            degrees_of_freedom,
             normalitzation_constant: c,
         };
     }
@@ -133,7 +145,7 @@ impl Distribution for ChiSquared {
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -163,9 +175,8 @@ impl Distribution for ChiSquared {
         };
 
         for _ in 0..max_iters {
-            let current_position: f64;
+            let current_position: f64 = bounds.0 + step_length * num_step;
 
-            current_position = bounds.0 + step_length * num_step;
             while current_cdf_point <= current_position {
                 ret[current_index] = accumulator;
 
@@ -216,7 +227,7 @@ impl Distribution for ChiSquared {
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -259,13 +270,14 @@ impl Distribution for ChiSquared {
         let use_newtons_method: bool = unsafe { configuration::QUANTILE_USE_NEWTONS_ITER };
 
         'integration_loop: for _ in 0..max_iters {
-            let current_position: f64;
+            let current_position: f64 = bounds.0 + step_length * num_step;
 
-            current_position = bounds.0 + step_length * num_step;
             while current_quantile <= accumulator {
                 let mut quantile: f64 = current_position;
 
                 let pdf_q: f64 = self.pdf(quantile);
+                // result of pdf is always finite
+                #[allow(clippy::neg_cmp_op_on_partial_ord)]
                 if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                     // if pdf_q is essentially 0, skip this.
                     // newton's iteration
@@ -628,7 +640,7 @@ impl Parametric for ChiSquared {
                 configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
             };
 
-            let LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
+            const LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
 
             loop {
 

@@ -10,7 +10,9 @@
 
 use rand::Rng;
 
-use crate::{distribution_trait::DiscreteDistribution, domain::DiscreteDomain};
+use crate::{
+    distribution_trait::DiscreteDistribution, domain::DiscreteDomain, errors::AdvStatError,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiscreteUniform {
@@ -26,9 +28,9 @@ impl DiscreteUniform {
     /// and `b` (maximum). Both `a` and `b` are inclusive.
     ///
     /// Returns [Err] if `b < a`.
-    pub const fn new(a: i64, b: i64) -> Result<DiscreteUniform, ()> {
+    pub const fn new(a: i64, b: i64) -> Result<DiscreteUniform, AdvStatError> {
         if b < a {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
         let new_domain: DiscreteDomain = DiscreteDomain::Range(a, b);
 
@@ -40,12 +42,15 @@ impl DiscreteUniform {
     }
 
     /// Creates a new [DiscreteUniform] with parameters `a` (minimum)
-    /// and `b` (maximum). Both `a` and `b` are inclusive.
+    /// and `b` (maximum) without any checks. Both `a` and `b` are inclusive.
     ///
-    /// Does not check if `b < a`.
-    /// 
-    /// If the preconditions are not fullfiled, the returned distribution
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
     /// will be invalid.
+    ///
+    ///  - `a < b`
+    ///
     pub const unsafe fn new_unchecked(a: i64, b: i64) -> DiscreteUniform {
         let new_domain: DiscreteDomain = DiscreteDomain::Range(a, b);
 
@@ -143,7 +148,6 @@ impl DiscreteDistribution for DiscreteUniform {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
 
         let ret: Vec<f64> = (0..n)
-            .into_iter()
             .map(|_| rng.random_range(self.a..=self.b))
             .map(|q| q as f64)
             .collect::<Vec<f64>>();

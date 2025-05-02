@@ -10,7 +10,7 @@
 
 use rand::Rng;
 
-use crate::{distribution_trait::{Distribution, Parametric}, domain::ContinuousDomain};
+use crate::{distribution_trait::{Distribution, Parametric}, domain::ContinuousDomain, errors::AdvStatError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Uniform {
@@ -28,13 +28,20 @@ impl Uniform {
     ///  - `b` indicates the maximum value.
     ///  - `a < b` must be fulfilled or an error will be returned.
     ///  - `a` and `b` must both be finite values (no `+-inf` or NaNs)
-    pub const fn new(a: f64, b: f64) -> Result<Uniform, ()> {
+    pub const fn new(a: f64, b: f64) -> Result<Uniform, AdvStatError> {
         if !a.is_finite() || !b.is_finite() {
-            return Err(());
+            let error: AdvStatError = match (a.classify(), b.classify()) {
+                (std::num::FpCategory::Nan, _) | (_, std::num::FpCategory::Nan) => AdvStatError::NanErr,
+                (std::num::FpCategory::Infinite, _) => AdvStatError::InvalidNumber,
+                (_, std::num::FpCategory::Infinite) => AdvStatError::InvalidNumber,
+                _ => unreachable!()
+            }; 
+
+            return Err(error); 
         }
 
         if b <= a {
-            return Err(());
+            return Err(AdvStatError::NumericalError);
         }
 
         let domain: ContinuousDomain = ContinuousDomain::Range(a, b);
@@ -47,15 +54,19 @@ impl Uniform {
     ///
     ///  - `a` indicates the minimum value.
     ///  - `b` indicates the maximum value.
-    ///  - `a < b` must be fulfilled or an error will be returned.
+    /// 
+    /// ## Safety
+    /// 
+    /// If the folllowing conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    /// 
+    ///  - `a < b`.
     ///  - `a` and `b` must both be finite values (no `+-inf` or NaNs)
     /// 
-    /// If those conditions are not fullfiled, the returned distribution
-    /// will be invalid.
-    pub const unsafe fn new_unchecked(a: f64, b: f64) -> Result<Uniform, ()> {
+    pub const unsafe fn new_unchecked(a: f64, b: f64) -> Uniform {
         let domain: ContinuousDomain = ContinuousDomain::Range(a, b);
 
-        return Ok(Uniform { domain, a, b });
+        return Uniform { domain, a, b };
     }
 
     /// Return `a` (minimum value).

@@ -18,6 +18,7 @@ use rand::Rng;
 use crate::{
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
+    errors::AdvStatError,
     euclid::{self, digamma},
 };
 
@@ -36,34 +37,42 @@ impl Beta {
     ///  - `beta` must be finite and be stricly positive.
     ///
     /// Otherwise an error will be returned.
-    /// 
-    /// An error will also be returned if `alpha` and `beta` are too 
-    /// large to model properly. 
+    ///
+    /// An error will also be returned if `alpha` and `beta` are too
+    /// large to model properly.
     /// - This means that a [f64] value is not precise enough.
     /// - Use [Beta::new_unchecked] if you don't need to evaluate
     ///         the pdf direcly or indirecly.
-    pub fn new(alpha: f64, beta: f64) -> Result<Beta, ()> {
+    pub fn new(alpha: f64, beta: f64) -> Result<Beta, AdvStatError> {
         if !alpha.is_finite() {
-            return Err(());
+            if alpha.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if alpha.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if !beta.is_finite() {
-            return Err(());
+            if beta.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if beta.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if alpha <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         if beta <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         let norm: f64 = 1.0 / euclid::beta_fn(alpha, beta);
 
         if !norm.is_finite() {
             // we do not have enough precision to do the computations
-            return Err(());
+            return Err(AdvStatError::NumericalError);
         }
 
         return Ok(Beta {
@@ -75,12 +84,15 @@ impl Beta {
 
     /// Creates a new [Beta] distribution with parameters `alpha` and `beta`.
     ///
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    ///
     ///  - `alpha` must be finite and be stricly positive.
     ///  - `beta` must be finite and be stricly positive.
-    ///  - `alpha` and `beta` are too large to model properly. 
+    ///  - `alpha` and `beta` are too large to model properly.
     ///
-    /// If the preconditions are not fullfiled, the returned distribution
-    /// will be invalid.
     pub unsafe fn new_unchecked(alpha: f64, beta: f64) -> Beta {
         let norm_ct: f64 = 1.0 / euclid::beta_fn(alpha, beta);
 
@@ -184,7 +196,7 @@ impl Distribution for Beta {
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
         let bounds: (f64, f64) = (0.0, 1.0);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -214,9 +226,7 @@ impl Distribution for Beta {
         };
 
         for _ in 0..max_iters {
-            let current_position: f64;
-
-            current_position = bounds.0 + step_length * num_step;
+            let current_position: f64 = bounds.0 + step_length * num_step;
             while current_cdf_point <= current_position {
                 ret[current_index] = accumulator;
 
@@ -332,7 +342,7 @@ impl Distribution for Beta {
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
         let bounds: (f64, f64) = (0.0, 1.0);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -375,13 +385,14 @@ impl Distribution for Beta {
         let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
 
         'integration_loop: for _ in 0..max_iters {
-            let current_position: f64;
+            let current_position: f64 = bounds.0 + step_length * num_step;
 
-            current_position = bounds.0 + step_length * num_step;
             while current_quantile <= accumulator {
                 let mut quantile: f64 = current_position;
 
                 let pdf_q: f64 = self.pdf(quantile);
+                // result of pdf is always finite
+                #[allow(clippy::neg_cmp_op_on_partial_ord)]
                 if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                     // if pdf_q is essentially 0, skip this.
                     // newton's iteration
@@ -526,8 +537,8 @@ impl Distribution for Beta {
         if let euclid::Moments::Raw = mode {
             let ab: f64 = self.alpha + self.beta;
             let mut acc: f64 = 1.0;
-            for R in 0..order {
-                let r: f64 = R as f64;
+            for r in 0..order {
+                let r: f64 = r as f64;
                 acc = acc * (self.alpha + r) / (ab + r);
             }
             return acc;
@@ -555,7 +566,8 @@ impl Distribution for Beta {
 
         let order_exp: i32 = order as i32;
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds, false);
+        let (_, num_steps): (f64, usize) =
+            euclid::choose_integration_precision_and_steps(bounds, false);
 
         let moment: f64 = {
             let integration_fn = |x: f64| {

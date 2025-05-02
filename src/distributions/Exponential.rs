@@ -16,6 +16,7 @@ use rand::Rng;
 use crate::{
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
+    errors::AdvStatError,
 };
 
 pub const EXPONENTIAL_DOMAIN: ContinuousDomain = ContinuousDomain::From(0.0);
@@ -34,29 +35,38 @@ pub struct ExponentialGenerator {
 }
 
 impl Exponential {
-    /// Creates a new [Exponential] distribution. 
-    /// 
+    /// Creates a new [Exponential] distribution.
+    ///
     ///  - `lambda` must be finite (no `+-inf` nor NaNs)
-    ///  - `0.0 < lambda` 
-    /// 
-    /// Otherwise an error will be returned. 
-    pub const fn new(lambda: f64) -> Result<Exponential, ()> {
+    ///  - `0.0 < lambda`
+    ///
+    /// Otherwise an error will be returned.
+    pub const fn new(lambda: f64) -> Result<Exponential, AdvStatError> {
         if !lambda.is_finite() {
-            return Err(());
+            if lambda.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if lambda.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
+
         if lambda <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         return Ok(Exponential { lambda });
     }
-    /// Creates a new [Exponential] distribution. 
-    /// 
-    ///  - `lambda` must be finite (no `+-inf` nor NaNs)
-    ///  - `0.0 < lambda` 
-    /// 
-    /// If the preconditions are not fullfiled, the returned distribution
+
+    /// Creates a new [Exponential] distribution.
+    ///
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
     /// will be invalid.
+    ///
+    ///  - `lambda` must be finite (no `+-inf` nor NaNs)
+    ///  - `0.0 < lambda`
+    ///
     pub const unsafe fn new_unchecked(lambda: f64) -> Exponential {
         return Exponential { lambda };
     }
@@ -81,7 +91,7 @@ impl Exponential {
 
 impl Distribution for Exponential {
     fn pdf(&self, x: f64) -> f64 {
-        return self.lambda * (-self.lambda * x).exp(); 
+        return self.lambda * (-self.lambda * x).exp();
     }
 
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {

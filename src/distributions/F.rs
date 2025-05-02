@@ -19,6 +19,7 @@
 use crate::{
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
+    errors::AdvStatError,
     euclid::{self, digamma, ln_gamma},
 };
 
@@ -49,28 +50,36 @@ impl F {
     ///      - Use [F::new_unchecked] if you don't need to evaluate
     ///         the pdf direcly or indirecly.
     ///
-    pub fn new(d1: f64, d2: f64) -> Result<F, ()> {
+    pub fn new(d1: f64, d2: f64) -> Result<F, AdvStatError> {
         if !d1.is_finite() {
-            return Err(());
+            if d1.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if d1.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if !d2.is_finite() {
-            return Err(());
+            if d2.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if d2.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if d1 <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         if d2 <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         let norm: f64 = F::compute_normalitzation_constant(d1, d2);
 
         if !norm.is_finite() || norm <= 0.0 {
             // we do not have enough precision to do the computations
-            return Err(());
+            return Err(AdvStatError::NumericalError);
         }
 
         return Ok(F {
@@ -85,16 +94,18 @@ impl F {
     /// freedom of the numerator and `d2` are the degrees of freedom
     /// of the denominator.
     ///
+    /// ## Safety
     ///
-    ///  - `d1` is `+-inf` or a NaN
-    ///  - `d2` is `+-inf` or a NaN
-    ///  - `d1 <= 0.0`
-    ///  - `d2 <= 0.0`
+    /// If the following conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    ///
+    ///  - `d1` is finite (no `+-inf` or a NaN)
+    ///  - `d2` is finite (no `+-inf` or a NaN)
+    ///  - `0.0 < d1`
+    ///  - `0.0 < d2`
     ///  - The values for `d1` and `d2` are too large to model properly
     ///      - This means that a [f64] value is not precise enough.
     ///
-    /// If those conditions are not fullfiled, the returned distribution
-    /// will be invalid.
     pub unsafe fn new_unchecked(d1: f64, d2: f64) -> F {
         let norm: f64 = F::compute_normalitzation_constant(d1, d2);
 
@@ -159,7 +170,7 @@ impl Distribution for F {
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -189,9 +200,8 @@ impl Distribution for F {
         };
 
         for _ in 0..max_iters {
-            let current_position: f64;
+            let current_position: f64 = bounds.0 + step_length * num_step;
 
-            current_position = bounds.0 + step_length * num_step;
             while current_cdf_point <= current_position {
                 ret[current_index] = accumulator;
 
@@ -253,7 +263,7 @@ impl Distribution for F {
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
         let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -302,6 +312,8 @@ impl Distribution for F {
                 let mut quantile: f64 = current_position;
 
                 let pdf_q: f64 = self.pdf(quantile);
+                // result of pdf is always finite
+                #[allow(clippy::neg_cmp_op_on_partial_ord)]
                 if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                     // if pdf_q is essentially 0, skip this.
                     // newton's iteration

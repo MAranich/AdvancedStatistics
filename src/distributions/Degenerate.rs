@@ -26,7 +26,7 @@ impl Degenerate {
 
 impl DiscreteDistribution for Degenerate {
     fn pmf(&self, x: f64) -> f64 {
-        return if x == 0.0 { 1.0 } else { 1.0 };
+        return if x == 0.0 { 1.0 } else { 0.0 };
     }
 
     fn get_domain(&self) -> &DiscreteDomain {

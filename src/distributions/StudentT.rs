@@ -20,6 +20,7 @@ use crate::{
     configuration,
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
+    errors::AdvStatError,
     euclid::{self, ln_gamma},
 };
 
@@ -46,13 +47,18 @@ impl StudentT {
     ///  - A [StudentT] distribution with 1 degree of freedom is a [Cauchy distribution](crate::distributions::Cauchy).
     ///  - A [StudentT] distribution with infinite degrees of freedom is a [standard normal distribution](crate::distributions::Normal).
     ///
-    pub fn new(degrees_of_freedom: f64) -> Result<StudentT, ()> {
+    pub fn new(degrees_of_freedom: f64) -> Result<StudentT, AdvStatError> {
         if !degrees_of_freedom.is_finite() {
-            return Err(());
+            if degrees_of_freedom.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else {
+                // inf
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if degrees_of_freedom <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         let norm: f64 = Self::compute_normalitzation_constant(degrees_of_freedom);
@@ -66,17 +72,21 @@ impl StudentT {
     /// Create a [StudentT] distribution without checking for the corrrectness of the inputs.
     ///
     /// `degrees_of_freedom` determines how *normal* does the distribution look.
+    ///
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    ///
     ///  - Must be finite (no `+-inf` nor NaN)
     ///  - Must be stricly positive (`0.0 < degrees_of_freedom`)
-    ///  - Altough we accept a float, `degrees_of_freedom` almost always is an integer.
-    ///
-    /// If those conditions are not fullfiled, the returned distribution
-    /// will be invalid.
     ///
     /// ***
     ///
-    /// ### Notes:
+    /// ## Notes:
     ///
+    ///  - Altough we accept a float, `degrees_of_freedom` almost always is
+    ///     an integer for most practical uses.
     ///  - A [StudentT] distribution with 1 degree of freedom is a [Cauchy distribution](crate::distributions::Cauchy).
     ///  - A [StudentT] distribution with infinite degrees of freedom is a [standard normal distribution](crate::distributions::Normal).
     ///      - In practice we do not need a lot of degrees of freedom to be very similar.
@@ -166,7 +176,6 @@ impl Distribution for StudentT {
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
         let mut sorted_indicies: Vec<(usize, bool)> = (0..points.len())
-            .into_iter()
             .map(|i| (i, points[i] < 0.5))
             .collect::<Vec<(usize, bool)>>();
 
@@ -306,7 +315,6 @@ impl Distribution for StudentT {
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
         let mut sorted_indicies: Vec<(usize, bool)> = (0..points.len())
-            .into_iter()
             .map(|i| (i, points[i] < 0.5))
             .collect::<Vec<(usize, bool)>>();
 
@@ -362,6 +370,9 @@ impl Distribution for StudentT {
                 let mut quantile: f64 = current_position;
 
                 let pdf_q: f64 = self.pdf(quantile);
+
+                // pdf should always return a finite value
+                #[allow(clippy::neg_cmp_op_on_partial_ord)]
                 if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                     // if pdf_q is essentially 0, skip this.
                     // newton's iteration

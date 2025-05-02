@@ -1,6 +1,8 @@
 use bon::bon;
 use rand::Rng;
 
+use crate::errors::AdvStatError;
+
 pub struct Samples {
     data: Vec<f64>,
     properties: SampleProperties,
@@ -60,10 +62,15 @@ impl Samples {
     ///
     /// If you want to just move the data without copying it,
     /// use [Samples::new_move].
-    pub fn new(data: &[f64]) -> Result<Samples, ()> {
-        let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
-        if invalid_contained {
-            return Err(());
+    pub fn new(data: &[f64]) -> Result<Samples, AdvStatError> {
+        for elem in data.iter() {
+            if !elem.is_finite() {
+                if elem.is_nan() {
+                    return Err(AdvStatError::NanErr);
+                } else if elem.is_infinite() {
+                    return Err(AdvStatError::InvalidNumber);
+                }
+            }
         }
 
         return Ok(Samples {
@@ -72,11 +79,17 @@ impl Samples {
         });
     }
 
-    /// Creates a new instance of [Samples] with the given `data` without checking 
+    /// Creates a new instance of [Samples] with the given `data` without checking
     /// for the absence of NaNs or infinities (`+-inf`).
-    /// 
-    /// If the condition is not fullfilled, the datastructure will be invalid 
-    /// and may return wrong/nonsensical results. 
+    ///
+    /// ## Safety
+    ///
+    ///  - `data` must not contain NaNs or infinities (`+-inf`).
+    ///
+    /// If the condition is not fullfilled, the datastructure will be invalid
+    /// and may return wrong/nonsensical results.
+    ///
+    /// ## Alternatives
     ///
     /// If you want to just move the data without copying it,
     /// use [Samples::new_move] / [Samples::new_move_unchecked].
@@ -89,14 +102,23 @@ impl Samples {
 
     /// Creates a new instance of [Samples] with the given `data`.
     ///
+    /// ## Safety
+    ///
     /// `data` must not contain NaNs or infinities (`+-inf`).
+    ///
+    /// ## Alternatives
     ///
     /// If you don't want to move the data (to keep ownership of it),
     /// use [Samples::new].
-    pub fn new_move(data: Vec<f64>) -> Result<Samples, ()> {
-        let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
-        if invalid_contained {
-            return Err(());
+    pub fn new_move(data: Vec<f64>) -> Result<Samples, AdvStatError> {
+        for elem in data.iter() {
+            if !elem.is_finite() {
+                if elem.is_nan() {
+                    return Err(AdvStatError::NanErr);
+                } else if elem.is_infinite() {
+                    return Err(AdvStatError::InvalidNumber);
+                }
+            }
         }
 
         return Ok(Samples {
@@ -105,21 +127,26 @@ impl Samples {
         });
     }
 
-    /// Creates a new instance of [Samples] with the given `data` without checking 
+    /// Creates a new instance of [Samples] with the given `data` without checking
     /// for the absence of NaNs or infinities (`+-inf`).
-    /// 
-    /// If the condition is not fullfilled, the datastructure will be invalid 
-    /// and may return wrong/nonsensical results. 
+    ///
+    /// ## Safety
+    ///
+    /// The data must not contain NaNs or infinities (`+-inf`).
+    ///
+    /// If the condition is not fullfilled, the datastructure will be invalid
+    /// and may return wrong/nonsensical results.
+    ///
+    /// ## Alternatives
     ///
     /// If you don't want to move the data (to keep ownership of it),
-    /// use [Samples::new] / [Samples::new_unchecked]. 
+    /// use [Samples::new] / [Samples::new_unchecked].
     pub unsafe fn new_move_uncheched(data: Vec<f64>) -> Samples {
         return Samples {
             data,
             properties: SampleProperties::empty(),
-        }; 
+        };
     }
-
 
     /// Gives a reference to the contained data.
     ///
@@ -146,6 +173,7 @@ impl Samples {
     /// If it does, the original self will be returned.
     ///
     /// Note that the internal [SampleProperties] is emptied.
+    #[allow(clippy::result_large_err)]
     pub fn add_data(self, data: &[f64]) -> Result<Samples, Samples> {
         let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
         if invalid_contained {
@@ -175,6 +203,7 @@ impl Samples {
     /// If it does, the original self will be returned.
     ///
     /// Note that the internal [SampleProperties] is emptied.
+    #[allow(clippy::result_large_err)]
     pub fn add_data_move(self, data: Vec<f64>) -> Result<Samples, Samples> {
         let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
         if invalid_contained {
@@ -205,7 +234,7 @@ impl Samples {
     pub fn mean(&mut self) -> Option<f64> {
         // If it is already computed, jut return it.
         if self.properties.mean.is_some() {
-            return self.properties.mean.clone();
+            return self.properties.mean;
         }
 
         let n: usize = self.data.len();
@@ -239,7 +268,7 @@ impl Samples {
     pub fn variance(&mut self) -> Option<f64> {
         // If it is already computed, jut return it.
         if self.properties.variance.is_some() {
-            return self.properties.variance.clone();
+            return self.properties.variance;
         }
 
         let n: usize = self.data.len();
@@ -254,20 +283,15 @@ impl Samples {
 
         // get mean, it always exists because there is more than 1 sample
         let mean: f64 = self.mean().unwrap();
-        let minus_mean: f64 = -mean; 
+        let minus_mean: f64 = -mean;
         let mut variance: f64 = 0.0;
 
         for &s in &self.data {
-            let a: f64 = s + minus_mean; 
+            let a: f64 = s + minus_mean;
             variance += a * a;
         }
-        
-        let BIASED_VARIANCE: bool = false; 
-        if BIASED_VARIANCE {
-            variance = variance / n;
-        } else {
-            variance = variance / (n - 1.0);
-        }
+
+        variance = variance / (n - 1.0);
 
         self.properties.variance = Some(variance);
         return Some(variance);
@@ -284,7 +308,7 @@ impl Samples {
     pub fn skewness(&mut self) -> Option<f64> {
         // If it is already computed, just return it.
         if self.properties.skewness.is_some() {
-            return self.properties.skewness.clone();
+            return self.properties.skewness;
         }
 
         let n: usize = self.data.len();
@@ -429,7 +453,7 @@ impl Samples {
 
         // If it is already computed, just return it.
         if self.properties.excess_kurtosis.is_some() {
-            return self.properties.excess_kurtosis.clone();
+            return self.properties.excess_kurtosis;
         }
 
         let n: usize = self.data.len();
@@ -480,12 +504,12 @@ impl Samples {
 
         // If it is already computed, just return it.
         if self.properties.minimum.is_some() {
-            return self.properties.minimum.clone();
+            return self.properties.minimum;
         }
 
         let min: Option<f64> = self.data.first().copied();
         if self.properties.is_sorted {
-            self.properties.minimum = min.clone();
+            self.properties.minimum = min;
             return min;
         }
 
@@ -514,12 +538,12 @@ impl Samples {
 
         // If it is already computed, just return it.
         if self.properties.maximum.is_some() {
-            return self.properties.minimum.clone();
+            return self.properties.minimum;
         }
 
         let max: Option<f64> = self.data.last().copied();
         if self.properties.is_sorted {
-            self.properties.maximum = max.clone();
+            self.properties.maximum = max;
             return max;
         }
 
@@ -678,6 +702,10 @@ impl Samples {
         return self.data.len();
     }
 
+    pub fn is_empty(&self) -> bool {
+        return self.data.len() == 0;
+    }
+
     /// Returns the number of elements in [Samples]
     ///
     /// Identical to [Samples::len]
@@ -786,8 +814,8 @@ impl Samples {
         return ret;
     }
 
-    /// Returns a vector of indicies of all the samples marked as otliers byt the 
-    /// selected [OutlierDetectionMethod]. 
+    /// Returns a vector of indicies of all the samples marked as otliers byt the
+    /// selected [OutlierDetectionMethod].
     pub fn outlier_detection(&mut self, method: OutlierDetectionMethod) -> Vec<usize> {
         let mut ret: Vec<usize> = Vec::new();
 
@@ -845,7 +873,7 @@ impl Samples {
 
                 if max <= min {
                     // return full vector
-                    return (0..(self.count())).into_iter().collect::<Vec<usize>>();
+                    return (0..self.count()).collect::<Vec<usize>>();
                 }
 
                 for (i, &sampl) in self.data.iter().enumerate() {
@@ -859,24 +887,23 @@ impl Samples {
         return ret;
     }
 
-    /// Returns 2 Samples structures `(inliners, outliers)` from self and the given 
-    /// outliers. 
+    /// Returns 2 Samples structures `(inliners, outliers)` from self and the given
+    /// outliers.
     pub fn outlier_removal(self, outliers_idx: Vec<usize>) -> (Samples, Samples) {
+        let mut original_data: Vec<f64> = self.get_data();
 
-        let mut original_data: Vec<f64> = self.get_data(); 
-
-        let mut outliers_data: Vec<f64>  = Vec::with_capacity(outliers_idx.len());  
+        let mut outliers_data: Vec<f64> = Vec::with_capacity(outliers_idx.len());
         for o in outliers_idx {
-            let outlier: f64 = original_data.swap_remove(o); 
-            outliers_data.push(outlier); 
+            let outlier: f64 = original_data.swap_remove(o);
+            outliers_data.push(outlier);
         }
 
-        let inliners: Samples = unsafe {Samples::new_move_uncheched(original_data)}; 
-        let outliers: Samples = unsafe {Samples::new_move_uncheched(outliers_data)}; 
-        // SAFETY: since the data comes from a valid Samples, both parts of 
-        // the splitted data are also valid. 
+        let inliners: Samples = unsafe { Samples::new_move_uncheched(original_data) };
+        let outliers: Samples = unsafe { Samples::new_move_uncheched(outliers_data) };
+        // SAFETY: since the data comes from a valid Samples, both parts of
+        // the splitted data are also valid.
 
-        return (inliners, outliers); 
+        return (inliners, outliers);
     }
 }
 

@@ -19,6 +19,7 @@ use rand::Rng;
 use crate::{
     distribution_trait::{DiscreteDistribution, Parametric},
     domain::DiscreteDomain,
+    errors::AdvStatError,
 };
 
 pub const BERNOULLI_DOMAIN: DiscreteDomain = DiscreteDomain::Range(0, 1);
@@ -34,24 +35,34 @@ impl Bernoulli {
     ///
     ///  - `p` indicates the probability of success (returning `1.0`).
     ///     - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
-    pub const fn new(p: f64) -> Result<Bernoulli, ()> {
+    pub const fn new(p: f64) -> Result<Bernoulli, AdvStatError> {
         if !p.is_finite() {
-            return Err(());
+            if p.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if p.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
         if !(0.0 <= p && p <= 1.0) {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
-        return Ok(Bernoulli { p: p });
+        return Ok(Bernoulli { p });
     }
 
-    /// Creates a new [bernulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution).
-    /// Does not check if p is in `[0, 1]`.
-    /// 
-    /// If the preconditions are not fullfiled, the returned distribution
+    /// Creates a new [bernulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution)
+    /// without any checks.
+    ///
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
     /// will be invalid.
+    ///
+    ///  - `p` must be finite (no NaNs or `+-inf`)
+    ///  - `p` must be a valid probability (`p` belongs to the interval `[0, 1]`)
+    ///
     pub const unsafe fn new_unchecked(p: f64) -> Bernoulli {
-        return Bernoulli { p: p };
+        return Bernoulli { p };
     }
 
     /// Return `p` (probability of success).

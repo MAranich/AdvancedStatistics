@@ -11,6 +11,7 @@
 use crate::{
     distribution_trait::{DiscreteDistribution, Parametric},
     domain::DiscreteDomain,
+    errors::AdvStatError,
 };
 
 pub const GEOMETRIC_DOMAIN: DiscreteDomain = DiscreteDomain::From(1);
@@ -26,12 +27,17 @@ impl Geometric {
     ///  - `p` indicates the probability of success.
     ///  - `p` must belong in the interval `[0.0, 1.0]`.
     ///      - Otherwise an error will be returned.
-    pub const fn new(p: f64) -> Result<Geometric, ()> {
-        if p.is_infinite() || p.is_nan() {
-            return Err(());
+    pub const fn new(p: f64) -> Result<Geometric, AdvStatError> {
+        if !p.is_finite() {
+            if p.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if p.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
+
         if !(0.0 <= p && p <= 1.0) {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         return Ok(Geometric { p });
@@ -39,12 +45,15 @@ impl Geometric {
 
     /// Creates a new [Geometric] distribution without checking if `p` is valid.
     ///
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    ///
     /// In order to generate a valid Geometric, `p` must fullfill:
     ///  - `p` indicates the probability of success.
     ///      - `p` must belong in the interval `[0.0, 1.0]`.
-    /// 
-    /// If those conditions are not fullfiled, the returned distribution
-    /// will be invalid.
+    ///
     pub const unsafe fn new_unchecked(p: f64) -> Geometric {
         return Geometric { p };
     }

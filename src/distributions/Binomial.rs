@@ -15,6 +15,7 @@
 use crate::{
     distribution_trait::{DiscreteDistribution, Parametric},
     domain::DiscreteDomain,
+    errors::AdvStatError,
     euclid,
 };
 
@@ -34,12 +35,16 @@ impl Binomial {
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
     ///  - `n` indicates the number of trials
     ///
-    pub const fn new(p: f64, n: u64) -> Result<Binomial, ()> {
-        if p.is_infinite() || p.is_nan() {
-            return Err(());
+    pub const fn new(p: f64, n: u64) -> Result<Binomial, AdvStatError> {
+        if !p.is_finite() {
+            if p.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if p.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
         if !(0.0 <= p && p <= 1.0) {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         let domain: DiscreteDomain = DiscreteDomain::Range(0, n as i64);
@@ -49,12 +54,17 @@ impl Binomial {
 
     /// Creates a new [Binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution).
     ///
-    ///   - `p` indicates the probability of success (returning `1.0`) of each Bernoulli trial.
-    ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise the structure will be invalid.
+    ///  - `p` indicates the probability of success (returning `1.0`) of each Bernoulli trial.
     ///  - `n` indicates the number of trials
     ///
-    /// If the preconditions are not fullfiled, the returned distribution
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
     /// will be invalid.
+    ///
+    ///  - `p` must be finite (no NaNs or `+-inf`)
+    ///  - `p` must belong in the interval `[0.0, 1.0]` (as `p` represents a probability).
+    ///
     pub const unsafe fn new_unchecked(p: f64, n: u64) -> Binomial {
         let domain: DiscreteDomain = DiscreteDomain::Range(0, n as i64);
 
@@ -83,11 +93,12 @@ impl DiscreteDistribution for Binomial {
         // P(x) = ( n | x ) * p^x * (1-p)^(n-x)
         // Where ( a | b ) is `a choose b`
 
-        let X: u64 = x.floor() as u64;
-        let binomial_coef: u128 = euclid::combinatorics::binomial_coefficient(self.n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
+        // shadowing
+        let x: u64 = x.floor() as u64;
+        let binomial_coef: u128 = euclid::combinatorics::binomial_coefficient(self.n, x).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
 
-        let prob_p: f64 = self.p.powi(X as i32);
-        let prob_q: f64 = (1.0 - self.p).powi((self.n - X) as i32);
+        let prob_p: f64 = self.p.powi(x as i32);
+        let prob_q: f64 = (1.0 - self.p).powi((self.n - x) as i32);
 
         return (binomial_coef as f64) * prob_p * prob_q;
     }
@@ -143,7 +154,7 @@ impl DiscreteDistribution for Binomial {
         let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
         // the bool determines if it is flipped or not
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
@@ -212,7 +223,6 @@ impl DiscreteDistribution for Binomial {
                 if self.p < *r {
                     count += 1.0;
                 }
-
             }
 
             ret.push(count);
@@ -240,7 +250,7 @@ impl DiscreteDistribution for Binomial {
         let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -406,11 +416,12 @@ impl Parametric for Binomial {
         let p: f64 = parameters[0];
         let n: u64 = parameters[1] as u64;
 
-        let X: u64 = x.floor() as u64;
-        let binomial_coef: u128 = euclid::combinatorics::binomial_coefficient(n, X).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
+        // shadowing
+        let x: u64 = x.floor() as u64;
+        let binomial_coef: u128 = euclid::combinatorics::binomial_coefficient(n, x).expect("The parameters of the binomial are too big. Our current implementation is not good enough. ");
 
-        let prob_p: f64 = p.powi(X as i32);
-        let prob_q: f64 = (1.0 - p).powi((n - X) as i32);
+        let prob_p: f64 = p.powi(x as i32);
+        let prob_q: f64 = (1.0 - p).powi((n - x) as i32);
 
         return (binomial_coef as f64) * prob_p * prob_q;
     }

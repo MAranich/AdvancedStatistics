@@ -21,6 +21,7 @@ use rand::Rng;
 use crate::{
     distribution_trait::{DiscreteDistribution, Parametric},
     domain::DiscreteDomain,
+    errors::AdvStatError,
     euclid::{ln_gamma, ln_gamma_int},
 };
 
@@ -39,13 +40,17 @@ impl Poisson {
     ///      - `0.0 < lambda`
     ///
     /// Otherwise an error will be returned.
-    pub const fn new(lambda: f64) -> Result<Poisson, ()> {
+    pub const fn new(lambda: f64) -> Result<Poisson, AdvStatError> {
         if !lambda.is_finite() {
-            return Err(());
+            if lambda.is_nan() {
+                return Err(AdvStatError::NanErr);
+            } else if lambda.is_infinite() {
+                return Err(AdvStatError::InvalidNumber);
+            }
         }
 
         if lambda <= 0.0 {
-            return Err(());
+            return Err(AdvStatError::InvalidNumber);
         }
 
         return Ok(Poisson { lambda });
@@ -53,12 +58,15 @@ impl Poisson {
 
     /// Creates a new [Poisson] distribution without checking.
     ///
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    ///
     ///  - `lambda` indicates rate. And must fullfill:
     ///      - Must be finite (no `+-inf` nor NaNs)
     ///      - `0.0 < lambda`
     ///
-    /// If those conditions are not fullfiled, the returned distribution
-    /// will be invalid.
     pub const unsafe fn new_unchecked(lambda: f64) -> Poisson {
         return Poisson { lambda };
     }
@@ -86,7 +94,7 @@ impl DiscreteDistribution for Poisson {
 
         // assuming `0.0 <= x`
         //let ln_gamma: f64 = ln_gamma_int(NonZero::new(x as u64 + 1).unwrap());
-        let ln_gamma: f64 = ln_gamma(x + 1.0); 
+        let ln_gamma: f64 = ln_gamma(x + 1.0);
         let inner_exp: f64 = x * self.lambda.ln() - self.lambda - ln_gamma;
 
         return inner_exp.exp();
@@ -123,7 +131,7 @@ impl DiscreteDistribution for Poisson {
         let domain: &DiscreteDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
 
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -184,7 +192,7 @@ impl DiscreteDistribution for Poisson {
         let mut ret: Vec<f64> = Vec::new();
         ret.reserve_exact(n);
 
-        let L: f64 = (-self.lambda).exp();
+        let lambda_m_exp: f64 = (-self.lambda).exp();
         let mut p: f64;
         let mut k: f64;
 
@@ -196,7 +204,7 @@ impl DiscreteDistribution for Poisson {
                 let u: f64 = rng.random();
                 p = p * u;
 
-                if p <= L {
+                if p <= lambda_m_exp {
                     break;
                 }
             }
@@ -233,7 +241,7 @@ impl DiscreteDistribution for Poisson {
         // let bounds: (f64, f64) = domain.get_bounds();
         // We already know: `bounds = (0.0, inf)`
 
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -260,15 +268,14 @@ impl DiscreteDistribution for Poisson {
 
         let mut ln_gamma: f64 = 0.0;
         let mut x: f64 = 0.0;
-        let mut previous_x: f64 = 0.0; 
+        let mut previous_x: f64 = 0.0;
         loop {
-
             let inner_exp: f64 = x * self.lambda.ln() - self.lambda - ln_gamma;
             let pmf: f64 = inner_exp.exp();
 
             accumulator += pmf;
-            //println!("pmf({})\t = {}", x, pmf); 
-            //println!("cdf({})\t = {}", x, accumulator); 
+            //println!("pmf({})\t = {}", x, pmf);
+            //println!("cdf({})\t = {}", x, accumulator);
 
             while current_quantile_point <= accumulator {
                 //policy
@@ -276,7 +283,7 @@ impl DiscreteDistribution for Poisson {
                     previous_x
                 } else {
                     x
-                }; 
+                };
                 match idx_iter.next() {
                     Some(v) => current_index = v,
                     None => return ret,
@@ -284,7 +291,7 @@ impl DiscreteDistribution for Poisson {
                 current_quantile_point = points[current_index];
             }
 
-            previous_x = x; 
+            previous_x = x;
             x += 1.0;
             ln_gamma += x.ln();
         }

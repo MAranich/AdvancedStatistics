@@ -22,6 +22,7 @@ use crate::{
     configuration,
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
+    errors::AdvStatError,
     euclid,
 };
 
@@ -123,7 +124,7 @@ const SECTION_4_DEN: [f64; 7] = [
 
 pub const NORMAL_DOMAIN: ContinuousDomain = ContinuousDomain::Reals;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct StdNormal {}
 
 #[derive(Debug, Clone, PartialEq)]
@@ -146,12 +147,12 @@ pub struct NormalGenerator {
 
 impl StdNormal {
     /// Create a Standard normal distribution. Has a mean of `0.0` and a standard
-    /// deviation of `1.0`. 
-    /// 
-    /// In order to change the parameters, use instead [Normal::new]. 
-    /// 
+    /// deviation of `1.0`.
+    ///
+    /// In order to change the parameters, use instead [Normal::new].
+    ///
     /// This datastructure contains no information, therefore you can use [STD_NORMAL]
-    /// to direcly call the necessary methods. 
+    /// to direcly call the necessary methods.
     pub const fn new() -> StdNormal {
         return StdNormal {};
     }
@@ -264,9 +265,22 @@ impl Normal {
     ///  - The `standard_deviation` must be stricly greater than `0.0`.
     ///
     /// If those conditions are not fullfiled, an error will be returned.
-    pub const fn new(mean: f64, standard_deviation: f64) -> Result<Normal, ()> {
+    pub const fn new(mean: f64, standard_deviation: f64) -> Result<Normal, AdvStatError> {
         if !mean.is_finite() || !standard_deviation.is_finite() || standard_deviation < 0.0 {
-            return Err(());
+            let error: AdvStatError = match (mean.classify(), standard_deviation.classify()) {
+                (std::num::FpCategory::Nan, _) | (_, std::num::FpCategory::Nan) => {
+                    AdvStatError::NanErr
+                }
+                (std::num::FpCategory::Infinite, _) => AdvStatError::InvalidNumber,
+                (_, std::num::FpCategory::Infinite) => AdvStatError::InvalidNumber,
+                _ => {
+                    // this branch can only mean that both numbers are finite, therefore
+                    // std must be non-positive
+                    AdvStatError::InvalidNumber
+                }
+            };
+
+            return Err(error);
         }
 
         return Ok(Normal {
@@ -277,12 +291,15 @@ impl Normal {
 
     /// Create a [Normal] distribution without checking for the corrrectness of the inputs.
     ///
+    /// ## Safety
+    ///
+    /// If the following conditions are not fullfiled, the returned distribution
+    /// will be invalid.
+    ///
     ///  - The `mean` must be finite (No `+-inf` or NaNs)
     ///  - The `standard_deviation` must be finite (No `+-inf` or NaNs)
     ///  - The `standard_deviation` must be stricly greater than `0.0`.
     ///
-    /// If those conditions are not fullfiled, the returned distribution
-    /// will be invalid.
     pub const unsafe fn new_unchecked(mean: f64, standard_deviation: f64) -> Normal {
         return Normal {
             mean,
@@ -314,6 +331,12 @@ impl Normal {
             minus_mean: -self.mean,
             inv_std_dev: 1.0 / self.standard_deviation,
         };
+    }
+
+    // A quick approximation for the cdf of the normal distribution.
+    #[inline]
+    pub fn fast_cdf(&self, x: f64) -> f64 {
+        return (StdNormal::fast_cdf(x) - self.mean) / self.standard_deviation;
     }
 }
 
@@ -422,11 +445,11 @@ impl Distribution for StdNormal {
         // just call [Distribution::quantile_multiple]
 
         /*
-            We have 1 extra fast approximations to the quantile of the normal: 
-            > Q(x) = sqrt(2*pi)/4 * ln(x / (1 - x))
+           We have 1 extra fast approximations to the quantile of the normal:
+           > Q(x) = sqrt(2*pi)/4 * ln(x / (1 - x))
 
-            0.626657068658 = sqrt(2pi)/4 ||| Makes the approx have the correct slope at 0.0
-         */
+           0.626657068658 = sqrt(2pi)/4 ||| Makes the approx have the correct slope at 0.0
+        */
 
         if x.is_nan() || x.is_infinite() {
             // x is not valid
@@ -441,9 +464,9 @@ impl Distribution for StdNormal {
             return f64::INFINITY;
         }
 
-        let mut guess: f64 = euclid::SQRT_2_PI * 0.25 * (x / (1.0 - x)).ln(); 
-        
-        // println!("*******************************************\n{x}"); 
+        let mut guess: f64 = euclid::SQRT_2_PI * 0.25 * (x / (1.0 - x)).ln();
+
+        // println!("*******************************************\n{x}");
         let mut last_guess: f64 = 128.0;
         // ^arbitrary value far away from `guess`
         loop {
@@ -468,7 +491,7 @@ impl Distribution for StdNormal {
                 So, the only non-trivial computations are `cdf(x)` and `exp(x)`.
 
             */
-            //println!("{}", guess); 
+            //println!("{}", guess);
             let inv_pdf: f64 = euclid::SQRT_2_PI * (0.5 * guess * guess).exp();
             //let inv_pdf: f64 = 1.0 / STD_NORMAL.pdf(guess);
             guess = guess - (STD_NORMAL.cdf(guess) - x) * inv_pdf;
@@ -522,7 +545,7 @@ impl Distribution for StdNormal {
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
-        let CONVERGENCE_CRITERIA: f64 =
+        let convergence_criteria: f64 =
             unsafe { configuration::newtons_method::NEWTONS_CONVERGENCE_DIFFERENCE_CRITERIA };
 
         for rand_q in &mut rand_quantiles {
@@ -534,7 +557,7 @@ impl Distribution for StdNormal {
                 (*rand_q, false)
             };
 
-            assert!(0.5 <= q && q <= 1.0);
+            assert!((0.5..=1.0).contains(&q));
 
             // [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
 
@@ -579,7 +602,7 @@ impl Distribution for StdNormal {
                 */
 
                 let diff: f64 = (r - last).abs();
-                if diff < CONVERGENCE_CRITERIA {
+                if diff < convergence_criteria {
                     break;
                 }
                 last = r;
@@ -1393,7 +1416,7 @@ impl Iterator for StdNormalGenerator {
             (rand_q, false)
         };
 
-        assert!(0.5 <= q && q <= 1.0);
+        assert!((0.5..=1.0).contains(&q));
 
         // [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
 

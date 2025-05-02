@@ -1,10 +1,9 @@
-use std::usize;
+//! This script contains the interfaces used to comunicate with the distributions.
 
 use rand::Rng;
 
 use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
-///! This script contains the interfaces used to comunicate with the distributions.
 use crate::euclid::{self, *};
 use crate::hypothesis::Hypothesis;
 use crate::samples::Samples;
@@ -31,10 +30,10 @@ pub trait Distribution {
     ///  - `0.0 <= pdf(x)`
     ///  - It is normalized. (It has an area under the curbe of `1.0`)
     ///      - If you are not sure if the PDF is normalized, you can use
-    /// [crate::euclid::numerical_integration].
+    ///         [crate::euclid::numerical_integration].
     ///  - The function must be real valued (no `+-inf` or NaNs)
     ///  - As `x` approaches `+-inf` (if inside the domain), `pdf(x)` should
-    /// tend to `0.0`.
+    ///     tend to `0.0`.
     fn pdf(&self, x: f64) -> f64;
 
     /// Returns a reference to the pdf [ContinuousDomain], wich indicates at wich points
@@ -91,7 +90,7 @@ pub trait Distribution {
     ///  > Q(p) = x = F^-1(p)
     ///
     ///  - if `x` is outside the range [0.0, 1.0], the respective bound of the domain
-    /// will be returned.
+    ///     will be returned.
     ///  - **Panicks** is `x` is a NaN.
     ///
     /// The quantile function is the inverse function of [Distribution::cdf]. Note that
@@ -196,7 +195,7 @@ pub trait Distribution {
         let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -210,11 +209,8 @@ pub trait Distribution {
         });
 
         let (step_length, max_iters): (f64, usize) = {
-            let doing_substitutuon: bool = if let IntegrationType::FullInfinite = integration_type {
-                true
-            } else {
-                false
-            };
+            let doing_substitutuon: bool =
+                matches!(integration_type, IntegrationType::FullInfinite);
             choose_integration_precision_and_steps(bounds, doing_substitutuon)
         };
         let half_step_length: f64 = 0.5 * step_length;
@@ -415,7 +411,7 @@ pub trait Distribution {
     ///  > Q(p) = x = F^-1(p)
     ///
     ///  - if `x` is outside the range [0.0, 1.0], the respective bound of the domain
-    /// will be returned.
+    ///     will be returned.
     ///  - **Panicks** is `x` is a NaN.
     ///
     /// The quantile function is the inverse function of [Distribution::cdf_multiple]. Note that
@@ -490,7 +486,7 @@ pub trait Distribution {
         let domain: &ContinuousDomain = self.get_domain();
         let bounds: (f64, f64) = domain.get_bounds();
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -503,11 +499,8 @@ pub trait Distribution {
             }
         });
         let (step_length, max_iters): (f64, usize) = {
-            let doing_substitutuon: bool = if let IntegrationType::FullInfinite = integration_type {
-                true
-            } else {
-                false
-            };
+            let doing_substitutuon: bool =
+                matches!(integration_type, IntegrationType::FullInfinite);
             choose_integration_precision_and_steps(bounds, doing_substitutuon)
         };
         let half_step_length: f64 = 0.5 * step_length;
@@ -560,6 +553,8 @@ pub trait Distribution {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
+                        // result of pdf is always finite
+                        #[allow(clippy::neg_cmp_op_on_partial_ord)]
                         if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                             // if pdf_q is essentially 0, skip this.
                             // newton's iteration
@@ -587,6 +582,9 @@ pub trait Distribution {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
+
+                        // result of pdf is always finite
+                        #[allow(clippy::neg_cmp_op_on_partial_ord)]
                         if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                             // if pdf_q is essentially 0, skip this.
                             // newton's iteration
@@ -611,6 +609,8 @@ pub trait Distribution {
                         let mut quantile: f64 = current_position;
 
                         let pdf_q: f64 = self.pdf(quantile);
+                        // result of pdf is always finite
+                        #[allow(clippy::neg_cmp_op_on_partial_ord)]
                         if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
                             // if pdf_q is essentially 0, skip this.
                             // newton's iteration
@@ -732,7 +732,7 @@ pub trait Distribution {
             IntegrationType::FullInfinite => (r / (1.0 - r)).ln(),
         };
 
-        let USE_LOG_DISTRIBUTION: bool =
+        let use_log_distribution: bool =
             unsafe { configuration::distribution_mode_deafult::USE_LOG_DERIVATIVE };
 
         // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
@@ -760,7 +760,7 @@ pub trait Distribution {
         let mut i: u32 = 0;
 
         while !convergence {
-            let gradient: f64 = if USE_LOG_DISTRIBUTION {
+            let gradient: f64 = if use_log_distribution {
                 log_derivative(ret)
             } else {
                 derivative(ret)
@@ -1188,7 +1188,7 @@ pub trait DiscreteDistribution {
     ///  - `0.0 <= pmf(x)`
     ///  - It is normalized: `1.0 = sumatory{x} pmf(x)` for all `x` in the domain.
     ///      - If you are not sure if the PDF is normalized, you can use
-    /// [crate::euclid::discrete_integration].
+    ///         [crate::euclid::discrete_integration].
     ///  - The function must be real valued (no `+-inf` or NaNs)
     fn pmf(&self, x: f64) -> f64;
 
@@ -1350,7 +1350,7 @@ pub trait DiscreteDistribution {
             bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area)
         }
 
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];
@@ -1558,7 +1558,7 @@ pub trait DiscreteDistribution {
             // Now treat the IntegrationType::FullInfinite the same as IntegrationType::Finite
         }
 
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).into_iter().collect::<Vec<usize>>();
+        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
 
         sorted_indicies.sort_unstable_by(|&i, &j| {
             let a: f64 = points[i];

@@ -22,10 +22,9 @@ pub mod integration {
     //! precision comes with an extra computational cost. We recommend changing the values
     //! to fit your needs. This values are just a mere recomendation.
 
-
-    /// Multiplies the number of steps when performing a numerical integration 
-    /// in a **finite** domain. 
-    pub static mut MULTIPLIER_STEPS_FINITE_INTEGRATION: f64 = 1.0; 
+    /// Multiplies the number of steps when performing a numerical integration
+    /// in a **finite** domain.
+    pub static mut MULTIPLIER_STEPS_FINITE_INTEGRATION: f64 = 1.0;
 
     /// The deafult integration precision is `1/8`.
     pub static mut DEFAULT_INTEGRATION_PRECISION: f64 = 0.125;
@@ -70,13 +69,12 @@ pub mod disrete_distribution_deafults {
     pub static mut MAXIMUM_STEPS: u64 = 1 << 20;
 }
 
-
 pub mod derivation {
 
-    /// Default `h` when performing numerical derivation: 
-    /// 
+    /// Default `h` when performing numerical derivation:
+    ///
     /// `f'(x) = (f(x + h) - f(x))/h`
-    pub static mut DEAFULT_H: f64 = 1.0/1024.0; 
+    pub static mut DEAFULT_H: f64 = 1.0 / 1024.0;
 }
 
 pub mod distribution_mode_deafult {
@@ -96,8 +94,8 @@ pub mod distribution_mode_deafult {
     /// how big is the "step" we take to the solution.
     ///  - A big learning rate will lead to the solution faster, but may overshoot.
     ///  - A small learning rate will better converge once near a local optimum but
-    /// may also get stuck in an undesirable local maximum (not the global maximum).
-    /// It will also have a slow convergence.
+    ///     may also get stuck in an undesirable local maximum (not the global maximum).
+    ///     It will also have a slow convergence.
     pub static mut LEARNING_RATE: f64 = 0.02;
 
     /// The change of the [learning rate](https://en.wikipedia.org/wiki/Learning_rate)
@@ -144,7 +142,6 @@ pub mod maximum_likelihood_estimation {
     pub static mut MAX_ITERATIONS: u32 = 1 << 16;
 }
 
-
 /// Determines if a Newton's method iteration is used in the (deafult)
 /// quantile function (continuous).
 ///
@@ -153,8 +150,9 @@ pub mod maximum_likelihood_estimation {
 pub static mut QUANTILE_USE_NEWTONS_ITER: bool = true;
 
 pub mod newtons_method {
-    /// Convergence criteria for Newton's method. 
-    /// 
+    /// Convergence criteria for Newton's method.
+    ///
     /// =`1.52587890625e-05`
-    pub static mut NEWTONS_CONVERGENCE_DIFFERENCE_CRITERIA: f64 = f64::from_bits(4535124824762089472); 
+    pub static mut NEWTONS_CONVERGENCE_DIFFERENCE_CRITERIA: f64 =
+        f64::from_bits(4535124824762089472);
 }
