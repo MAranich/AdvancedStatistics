@@ -6,6 +6,10 @@
     clippy::cast_lossless,
     clippy::match_same_arms,
     clippy::single_match_else,
+    clippy::semicolon_if_nothing_returned, 
+    clippy::unseparated_literal_suffix, 
+    clippy::suspicious_operation_groupings, 
+    clippy::useless_let_if_seq, 
     // clippy::implicit_return,
     )]
 #![allow(

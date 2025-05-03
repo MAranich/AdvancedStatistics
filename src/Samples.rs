@@ -420,7 +420,7 @@ impl Samples {
 
                 // m^3*(2*n - 3)
                 // let coef_1: f64 = mean * mean * mean * (2.0 * n - 3.0);
-                let coef_1: f64 = mean * mean * mean * 2.0f64.mul_add(n, -3.0);
+                let coef_1: f64 = mean * mean * mean * 2.0_f64.mul_add(n, -3.0);
 
                 // -3*m*var*(n-1)
                 let coef_2: f64 = -3.0 * mean * variance * (n - 1.0);
