@@ -38,10 +38,11 @@ impl Distribution for Dirac {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the cdf function of Dirac with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf function of Dirac with a NaN value. \n"
+        );
+
         return x.signum();
     }
 
@@ -54,10 +55,10 @@ impl Distribution for Dirac {
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the quantile function of Dirac with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function of Dirac with a NaN value. \n"
+        );
 
         // I think that this is what makes most sense
         return 0.0;
@@ -121,8 +122,7 @@ impl Distribution for Dirac {
     #[must_use]
     fn moments(&self, _order: u8, mode: crate::euclid::Moments) -> f64 {
         return match mode {
-            crate::euclid::Moments::Raw => 0.0,
-            crate::euclid::Moments::Central => 0.0,
+            crate::euclid::Moments::Raw | crate::euclid::Moments::Central => 0.0,
             crate::euclid::Moments::Standarized => f64::NAN,
         };
     }

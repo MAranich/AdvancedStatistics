@@ -38,10 +38,10 @@ impl DiscreteDistribution for Degenerate {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the cdf of Degenerate with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf of Degenerate with a NaN value. \n"
+        );
 
         return (x.signum() + 1.0) * 0.5;
     }
@@ -53,12 +53,10 @@ impl DiscreteDistribution for Degenerate {
 
     #[must_use]
     fn quantile(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!(
-                "Tried to evaluate the quantile function of Degenerate with a NaN value. \n"
-            );
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function of Degenerate with a NaN value. \n"
+        );
 
         return 0.0;
     }
@@ -124,8 +122,7 @@ impl DiscreteDistribution for Degenerate {
     #[must_use]
     fn moments(&self, _order: u8, mode: crate::euclid::Moments) -> f64 {
         return match mode {
-            crate::euclid::Moments::Raw => 0.0,
-            crate::euclid::Moments::Central => 0.0,
+            crate::euclid::Moments::Raw | crate::euclid::Moments::Central => 0.0,
             crate::euclid::Moments::Standarized => f64::NAN,
         };
     }

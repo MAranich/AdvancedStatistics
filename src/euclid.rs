@@ -40,6 +40,7 @@ pub static mut PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION: f64 = 0.999999;
 ///
 /// The moments can have be of any of the 3 variants in this enum:
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[allow(clippy::exhaustive_enums)]
 pub enum Moments {
     #[default]
     Raw,
@@ -273,6 +274,7 @@ pub fn discrete_integration_with_acumulation(
             accumulator += pmf(point);
         }
     } else {
+        // SAFETY: the variable should nor be frequently modified
         let area_threhold: f64 = unsafe { PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
 
         // let relevant_refion: (f64, f64) = discrete_region_with_area(pmf, domain, area_threhold);
@@ -295,8 +297,8 @@ pub fn discrete_integration_with_acumulation(
 /// This can be used it there is a distribution with a domain `[-inf, inf]`
 /// and we want to find the value of the cdf at some point. This function
 /// will give the interval that we need to integrate.
-pub fn discrete_region_with_area(
-    pmf: impl Fn(f64) -> f64,
+pub fn discrete_region_with_area<Func: Fn(f64) -> f64>(
+    pmf: Func,
     domain: &DiscreteDomain,
     area: f64,
 ) -> (f64, f64) {
@@ -333,7 +335,7 @@ pub fn random_permutation<T>(arr: &mut [T]) {
     let len: usize = arr.len();
     let mut rng: rand::prelude::ThreadRng = rand::rng();
 
-    for i in (1..=(len - 1)).rev() {
+    for i in (1..len).rev() {
         let mut j: f64 = rng.random();
         j = j * ((i + 1) as f64);
         let j: usize = j as usize;
@@ -354,6 +356,7 @@ pub fn random_permutation<T>(arr: &mut [T]) {
 /// Guarantees:
 ///  - `bounds.0 < bounds.1`
 #[inline]
+#[must_use]
 pub fn choose_integration_precision_and_steps(
     bounds: (f64, f64),
     substitution: bool,
@@ -370,7 +373,8 @@ pub fn choose_integration_precision_and_steps(
 
 
 
-        // SAFETY: all the accesses to static variables shoulb be safe because
+        ## SAFETY:
+        All the accesses to static variables should be safe because
         the values at the config file should not be changed during this function call.
     */
 
@@ -378,25 +382,31 @@ pub fn choose_integration_precision_and_steps(
     let step_length: f64;
     let num_steps: usize;
 
+    // SAFETY: explained at the top of the function
     let absolute_max_steps: usize = unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS };
+    // SAFETY: explained at the top of the function
     let default_precision: f64 = unsafe { DEFAULT_INTEGRATION_PRECISION };
+    // SAFETY: explained at the top of the function
     let step_mult: f64 = unsafe { MULTIPLIER_STEPS_FINITE_INTEGRATION };
 
-    if let IntegrationType::Finite = integration_domain {
+    if matches!(integration_domain, IntegrationType::Finite) {
         let range: f64 = bounds.1 - bounds.0;
         assert!(range.is_sign_positive());
 
+        // SAFETY: explained at the top of the function
         let big_range: bool =
             unsafe { DEFAULT_INTEGRATION_PRECISION * DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 }
                 < range;
 
         if range <= 1.0 {
             // small range (less than an unit)
+            // SAFETY: explained at the top of the function
             num_steps = unsafe { SMALL_INTEGRATION_NUM_STEPS };
             step_length = range / num_steps as f64;
         } else if big_range {
             // interval is very big, we will increase the step_lenght.
 
+            // SAFETY: explained at the top of the function
             step_length = range / unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64 };
             num_steps = absolute_max_steps;
         } else {
@@ -406,9 +416,10 @@ pub fn choose_integration_precision_and_steps(
             num_steps = (range / step_length) as usize;
             */
             // The precision decreases logarithmically (slowly) as the range increases
-            let incr: f64 = (1.0 + range).ln();
+            let incr: f64 = range.ln_1p();
             let l: f64 = default_precision * 0.012 * incr * incr / step_mult;
 
+            // SAFETY: explained at the top of the function
             step_length = l.max(unsafe { SMALL_INTEGRATION_PRECISION });
             num_steps = (range / step_length) as usize;
         }
@@ -430,11 +441,15 @@ pub fn choose_integration_precision_and_steps(
     match integration_domain {
         IntegrationType::Finite => unreachable!("Case already covered. "),
         IntegrationType::InfiniteToConst | IntegrationType::ConstToInfinite => {
+            // SAFETY: explained at the top of the function
             step_length = unsafe { SMALL_INTEGRATION_PRECISION };
+            // SAFETY: explained at the top of the function
             num_steps = unsafe { SMALL_INTEGRATION_NUM_STEPS };
         }
         IntegrationType::FullInfinite => {
+            // SAFETY: explained at the top of the function
             step_length = unsafe { SMALL_INTEGRATION_PRECISION };
+            // SAFETY: explained at the top of the function
             num_steps = unsafe { SMALL_INTEGRATION_NUM_STEPS * 2 };
         }
     }
@@ -447,6 +462,7 @@ pub fn choose_integration_precision_and_steps(
 /// Indicates how big is the range to integrate.
 ///
 /// Mainly ised for readability
+#[allow(clippy::exhaustive_enums)]
 pub enum IntegrationType {
     /// closed interval: `[a, b]`
     Finite,
@@ -460,13 +476,16 @@ pub enum IntegrationType {
 
 impl IntegrationType {
     #[inline]
-    pub fn from_bounds(bounds: (f64, f64)) -> IntegrationType {
-        match (bounds.0.is_finite(), bounds.1.is_finite()) {
+    #[must_use]
+    pub const fn from_bounds(bounds: (f64, f64)) -> IntegrationType {
+        let integration_type: IntegrationType = match (bounds.0.is_finite(), bounds.1.is_finite()) {
             (true, true) => IntegrationType::Finite,
             (true, false) => IntegrationType::ConstToInfinite,
             (false, true) => IntegrationType::InfiniteToConst,
             (false, false) => IntegrationType::FullInfinite,
-        }
+        };
+
+        return integration_type;
     }
 }
 
@@ -477,7 +496,6 @@ pub mod combinatorics {
     ///
     /// Returns an error if there was a problem with the computation (overflow),
     /// if `n` or `k` are negative or if `n < k`.
-    #[must_use]
     pub fn binomial_coefficient(n: u64, mut k: u64) -> Result<u128, AdvStatError> {
         // todo: https://math.stackexchange.com/questions/202554/how-do-i-compute-binomial-coefficients-efficiently
 
@@ -535,8 +553,8 @@ pub mod combinatorics {
         }
 
         // shadowing
-        let n: u128 = n as u128;
-        let k: u128 = k as u128;
+        let n: u128 = u128::from(n);
+        let k: u128 = u128::from(k);
 
         let mut ret: u128 = 1;
         for i in 1..=k {
@@ -704,6 +722,7 @@ pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
 
     let x: f64 = x as f64;
 
+    #[allow(clippy::while_float)]
     while i < x {
         accumulator += i.ln();
         i += 1.0;
@@ -715,6 +734,7 @@ pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
 /// Auxiliary variable when evaluating the `gamma_ln` function
 const GAMMA_R: f64 = 10.900511;
 
+/// Auxiliary constants when evaluating the `gamma_ln` function
 const GAMMA_DK: &[f64] = &[
     2.48574089138753565546e-5,
     1.05142378581721974210,
@@ -855,6 +875,7 @@ pub fn digamma(x: f64) -> f64 {
     let mut result: f64 = 0.0;
     let mut z: f64 = x;
 
+    #[allow(clippy::while_float)]
     while z < c {
         result -= 1.0 / z;
         z += 1.0;
@@ -867,7 +888,7 @@ pub fn digamma(x: f64) -> f64 {
         result -= r * (s3 - r * (s4 - r * (s5 - r * (s6 - r * s7))));
     }
 
-    result
+    return result;
 }
 
 /// Evaluates the [Beta function](https://en.wikipedia.org/wiki/Beta_function).
@@ -878,6 +899,7 @@ pub fn beta_fn(a: f64, b: f64) -> f64 {
     return ln_b.exp();
 }
 
+/// Padé approximant coeffitients for the digamma aproxiamtion
 const DIGAMMA_PADE_NUMERATOR: [f64; 10] = [
     f64::from_bits(4606895151198600840), // 0.9681068894678484 * x^9
     f64::from_bits(4622326023376881682), // 10.900445563285789 * x^8
@@ -891,6 +913,7 @@ const DIGAMMA_PADE_NUMERATOR: [f64; 10] = [
     f64::from_ne_bytes((-4588381784057634817_i64).to_ne_bytes()), // -75.17308887757825 * 1
 ];
 
+/// Padé approximant coeffitients for the digamma aproxiamtion
 const DIGAMMA_PADE_DENOMINATOR: [f64; 10] = [
     f64::from_bits(4597365231518235045), // 0.22751831606769915 *x^9
     f64::from_bits(4617143727378099735), // 4.847419311026463 * x^8
@@ -904,7 +927,9 @@ const DIGAMMA_PADE_DENOMINATOR: [f64; 10] = [
     f64::from_bits(4464699609586934289), // 3.172226528805559e-10 * 1
 ];
 
+/// Theshold for using approximation for *big* numbers
 const FAST_DIGAMMA_UPPER_APROXIMATION_TRESHOLD: f64 = 2.5;
+/// Theshold for using approximation near 0.0
 const FAST_DIGAMMA_LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
 
 /// Evaluate the [Digamma function](https://en.wikipedia.org/wiki/Digamma_function)
@@ -982,6 +1007,7 @@ pub fn fast_digamma(x: f64) -> f64 {
     return ret;
 }
 
+/// Padé approximant coeffitients for the trigamma aproxiamtion
 const TRIGAMMA_PADE_NUMERATOR_NEAR: [f64; 10] = [
     f64::from_bits(4599050549071154915),
     f64::from_ne_bytes((-4600409371471362341_i64).to_ne_bytes()),
@@ -995,6 +1021,7 @@ const TRIGAMMA_PADE_NUMERATOR_NEAR: [f64; 10] = [
     f64::from_bits(4612073025499257633),
 ];
 
+/// Padé approximant coeffitients for the trigamma aproxiamtion
 const TRIGAMMA_PADE_DENOMINATOR_NEAR: [f64; 9] = [
     f64::from_ne_bytes((-4638276494265840659_i64).to_ne_bytes()),
     f64::from_bits(4615093503512022652),
@@ -1007,6 +1034,7 @@ const TRIGAMMA_PADE_DENOMINATOR_NEAR: [f64; 9] = [
     f64::from_bits(4611497482667492137),
 ];
 
+/// Padé approximant coeffitients for the trigamma aproxiamtion
 const TRIGAMMA_PADE_NUMERATOR_FAR: [f64; 5] = [
     f64::from_bits(4544270547592325628),
     f64::from_bits(4611212281723361743),
@@ -1015,6 +1043,7 @@ const TRIGAMMA_PADE_NUMERATOR_FAR: [f64; 5] = [
     f64::from_bits(4605621130056117067),
 ];
 
+/// Padé approximant coeffitients for the trigamma aproxiamtion
 const TRIGAMMA_PADE_DENOMINATOR_FAR: [f64; 5] = [
     f64::from_bits(4611216292122336954),
     f64::from_bits(4612026526901311232),
@@ -1023,7 +1052,9 @@ const TRIGAMMA_PADE_DENOMINATOR_FAR: [f64; 5] = [
     f64::from_bits(4553543097738502949),
 ];
 
+/// Theshold for using approximation for *big* numbers
 const TRIGAMMA_UPPER_APROXIMATION_TRESHOLD: f64 = 3.0;
+/// Theshold for using approximation near 0.0
 const TRIGAMMA_LOWER_APROXIMATION_TRESHOLD: f64 = 0.5;
 
 /// Evaluate the [Trigamma function](https://en.wikipedia.org/wiki/Digamma_function)

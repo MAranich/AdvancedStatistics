@@ -43,7 +43,6 @@ impl Beta {
     /// - This means that a [f64] value is not precise enough.
     /// - Use [Beta::new_unchecked] if you don't need to evaluate
     ///         the pdf direcly or indirecly.
-    #[must_use]
     pub fn new(alpha: f64, beta: f64) -> Result<Beta, AdvStatError> {
         if !alpha.is_finite() {
             if alpha.is_nan() {
@@ -196,10 +195,7 @@ impl Distribution for Beta {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `cdf_multiple` of Beta. \n");
-                // return Err(AdvStatError::NanErr);
-            }
+            assert!(!point.is_nan(), "Found NaN in `cdf_multiple` of Beta. \n");
         }
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
@@ -283,8 +279,11 @@ impl Distribution for Beta {
         // wew will reuse the vector `gamma_alpha_samples` so we don't do an extra allocation
         assert!(gamma_alpha_samples.len() == n && gamma_beta_samples.len() == n);
         for i in 0..n {
+            // SAFETY: `i` is in range
             let a: f64 = unsafe { *gamma_alpha_samples.get_unchecked(i) };
+            // SAFETY: `i` is in range
             let b: f64 = unsafe { *gamma_beta_samples.get_unchecked(i) };
+            // SAFETY: `i` is in range
             let reference: &mut f64 = unsafe { gamma_alpha_samples.get_unchecked_mut(i) };
 
             *reference = a / (a + b);
@@ -345,9 +344,10 @@ impl Distribution for Beta {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `quantile_multiple` of Beta. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `quantile_multiple` of Beta. \n"
+            );
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
@@ -392,6 +392,7 @@ impl Distribution for Beta {
             2.0 * middle - end
         };
 
+        // SAFETY: should always be safe to only read
         let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
 
         'integration_loop: for _ in 0..max_iters {
@@ -496,12 +497,12 @@ impl Distribution for Beta {
 
     #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
-        let sum_a_b: f64 = self.alpha + self.beta;
-        let sub_a_b: f64 = self.alpha - self.beta;
+        let a_plus_b: f64 = self.alpha + self.beta;
+        let a_minus_b: f64 = self.alpha - self.beta;
         let mul_a_b: f64 = self.alpha * self.beta;
 
-        let num: f64 = sub_a_b * sub_a_b * (sum_a_b + 1.0) - mul_a_b * (sub_a_b + 2.0);
-        let den: f64 = mul_a_b * (sub_a_b + 2.0) * (sub_a_b + 3.0);
+        let num: f64 = a_minus_b * a_minus_b * (a_plus_b + 1.0) - mul_a_b * (a_minus_b + 2.0);
+        let den: f64 = mul_a_b * (a_minus_b + 2.0) * (a_minus_b + 3.0);
 
         return Some(6.0 * num / den);
     }
@@ -555,7 +556,7 @@ impl Distribution for Beta {
             let ab: f64 = self.alpha + self.beta;
             let mut acc: f64 = 1.0;
             for r in 0..order {
-                let r: f64 = r as f64;
+                let r: f64 = f64::from(r);
                 acc = acc * (self.alpha + r) / (ab + r);
             }
             return acc;
@@ -581,7 +582,7 @@ impl Distribution for Beta {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let (_, num_steps): (f64, usize) =
             euclid::choose_integration_precision_and_steps(bounds, false);
@@ -988,11 +989,14 @@ impl Parametric for Beta {
         parameters.push(1.0);
         // default values are a = 1, b = 1
 
+        // SAFETY: should always be safe to only read
         let learning_rate: f64 =
             unsafe { crate::configuration::maximum_likelihood_estimation::LEARNING_RATE };
+        // SAFETY: should always be safe to only read
         let conv_diff_criteria: f64 = unsafe {
             crate::configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
         };
+        // SAFETY: should always be safe to only read
         let max_iterations: u32 =
             unsafe { crate::configuration::maximum_likelihood_estimation::MAX_ITERATIONS };
 

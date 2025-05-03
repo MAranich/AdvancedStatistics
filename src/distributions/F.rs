@@ -50,7 +50,6 @@ impl F {
     ///      - Use [F::new_unchecked] if you don't need to evaluate
     ///         the pdf direcly or indirecly.
     ///
-    #[must_use]
     pub fn new(d1: f64, d2: f64) -> Result<F, AdvStatError> {
         if !d1.is_finite() {
             if d1.is_nan() {
@@ -131,17 +130,17 @@ impl F {
     }
 
     #[must_use]
-    pub fn get_d1(&self) -> f64 {
+    pub const fn get_d1(&self) -> f64 {
         return self.d1;
     }
 
     #[must_use]
-    pub fn get_d2(&self) -> f64 {
+    pub const fn get_d2(&self) -> f64 {
         return self.d2;
     }
 
     #[must_use]
-    pub fn get_normalitzation_constant(&self) -> f64 {
+    pub const fn get_normalitzation_constant(&self) -> f64 {
         return self.normalitzation_constant;
     }
 }
@@ -172,9 +171,7 @@ impl Distribution for F {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `F::cdf_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `F::cdf_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
@@ -243,7 +240,9 @@ impl Distribution for F {
 
     #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
+        // SAFETY: if self is valid, then self.d1 is positive and the call is safe
         let chi_num: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d1) };
+        // SAFETY: if self is valid, then self.d2 is positive and the call is safe
         let chi_den: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d2) };
 
         let chi_num_samples: Vec<f64> = chi_num.sample_multiple(n);
@@ -267,9 +266,7 @@ impl Distribution for F {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `F::quantile_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `F::quantile_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
@@ -314,6 +311,7 @@ impl Distribution for F {
             2.0 * middle - end
         };
 
+        // SAFETY: should always be safe to only read
         let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
 
         for _ in 0..max_iters {
@@ -489,7 +487,7 @@ impl Parametric for F {
     }
 
     // deafult derivative_pdf_parameters
-    
+
     #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
@@ -791,11 +789,14 @@ impl Parametric for F {
 
         self.parameter_restriction(&mut parameters);
 
+        // SAFETY: should always be safe to only read
         let learning_rate: f64 =
             unsafe { crate::configuration::maximum_likelihood_estimation::LEARNING_RATE };
+        // SAFETY: should always be safe to only read
         let conv_diff_criteria: f64 = unsafe {
             crate::configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
         };
+        // SAFETY: should always be safe to only read
         let max_iterations: u32 =
             unsafe { crate::configuration::maximum_likelihood_estimation::MAX_ITERATIONS };
 

@@ -27,7 +27,6 @@ impl Geometric {
     ///  - `p` indicates the probability of success.
     ///  - `p` must belong in the interval `[0.0, 1.0]`.
     ///      - Otherwise an error will be returned.
-    #[must_use]
     pub const fn new(p: f64) -> Result<Geometric, AdvStatError> {
         if !p.is_finite() {
             if p.is_nan() {
@@ -83,21 +82,21 @@ impl DiscreteDistribution for Geometric {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            std::panic!("Tried to evaluate the cdf of Geometric with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf of Geometric with a NaN value. \n"
+        );
+
         // 1 - (1 - p)^x.floor()
         return 1.0 - (1.0 - self.p).powi(x as i32);
     }
 
     #[must_use]
     fn quantile(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!(
-                "Tried to evaluate the quantile function of Geometric with a NaN value. \n"
-            );
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function of Geometric with a NaN value. \n"
+        );
 
         let value: [f64; 1] = [x];
         let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
@@ -121,9 +120,10 @@ impl DiscreteDistribution for Geometric {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `quantile_multiple` of Geometric. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `quantile_multiple` of Geometric. \n"
+            );
         }
 
         /*
@@ -342,7 +342,7 @@ impl Parametric for Geometric {
 
     fn parameter_restriction(&self, parameters: &mut [f64]) {
         let ep: f64 = f64::EPSILON;
-        parameters[0] = parameters[0].max(ep * ep * ep)
+        parameters[0] = parameters[0].max(ep * ep * ep);
     }
 
     #[must_use]
@@ -399,13 +399,12 @@ impl Parametric for Geometric {
 
         */
 
-        let mean: f64 = match data.mean() {
-            Some(m) => m,
-            None => {
-                // early return deafult probability of 0.5
-                parameters.push(0.5);
-                return parameters;
-            }
+        let mean: f64 = if let Some(m) = data.mean() {
+            m
+        } else {
+            // early return deafult probability of 0.5
+            parameters.push(0.5);
+            return parameters;
         };
 
         let p_mle: f64 = 1.0 / mean;

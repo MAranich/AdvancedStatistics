@@ -126,6 +126,7 @@ fn one_sample_t_test_example(data: &mut Samples, significance: f64) {
                 );
             }
         }
+        _ => unimplemented!()
     }
 
     /*

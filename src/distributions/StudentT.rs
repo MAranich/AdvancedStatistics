@@ -47,15 +47,13 @@ impl StudentT {
     ///  - A [StudentT] distribution with 1 degree of freedom is a [Cauchy distribution](crate::distributions::Cauchy).
     ///  - A [StudentT] distribution with infinite degrees of freedom is a [standard normal distribution](crate::distributions::Normal).
     ///
-    #[must_use]
     pub fn new(degrees_of_freedom: f64) -> Result<StudentT, AdvStatError> {
         if !degrees_of_freedom.is_finite() {
             if degrees_of_freedom.is_nan() {
                 return Err(AdvStatError::NanErr);
-            } else {
-                // inf
-                return Err(AdvStatError::InvalidNumber);
             }
+            // inf
+            return Err(AdvStatError::InvalidNumber);
         }
 
         if degrees_of_freedom <= 0.0 {
@@ -177,9 +175,10 @@ impl Distribution for StudentT {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `cdf_multiple` for StudentT. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `cdf_multiple` for StudentT. \n"
+            );
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
@@ -285,6 +284,7 @@ impl Distribution for StudentT {
         // To be researched and implemented.
 
         let std_norm: StdNormal = StdNormal::new();
+        // SAFETY: `degrees_of_freedom` is always positive
         let chi_sq: ChiSquared = unsafe { ChiSquared::new_unchecked(self.degrees_of_freedom) };
 
         let normal_samples: Vec<f64> = std_norm.sample_multiple(n);
@@ -318,9 +318,10 @@ impl Distribution for StudentT {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `quantile_multiple` for StudentT. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `quantile_multiple` for StudentT. \n"
+            );
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
@@ -372,6 +373,7 @@ impl Distribution for StudentT {
 
         // We can take the "bound" since it's well defined
         let mut last_pdf_evaluation: f64 = self.pdf(0.0);
+        // SAFETY: should always be safe to only read
         let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
 
         for _ in 0..max_iters {
@@ -450,7 +452,7 @@ impl Distribution for StudentT {
 
     #[must_use]
     fn mode(&self) -> f64 {
-        0.0
+        return 0.0;
     }
 
     #[must_use]
@@ -460,11 +462,11 @@ impl Distribution for StudentT {
 
     #[must_use]
     fn skewness(&self) -> Option<f64> {
-        if 3.0 < self.degrees_of_freedom {
+        return if 3.0 < self.degrees_of_freedom {
             Some(0.0)
         } else {
             None
-        }
+        };
     }
 
     #[must_use]
@@ -489,7 +491,7 @@ impl Distribution for StudentT {
         // https://en.wikipedia.org/wiki/Student%27s_t-distribution#Moments
 
         let dof: f64 = self.degrees_of_freedom;
-        if dof <= order as f64 {
+        if dof <= f64::from(order) {
             // Moment does Not exist
             return f64::NAN;
         }
@@ -499,22 +501,21 @@ impl Distribution for StudentT {
                 if (order & 1) == 1 {
                     // order is odd,
                     return 0.0;
-                } else {
-                    // order is even
-
-                    /*
-                        let k: f64 = order as f64;
-                        let num: f64 = gamma((k + 1.0) * 0.5) * gamma((dof - k) * 0.5) * dof.powf(k * 0.5);
-                        let den: f64 = f64::consts::PI.sqrt() * gamma(dof * 0.5);
-                        return num / den;
-                    */
-
-                    let mut acc: f64 = 1.0;
-                    for j in 1..(order >> 1) {
-                        acc = acc * (2.0 * (j as f64) - 1.0) / (dof - 2.0 * j as f64);
-                    }
-                    return acc * dof.powf(order as f64 * 0.5);
                 }
+                // order is even
+
+                /*
+                    let k: f64 = order as f64;
+                    let num: f64 = gamma((k + 1.0) * 0.5) * gamma((dof - k) * 0.5) * dof.powf(k * 0.5);
+                    let den: f64 = f64::consts::PI.sqrt() * gamma(dof * 0.5);
+                    return num / den;
+                */
+
+                let mut acc: f64 = 1.0;
+                for j in 1..(order >> 1) {
+                    acc = acc * (2.0 * f64::from(j) - 1.0) / (dof - 2.0 * f64::from(j));
+                }
+                return acc * dof.powf(f64::from(order) * 0.5);
             }
             crate::euclid::Moments::Central => (0.0, 1.0),
             crate::euclid::Moments::Standarized => (
@@ -530,7 +531,7 @@ impl Distribution for StudentT {
 
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let (_, num_steps): (f64, usize) =
             crate::euclid::choose_integration_precision_and_steps(bounds, true);
@@ -549,7 +550,11 @@ impl Distribution for StudentT {
                 let v: f64 = 1.0 / u;
                 let fn_input: f64 = x * v;
                 let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
+                break 'integration std_inp.powi(order_exp)
+                    * self.pdf(fn_input)
+                    * (1.0 + x * x)
+                    * v
+                    * v;
             };
 
             crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
@@ -576,11 +581,10 @@ impl Distribution for StudentT {
         hypothesys: crate::hypothesis::Hypothesis,
         significance_level: f64,
     ) -> (f64, f64) {
-        if !significance_level.is_finite() {
-            std::panic!(
-                "Tried to call Distribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "
-            );
-        }
+        assert!(
+            significance_level.is_finite(),
+            "Tried to call Distribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "
+        );
 
         let mut bounds: (f64, f64) = self.get_domain().get_bounds();
         if significance_level <= 0.0 || bounds.1 - bounds.0 <= 0.0 {
@@ -841,7 +845,9 @@ impl Parametric for StudentT {
         // TODO: heavy testing!!!
 
         let mut rng: rand::prelude::ThreadRng = rng();
+        // SAFETY: value is safe to only read
         let h: f64 = unsafe { configuration::derivation::DEAFULT_H };
+        // SAFETY: value is safe to only read
         let convergence_dist: f64 = unsafe {
             configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
         };
@@ -877,7 +883,8 @@ impl Parametric for StudentT {
                     let inv_u: f64 = 1.0 / u;
 
                     acc += (1.0 + sq * inv_nu).ln() - (nu - 1.0) * sq * inv_u;
-                    acc_der += -sq * (inv_nu + (u - (nu + 1.0) * (2.0 * nu * sq) * inv_nu * inv_nu))
+                    acc_der +=
+                        -sq * (inv_nu + (u - (nu + 1.0) * (2.0 * nu * sq) * inv_nu * inv_nu));
                 }
 
                 // Newton's method

@@ -127,7 +127,7 @@ pub const NORMAL_DOMAIN: ContinuousDomain = ContinuousDomain::Reals;
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct StdNormal {}
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Normal {
     /// The mean of the distribution
     mean: f64,
@@ -166,7 +166,7 @@ impl StdNormal {
     /// the repeated initialitzation processes in [StdNormal::sample].
     #[must_use]
     pub fn iter(&self) -> StdNormalGenerator {
-        StdNormalGenerator { rng: rand::rng() }
+        return StdNormalGenerator { rng: rand::rng() };
     }
 
     // A quick approximation for the cdf of the standard normal.
@@ -268,15 +268,15 @@ impl Normal {
     ///  - The `standard_deviation` must be stricly greater than `0.0`.
     ///
     /// If those conditions are not fullfiled, an error will be returned.
-    #[must_use]
     pub const fn new(mean: f64, standard_deviation: f64) -> Result<Normal, AdvStatError> {
         if !mean.is_finite() || !standard_deviation.is_finite() || standard_deviation < 0.0 {
             let error: AdvStatError = match (mean.classify(), standard_deviation.classify()) {
                 (std::num::FpCategory::Nan, _) | (_, std::num::FpCategory::Nan) => {
                     AdvStatError::NanErr
                 }
-                (std::num::FpCategory::Infinite, _) => AdvStatError::InvalidNumber,
-                (_, std::num::FpCategory::Infinite) => AdvStatError::InvalidNumber,
+                (std::num::FpCategory::Infinite, _) | (_, std::num::FpCategory::Infinite) => {
+                    AdvStatError::InvalidNumber
+                }
                 _ => {
                     // this branch can only mean that both numbers are finite, therefore
                     // std must be non-positive
@@ -387,10 +387,10 @@ impl Distribution for StdNormal {
 
         */
 
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the cdf function of StdNormal with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf function of StdNormal with a NaN value. \n"
+        );
 
         let (point, flipped): (f64, bool) = if x < 0.0 { (-x, true) } else { (x, false) };
 
@@ -465,12 +465,10 @@ impl Distribution for StdNormal {
            0.626657068658 = sqrt(2pi)/4 ||| Makes the approx have the correct slope at 0.0
         */
 
-        if x.is_nan() || x.is_infinite() {
-            // x is not valid
-            std::panic!(
-                "Tried to evaluate the quantile function of StdNormal with a NaN value. \n"
-            );
-        }
+        assert!(
+            !(x.is_nan() || x.is_infinite()),
+            "Tried to evaluate the quantile function of StdNormal with a NaN value. \n"
+        );
 
         if x <= 0.0 {
             return f64::NEG_INFINITY;
@@ -561,6 +559,7 @@ impl Distribution for StdNormal {
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
         rng.fill(rand_quantiles.as_mut_slice());
 
+        // SAFETY: should always be safe to only read
         let convergence_criteria: f64 =
             unsafe { configuration::newtons_method::NEWTONS_CONVERGENCE_DIFFERENCE_CRITERIA };
 
@@ -739,7 +738,7 @@ impl Distribution for StdNormal {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let (_, num_steps): (f64, usize) =
             crate::euclid::choose_integration_precision_and_steps(bounds, true);
@@ -841,7 +840,7 @@ impl Distribution for Normal {
         let c: f64 = x - self.mean;
         return euclid::INV_SQRT_2_PI * inv_std * (-c * c * 0.5 * inv_std * inv_std).exp();
     }
-    
+
     #[must_use]
     fn get_domain(&self) -> &ContinuousDomain {
         return &NORMAL_DOMAIN;
@@ -849,10 +848,11 @@ impl Distribution for Normal {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the cdf function of Normal with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf function of Normal with a NaN value. \n"
+        );
+
         let aux: [f64; 1] = [x];
         let aux_2: Vec<f64> = self.cdf_multiple(&aux);
         return aux_2[0];
@@ -868,10 +868,10 @@ impl Distribution for Normal {
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the quantile function of Normal with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function of Normal with a NaN value. \n"
+        );
 
         let value: [f64; 1] = [x];
         let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
@@ -909,9 +909,10 @@ impl Distribution for Normal {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `quantile_multiple` of Normal. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `quantile_multiple` of Normal. \n"
+            );
         }
 
         let neg_mean: f64 = -self.mean;
@@ -1025,7 +1026,7 @@ impl Distribution for Normal {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let (_, num_steps): (f64, usize) =
             crate::euclid::choose_integration_precision_and_steps(bounds, true);
@@ -1044,7 +1045,11 @@ impl Distribution for Normal {
                 let v: f64 = 1.0 / u;
                 let fn_input: f64 = x * v;
                 let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
+                break 'integration std_inp.powi(order_exp)
+                    * self.pdf(fn_input)
+                    * (1.0 + x * x)
+                    * v
+                    * v;
             };
 
             crate::euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
@@ -1130,7 +1135,7 @@ impl Parametric for Normal {
     /// Returns the number of parameters of the model: `2`
     #[must_use]
     fn number_of_parameters() -> u16 {
-        2
+        return 2;
     }
 
     fn get_parameters(&self, parameters: &mut [f64]) {
@@ -1441,7 +1446,7 @@ impl Parametric for Normal {
         */
 
         let mean: f64 = data.mean().unwrap_or(0.0);
-        let std_dev: f64 = data.variance().map(|v: f64| v.sqrt()).unwrap_or(1.0);
+        let std_dev: f64 = data.variance().map_or(1.0, |v: f64| v.sqrt());
         // note that .variance() uses the unbiased extimator
 
         ret.push(mean);
@@ -1508,6 +1513,6 @@ impl Iterator for NormalGenerator {
 
 impl Default for Normal {
     fn default() -> Self {
-        Normal::new(0.0, 1.0).unwrap()
+        return Normal::new(0.0, 1.0).unwrap();
     }
 }

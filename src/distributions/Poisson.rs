@@ -40,7 +40,6 @@ impl Poisson {
     ///      - `0.0 < lambda`
     ///
     /// Otherwise an error will be returned.
-    #[must_use]
     pub const fn new(lambda: f64) -> Result<Poisson, AdvStatError> {
         if !lambda.is_finite() {
             if lambda.is_nan() {
@@ -128,9 +127,10 @@ impl DiscreteDistribution for Poisson {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `cdf_multiple` of Poisson. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `cdf_multiple` of Poisson. \n"
+            );
         }
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
@@ -179,7 +179,7 @@ impl DiscreteDistribution for Poisson {
 
             accumulator += pmf;
             x += 1.0;
-            ln_gamma += x.ln()
+            ln_gamma += x.ln();
         }
     }
 
@@ -240,9 +240,10 @@ impl DiscreteDistribution for Poisson {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `quantile_multiple` for Poisson. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `quantile_multiple` for Poisson. \n"
+            );
         }
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
@@ -473,7 +474,7 @@ impl Parametric for Poisson {
 
     fn parameter_restriction(&self, parameters: &mut [f64]) {
         let ep: f64 = f64::EPSILON;
-        parameters[0] = parameters[0].max(ep * ep * ep)
+        parameters[0] = parameters[0].max(ep * ep * ep);
     }
 
     #[must_use]
@@ -504,13 +505,12 @@ impl Parametric for Poisson {
 
         */
 
-        let mean: f64 = match data.mean() {
-            Some(m) => m,
-            None => {
-                // early return deafult lambda = 1.0
-                parameters.push(1.0);
-                return parameters;
-            }
+        let mean: f64 = if let Some(m) = data.mean() {
+            m
+        } else {
+            // early return deafult lambda = 1.0
+            parameters.push(1.0);
+            return parameters;
         };
 
         parameters.push(mean);

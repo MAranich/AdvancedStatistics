@@ -107,7 +107,7 @@ impl DiscreteDomain {
 
         let x_int: i64 = x as i64;
 
-        match self {
+        return match self {
             DiscreteDomain::Integers => x.fract() == 0.0,
             DiscreteDomain::Range(min, max) => (*min <= x_int) && (x_int <= *max),
             DiscreteDomain::From(min) => *min <= x_int,
@@ -117,7 +117,7 @@ impl DiscreteDomain {
                 // ^already done
                 unreachable!();
             }
-        }
+        };
     }
 
     /// Returns the upper and lower bounds of the domain.
@@ -129,7 +129,7 @@ impl DiscreteDomain {
     /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
     #[must_use]
     pub fn get_bounds(&self) -> (f64, f64) {
-        match &self {
+        return match &self {
             DiscreteDomain::Integers => (f64::NEG_INFINITY, f64::INFINITY),
             DiscreteDomain::Range(min, max) => (*min as f64, *max as f64),
             DiscreteDomain::From(min) => (*min as f64, f64::INFINITY),
@@ -138,29 +138,29 @@ impl DiscreteDomain {
                 Some(first) => (*first, *vec.last().unwrap()),
                 None => DEFAULT_EMPTY_DOMAIN_BOUNDS,
             },
-        }
+        };
     }
 
     /// Returns an iteratior that iterates trough all the elements in the domain.
     ///
     /// Warning: the iterator may be infinite.
     #[must_use]
-    pub fn iter(&self) -> DiscreteDomainIterator {
+    pub const fn iter(&self) -> DiscreteDomainIterator {
         // current_value being a NaN sybmolyzes that no values have been given yet
-        DiscreteDomainIterator {
+        return DiscreteDomainIterator {
             domain: self,
             current_value: f64::NAN,
             custom_domain_index: 0,
-        }
+        };
     }
 
     /// Returns true if the domain contains a finite number of elements.
     #[must_use]
-    pub fn contains_finite_elements(&self) -> bool {
-        match self {
+    pub const fn contains_finite_elements(&self) -> bool {
+        return match self {
             DiscreteDomain::Range(_, _) | DiscreteDomain::Custom(_) => true,
             DiscreteDomain::Integers | DiscreteDomain::From(_) | DiscreteDomain::To(_) => false,
-        }
+        };
     }
 }
 
@@ -183,13 +183,13 @@ impl ContinuousDomain {
     ///
     /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
     #[must_use]
-    pub fn get_bounds(&self) -> (f64, f64) {
-        match &self {
+    pub const fn get_bounds(&self) -> (f64, f64) {
+        return match &self {
             ContinuousDomain::Reals => (f64::NEG_INFINITY, f64::INFINITY),
             ContinuousDomain::Range(min, max) => (*min, *max),
             ContinuousDomain::From(min) => (*min, f64::INFINITY),
             ContinuousDomain::To(max) => (f64::NEG_INFINITY, *max),
-        }
+        };
     }
 }
 

@@ -35,7 +35,6 @@ impl Bernoulli {
     ///
     ///  - `p` indicates the probability of success (returning `1.0`).
     ///     - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
-    #[must_use]
     pub const fn new(p: f64) -> Result<Bernoulli, AdvStatError> {
         if !p.is_finite() {
             if p.is_nan() {
@@ -93,9 +92,10 @@ impl DiscreteDistribution for Bernoulli {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            std::panic!("Tried to evaluate the Bernoulli cdf with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the Bernoulli cdf with a NaN value. \n"
+        );
 
         if x < 0.0 {
             return 0.0;
@@ -116,10 +116,10 @@ impl DiscreteDistribution for Bernoulli {
 
     #[must_use]
     fn quantile(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the Bernoulli quantile function with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the Bernoulli quantile function with a NaN value. \n"
+        );
 
         if x <= 1.0 - self.p {
             return 0.0;
@@ -199,7 +199,7 @@ impl DiscreteDistribution for Bernoulli {
             crate::euclid::Moments::Raw => return self.expected_value().unwrap(),
             crate::euclid::Moments::Central => {
                 let q: f64 = 1.0 - self.p;
-                return q * (-self.p).powi(order as i32) + self.p * q.powi(order as i32);
+                return q * (-self.p).powi(i32::from(order)) + self.p * q.powi(i32::from(order));
             }
             crate::euclid::Moments::Standarized => {
                 (self.expected_value().unwrap(), self.variance().unwrap())
@@ -208,7 +208,7 @@ impl DiscreteDistribution for Bernoulli {
 
         // this is only for the standarized case and it is the deafult implementation.
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
 
         let integration_fn = |x: f64| {
@@ -216,6 +216,7 @@ impl DiscreteDistribution for Bernoulli {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
+        // SAFETY: should always be safe to only read
         let max_steps: u64 =
             unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
@@ -261,9 +262,8 @@ impl Parametric for Bernoulli {
         1
     }
 
-    #[must_use]
     fn get_parameters(&self, parameters: &mut [f64]) {
-        // assert!(self.number_of_parameters() <= parameters.len()); 
+        // assert!(self.number_of_parameters() <= parameters.len());
         parameters[0] = self.p;
     }
 
@@ -354,7 +354,7 @@ impl Parametric for Bernoulli {
 
             let mut der: f64 = 0.0;
             let p: f64 = parameters[0];
-            if x == 1.0 {
+            if (x - 1.0).abs() < 0.5 {
                 der = 1.0 / p;
             } else if x == 0.0 {
                 der = 1.0 / (p - 1.0);
@@ -418,13 +418,13 @@ impl Parametric for Bernoulli {
         */
 
         let mut num_ones: u32 = 0;
-        for observation in data.peek_data().iter() {
+        for observation in data.peek_data() {
             if *observation == 0.0 {
                 num_ones += 1;
             }
         }
 
-        ret.push((num_ones as f64) / (data.peek_data().len() as f64));
+        ret.push(f64::from(num_ones) / (data.peek_data().len() as f64));
 
         return ret;
     }

@@ -35,7 +35,6 @@ impl Binomial {
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
     ///  - `n` indicates the number of trials
     ///
-    #[must_use]
     pub const fn new(p: f64, n: u64) -> Result<Binomial, AdvStatError> {
         if !p.is_finite() {
             if p.is_nan() {
@@ -115,9 +114,10 @@ impl DiscreteDistribution for Binomial {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            std::panic!("Tried to evaluate the cdf with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf with a NaN value. \n"
+        );
 
         let aux: [f64; 1] = [x];
         let aux_2: Vec<f64> = self.cdf_multiple(&aux);
@@ -126,10 +126,10 @@ impl DiscreteDistribution for Binomial {
 
     #[must_use]
     fn quantile(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the quantile function with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function with a NaN value. \n"
+        );
 
         let value: [f64; 1] = [x];
         let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
@@ -154,9 +154,7 @@ impl DiscreteDistribution for Binomial {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `cdf_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `cdf_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
@@ -252,9 +250,7 @@ impl DiscreteDistribution for Binomial {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                panic!("Found NaN in `quantile_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `quantile_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = vec![0.0; points.len()];
@@ -324,9 +320,8 @@ impl DiscreteDistribution for Binomial {
 
         if self.pmf(floor) < self.pmf(ceil) {
             return floor;
-        } else {
-            return ceil;
         }
+        return ceil;
     }
 
     #[must_use]
@@ -383,7 +378,7 @@ impl DiscreteDistribution for Binomial {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
 
         let integration_fn = |x: f64| {
@@ -391,6 +386,7 @@ impl DiscreteDistribution for Binomial {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
+        // SAFETY: should always be safe to only read
         let max_steps: u64 =
             unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));

@@ -114,6 +114,7 @@ use crate::{
 
 /// Defines Wich kind of test are we doing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
+#[allow(clippy::exhaustive_enums)]
 pub enum Hypothesis {
     /// A [Hypothesis::RightTail] will test if our statisitc is *significantly*
     /// bigger than what `H0` claims. (`theta_0 < theta_obs`)
@@ -131,6 +132,7 @@ pub enum Hypothesis {
 
 /// Contains the result of the test
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub enum TestResult {
     /// The obtained statistic and [P value](https://en.wikipedia.org/wiki/P-value)
     PValue(f64, f64),
@@ -141,25 +143,25 @@ pub enum TestResult {
 impl TestResult {
     /// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
     #[must_use]
-    pub fn p(&self) -> f64 {
+    pub const fn p(&self) -> f64 {
         // convinience method for quickly retriving the p value
-        return match self {
-            TestResult::PValue(_, p) | TestResult::PValueCI(_, p, _) => *p,
+        return match *self {
+            TestResult::PValue(_, p) | TestResult::PValueCI(_, p, _) => p,
         };
     }
 
     #[must_use]
-    pub fn statisitc(&self) -> f64 {
+    pub const fn statisitc(&self) -> f64 {
         // convinience method for quickly retriving the statisitc value
-        return match self {
-            TestResult::PValue(s, _) | TestResult::PValueCI(s, _, _) => *s,
+        return match *self {
+            TestResult::PValue(s, _) | TestResult::PValueCI(s, _, _) => s,
         };
     }
 }
 
 impl Default for TestResult {
     fn default() -> Self {
-        TestResult::PValue(f64::NAN, -0.0)
+        return TestResult::PValue(f64::NAN, -0.0);
     }
 }
 
@@ -171,7 +173,7 @@ impl Default for TestResult {
 pub fn general_test<T: crate::distribution_trait::Distribution>(
     hypothesys: Hypothesis,
     statistic: f64,
-    null: T,
+    null: &T,
 ) -> f64 {
     return null.p_value(hypothesys, statistic);
 }
@@ -220,7 +222,6 @@ pub fn general_test<T: crate::distribution_trait::Distribution>(
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
-#[must_use]
 #[bon::builder]
 pub fn z_test(
     data: &mut Samples,
@@ -297,7 +298,6 @@ pub fn z_test(
 /// Although teoretically we cannot do it, in practice we know that the t-tests are
 /// robust to violations on it's assumptions.
 ///
-#[must_use]
 #[bon::builder]
 pub fn t_test(
     data: &mut Samples,
@@ -327,7 +327,7 @@ pub fn t_test(
         // compute confidence interval:
         // knowing that the statistic is the mean,
         let std_err: f64 = sample_std_dev / (len as f64).sqrt();
-        let precentile: f64 = if let Hypothesis::TwoTailed = hypothesys {
+        let precentile: f64 = if hypothesys == Hypothesis::TwoTailed {
             t_distr.quantile(1.0 - 0.5 * alpha)
         } else {
             t_distr.quantile(1.0 - alpha)
@@ -390,7 +390,6 @@ pub fn t_test(
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
-#[must_use]
 #[bon::builder]
 pub fn two_sample_t_test(
     data_a: &mut Samples,
@@ -415,6 +414,7 @@ pub fn two_sample_t_test(
         (0.5..=2.0).contains(&var_ratio)
     };
 
+    #[allow(clippy::float_cmp)]
     if n_a == n_b && similar_var {
         // Equal sample sizes and variance
         // https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_sample_sizes_and_variance
@@ -426,6 +426,9 @@ pub fn two_sample_t_test(
         let t: f64 = mean_diff / (s_pool * (2.0 / n).sqrt());
 
         let degrees_of_freedom: f64 = 2.0 * (n - 1.0);
+
+        // SAFETY: as the assert indicates, the degrees of freedom are always greater or equal to 2
+        #[allow(clippy::multiple_unsafe_ops_per_block)]
         let null_student_t: StudentT = unsafe {
             // safe because of the cond in the assert is always fullfilled
             assert_unchecked(2.0 <= degrees_of_freedom);
@@ -457,6 +460,8 @@ pub fn two_sample_t_test(
         let s_pool: f64 = (((n_a - 1.0) * var_a + (n_b - 1.0) * var_b) / degrees_of_freedom).sqrt();
         let t: f64 = mean_diff / (s_pool * (1.0 / n_a + 1.0 / n_b).sqrt());
 
+        // SAFETY: as the assert indicates, the degrees of freedom are always greater or equal to 2
+        #[allow(clippy::multiple_unsafe_ops_per_block)]
         let null_student_t: StudentT = unsafe {
             // safe because of the cond in the assert is always fullfilled
             assert_unchecked(2.0 <= degrees_of_freedom);
@@ -497,6 +502,8 @@ pub fn two_sample_t_test(
         num / (den_1 + den_2)
     };
 
+    // SAFETY: as the assert indicates, the degrees of freedom are always greater or equal to 2
+    #[allow(clippy::multiple_unsafe_ops_per_block)]
     let null_student_t: StudentT = unsafe {
         // safe because of the cond in the assert is always fullfilled
         assert_unchecked(2.0 <= degrees_of_freedom);
@@ -560,11 +567,10 @@ pub fn two_sample_t_test(
 /// If there are an unequal number of sampes, returns [TestError::InvalidArguments].
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
-#[must_use]
 #[bon::builder]
 pub fn paired_t_test(
-    data_pre: &mut Samples,
-    data_post: &mut Samples,
+    data_pre: &Samples,
+    data_post: &Samples,
     #[builder(default)] hypothesys: Hypothesis,
     significance: Option<f64>,
 ) -> Result<TestResult, TestError> {

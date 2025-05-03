@@ -41,7 +41,6 @@ impl Exponential {
     ///  - `0.0 < lambda`
     ///
     /// Otherwise an error will be returned.
-    #[must_use]
     pub const fn new(lambda: f64) -> Result<Exponential, AdvStatError> {
         if !lambda.is_finite() {
             if lambda.is_nan() {
@@ -106,13 +105,15 @@ impl Distribution for Exponential {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            panic!("Found NaN while attempting to compute the cdf of an Exponential. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Found NaN while attempting to compute the cdf of an Exponential. \n"
+        );
+
         if x <= 0.0 {
             return 0.0;
         }
+
         return 1.0 - (-self.lambda * x).exp();
     }
 
@@ -125,10 +126,10 @@ impl Distribution for Exponential {
 
     #[must_use]
     fn quantile(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            panic!("Tried to evaluate the Exponential::quantile function with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the Exponential::quantile function with a NaN value. \n"
+        );
 
         if x <= 0.0 {
             return 0.0;

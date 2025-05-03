@@ -66,7 +66,6 @@ impl Gamma {
     ///      - Use [Gamma::new_unchecked] if you don't need to evaluate
     ///         the pdf direcly or indirecly.
     ///
-    #[must_use]
     pub fn new(alpha: f64, theta: f64) -> Result<Gamma, AdvStatError> {
         if !alpha.is_finite() {
             if alpha.is_nan() {
@@ -169,6 +168,7 @@ impl Gamma {
 
     #[must_use]
     pub fn from_chi_squared(chi_sq: &ChiSquared) -> Gamma {
+        // SAFETY: if chi squared is valid, so will be the new gamma
         unsafe { Gamma::new_unchecked(chi_sq.get_degrees_of_freedom().get() as f64 * 0.5, 2.0) }
     }
 }
@@ -231,10 +231,7 @@ impl Distribution for Gamma {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `cdf_multiple` of Gamma. \n");
-                // return Err(AdvStatError::NanErr);
-            }
+            assert!(!point.is_nan(), "Found NaN in `cdf_multiple` of Gamma. \n");
         }
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
@@ -428,9 +425,10 @@ impl Distribution for Gamma {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `quantile_multiple` for Gamma. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `quantile_multiple` for Gamma. \n"
+            );
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
@@ -475,6 +473,7 @@ impl Distribution for Gamma {
             2.0 * middle - end
         };
 
+        // SAFETY: should always be safe to only read
         let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
 
         'integration_loop: for _ in 0..max_iters {
@@ -606,11 +605,11 @@ impl Distribution for Gamma {
         if let euclid::Moments::Raw = mode {
             let mut acc: f64 = 1.0;
             let mut i: f64 = 1.0;
-            while i <= (order as f64) {
+            while i <= f64::from(order) {
                 acc = acc * (self.alpha + i - 1.0);
                 i += 1.0;
             }
-            return self.theta.powi(order as i32) * acc;
+            return self.theta.powi(i32::from(order)) * acc;
         }
 
         let domain: &ContinuousDomain = self.get_domain();
@@ -634,7 +633,7 @@ impl Distribution for Gamma {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let (_, num_steps): (f64, usize) =
             euclid::choose_integration_precision_and_steps(bounds, true);
@@ -654,7 +653,7 @@ impl Distribution for Gamma {
                 let u: f64 = 1.0 / x_minus;
                 let fn_input: f64 = bounds.0 + x * u;
                 let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                std_inp.powi(order_exp) * self.pdf(fn_input) * u * u
+                break 'integration std_inp.powi(order_exp) * self.pdf(fn_input) * u * u;
             };
 
             euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
@@ -1007,9 +1006,8 @@ impl Parametric for Gamma {
             Some(v) => {
                 if v <= 0.0 {
                     return Vec::new();
-                } else {
-                    v
                 }
+                v
             }
             None => return Vec::new(),
         };
@@ -1033,6 +1031,7 @@ impl Parametric for Gamma {
 
         // Newton's method:
 
+        // SAFETY: should always be safe to only read
         let convergence_epsilon: f64 = unsafe {
             configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
         };
@@ -1129,6 +1128,6 @@ impl Iterator for GammaGenerator {
 
 impl Default for Gamma {
     fn default() -> Self {
-        Gamma::new(1.0, 1.0).unwrap()
+        return Gamma::new(1.0, 1.0).unwrap();
     }
 }

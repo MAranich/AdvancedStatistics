@@ -30,7 +30,6 @@ impl ChiSquared {
     /// `k` = `degrees_of_freedom`.
     ///
     /// It will return error if `degrees_of_freedom` is 0.
-    #[must_use]
     pub fn new(degrees_of_freedom: u64) -> Result<ChiSquared, AdvStatError> {
         if degrees_of_freedom == 0 {
             return Err(AdvStatError::InvalidNumber);
@@ -112,13 +111,13 @@ impl ChiSquared {
 
     /// Get the parameter degrees of freedom
     #[must_use]
-    pub fn get_degrees_of_freedom(&self) -> NonZero<u64> {
+    pub const fn get_degrees_of_freedom(&self) -> NonZero<u64> {
         // Safety: we checked it is non-zero in the creation of the struct.
         return unsafe { NonZero::new_unchecked(self.degrees_of_freedom as u64) };
     }
 
     #[must_use]
-    pub fn get_normalitzation_constant(&self) -> f64 {
+    pub const fn get_normalitzation_constant(&self) -> f64 {
         return self.normalitzation_constant;
     }
 }
@@ -146,9 +145,7 @@ impl Distribution for ChiSquared {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `ChiSquared::cdf_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `ChiSquared::cdf_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = std::vec![0.0; points.len()];
@@ -230,9 +227,7 @@ impl Distribution for ChiSquared {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `ChiSquared::quantile_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `ChiSquared::quantile_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
@@ -277,6 +272,7 @@ impl Distribution for ChiSquared {
             2.0 * middle - end
         };
 
+        // SAFETY: should always be safe to only read
         let use_newtons_method: bool = unsafe { configuration::QUANTILE_USE_NEWTONS_ITER };
 
         'integration_loop: for _ in 0..max_iters {
@@ -420,7 +416,7 @@ impl Distribution for ChiSquared {
                 loop {
                     acc = acc * curr; 
                     
-                    if self.degrees_of_freedom + (2 * order - 2) as f64 <= curr {
+                    if self.degrees_of_freedom + f64::from(2 * order - 2) <= curr {
                         return acc; 
                     }
 
@@ -442,7 +438,7 @@ impl Distribution for ChiSquared {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let (_, num_steps): (f64, usize) = euclid::choose_integration_precision_and_steps(bounds, true);
 
@@ -522,6 +518,7 @@ impl Parametric for ChiSquared {
         // pdf(x | k) = 1.0 / (2^(k/2)*gamma(k/2)) * x^(k/2 - 1) * exp(-x/2)
 
         let mut log_der: Vec<f64> = self.log_derivative_pdf_parameters(x, parameters); 
+        // SAFETY: this is always true
         unsafe {assert_unchecked(log_der.len() == 2);}; 
         let pdf: f64 = self.general_pdf(x, parameters); 
         log_der[0] *= pdf; 
@@ -628,13 +625,10 @@ impl Parametric for ChiSquared {
         let mut parameters: Vec<f64> = Vec::new();
         parameters.reserve_exact(1);
 
-        let log_mean: f64 = match data.log_mean() {
-            Some(v) => v,
-            None => { 
-                parameters.push(1.0);
-                return parameters; 
-            },
-        }; 
+        let log_mean: f64 = if let Some(v) = data.log_mean() { v } else { 
+            parameters.push(1.0);
+            return parameters; 
+        };
 
         let threshold_approximation: f64 = 0.70316; 
 
@@ -657,14 +651,16 @@ impl Parametric for ChiSquared {
 
             final_approx * 2.0
         } else {
+            const LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
 
             // initial guess. 
             let mut k_approx: f64 = threshold_approximation * 0.5; 
+
+            // SAFETY: should always be safe to only read
             let conv_diff_criteria: f64 = unsafe {
                 configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
             };
 
-            const LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
 
             loop {
 

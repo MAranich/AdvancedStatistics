@@ -4,7 +4,10 @@ use rand::Rng;
 
 use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
-use crate::euclid::{self, *};
+use crate::euclid::{
+    self, DEFAULT_EMPTY_DOMAIN_BOUNDS, IntegrationType, Moments,
+    choose_integration_precision_and_steps,
+};
 use crate::hypothesis::Hypothesis;
 use crate::samples::Samples;
 
@@ -58,10 +61,10 @@ pub trait Distribution {
     /// may be expensive.
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            panic!("Tried to evaluate the cdf function with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf function with a NaN value. \n"
+        );
         let aux: [f64; 1] = [x];
         let aux_2: Vec<f64> = self.cdf_multiple(&aux);
         return aux_2[0];
@@ -106,10 +109,10 @@ pub trait Distribution {
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
-        if x.is_nan() {
-            // x is not valid
-            panic!("Tried to evaluate the quantile function with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function with a NaN value. \n"
+        );
 
         let value: [f64; 1] = [x];
         let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
@@ -192,9 +195,7 @@ pub trait Distribution {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                panic!("Found NaN in `cdf_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `cdf_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = vec![0.0; points.len()];
@@ -307,25 +308,25 @@ pub trait Distribution {
 
             let (middle, end): (f64, f64) = match integration_type {
                 IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-                    let _middle: f64 = self.pdf(current_position + half_step_length);
-                    let _end: f64 = self.pdf(current_position + step_length);
-                    (_middle, _end)
+                    let middle: f64 = self.pdf(current_position + half_step_length);
+                    let end: f64 = self.pdf(current_position + step_length);
+                    (middle, end)
                 }
                 IntegrationType::InfiniteToConst => {
-                    let _middle: f64 = self.pdf(current_position - half_step_length);
-                    let _end: f64 = self.pdf(current_position - step_length);
-                    (_middle, _end)
+                    let middle: f64 = self.pdf(current_position - half_step_length);
+                    let end: f64 = self.pdf(current_position - step_length);
+                    (middle, end)
                 }
                 IntegrationType::FullInfinite => {
                     // integral {-inf -> inf} f(x) dx = integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
 
-                    let _middle: f64 = {
+                    let middle: f64 = {
                         let t: f64 = current_position + half_step_length;
                         let u: f64 = 1.0 / (1.0 - t * t);
                         let v: f64 = 1.0 + t * t;
                         self.pdf(t * u) * v * u * u
                     };
-                    let _end: f64 = {
+                    let end: f64 = {
                         let t: f64 = current_position + step_length;
                         let e: f64 = 1.0 - t * t;
                         if e.abs() < f64::EPSILON {
@@ -336,7 +337,7 @@ pub trait Distribution {
                             self.pdf(t * u) * v * u * u
                         }
                     };
-                    (_middle, _end)
+                    (middle, end)
                 }
             };
 
@@ -485,9 +486,7 @@ pub trait Distribution {
 
         // return error if NAN is found
         for point in points {
-            if point.is_nan() {
-                panic!("Found NaN in `quantile_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `quantile_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = vec![-0.0; points.len()];
@@ -549,6 +548,7 @@ pub trait Distribution {
             IntegrationType::FullInfinite => 0.0,
         };
 
+        // SAFETY: should always be safe to only read
         let use_newtons_method: bool = unsafe { QUANTILE_USE_NEWTONS_ITER };
 
         'integration_loop: for _ in 0..max_iters {
@@ -639,27 +639,27 @@ pub trait Distribution {
 
             let (middle, end): (f64, f64) = match integration_type {
                 IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-                    let _middle: f64 = self.pdf(current_position + half_step_length);
-                    let _end: f64 = self.pdf(current_position + step_length);
-                    (_middle, _end)
+                    let middle: f64 = self.pdf(current_position + half_step_length);
+                    let end: f64 = self.pdf(current_position + step_length);
+                    (middle, end)
                 }
                 IntegrationType::InfiniteToConst => {
-                    let _middle: f64 = self.pdf(current_position - half_step_length);
-                    let _end: f64 = self.pdf(current_position - step_length);
-                    (_middle, _end)
+                    let middle: f64 = self.pdf(current_position - half_step_length);
+                    let end: f64 = self.pdf(current_position - step_length);
+                    (middle, end)
                 }
                 IntegrationType::FullInfinite => {
-                    let _middle: f64 = {
+                    let middle: f64 = {
                         let t: f64 = current_position + half_step_length;
                         let u: f64 = 1.0 / (1.0 - t * t);
                         self.pdf(t * u) * (1.0 + t * t) * u * u
                     };
-                    let _end: f64 = {
+                    let end: f64 = {
                         let t: f64 = current_position + step_length;
                         let u: f64 = 1.0 / (1.0 - t * t);
                         self.pdf(t * u) * (1.0 + t * t) * u * u
                     };
-                    (_middle, _end)
+                    (middle, end)
                 }
             };
 
@@ -743,6 +743,7 @@ pub trait Distribution {
             IntegrationType::FullInfinite => (r / (1.0 - r)).ln(),
         };
 
+        // SAFETY: should always be safe to only read
         let use_log_distribution: bool =
             unsafe { configuration::distribution_mode_deafult::USE_LOG_DERIVATIVE };
 
@@ -757,13 +758,18 @@ pub trait Distribution {
             (incr - curr) / h
         };
 
+        // SAFETY: should always be safe to only read
         let convergence_difference_criteria: f64 =
             unsafe { configuration::distribution_mode_deafult::CONVERGENCE_DIFFERENCE_CRITERIA };
+        // SAFETY: should always be safe to only read
         let mut learning_rate: f64 =
             unsafe { configuration::distribution_mode_deafult::LEARNING_RATE };
+        // SAFETY: should always be safe to only read
         let learning_rate_change: f64 =
             unsafe { configuration::distribution_mode_deafult::LEARNING_RATE_CHANGE };
+        // SAFETY: should always be safe to only read
         let min_iters: u32 = unsafe { configuration::distribution_mode_deafult::MIN_ITERATIONS };
+        // SAFETY: should always be safe to only read
         let max_iters: u32 = unsafe { configuration::distribution_mode_deafult::MAX_ITERATIONS };
 
         let mut ret: f64 = seed;
@@ -934,7 +940,7 @@ pub trait Distribution {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
         let (_, num_steps): (f64, usize) = choose_integration_precision_and_steps(bounds, true);
@@ -1129,11 +1135,10 @@ pub trait Distribution {
     ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`.
     #[must_use]
     fn confidence_interval(&self, hypothesys: Hypothesis, significance_level: f64) -> (f64, f64) {
-        if !significance_level.is_finite() {
-            panic!(
-                "Tried to call Distribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "
-            );
-        }
+        assert!(
+            significance_level.is_finite(),
+            "Tried to call Distribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "
+        );
 
         let mut bounds: (f64, f64) = self.get_domain().get_bounds();
         if significance_level <= 0.0 || bounds.1 - bounds.0 <= 0.0 {
@@ -1233,9 +1238,10 @@ pub trait DiscreteDistribution {
     /// requieres evaluating the pmf many times and may be expensive.
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            panic!("Tried to evaluate the cdf with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf with a NaN value. \n"
+        );
 
         let aux: [f64; 1] = [x];
         let aux_2: Vec<f64> = self.cdf_multiple(&aux);
@@ -1296,10 +1302,10 @@ pub trait DiscreteDistribution {
     /// [Distribution::quantile_multiple] for better performance.
     #[must_use]
     fn quantile(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            panic!("Tried to evaluate the quantile function with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function with a NaN value. \n"
+        );
 
         let value: [f64; 1] = [x];
         let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
@@ -1362,9 +1368,7 @@ pub trait DiscreteDistribution {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                panic!("Found NaN in `cdf_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `cdf_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = vec![0.0; points.len()];
@@ -1373,8 +1377,9 @@ pub trait DiscreteDistribution {
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
 
         if let IntegrationType::FullInfinite = integration_type {
+            // SAFETY: should always be safe to only read
             let max_area: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
-            bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area)
+            bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
         }
 
         let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
@@ -1571,9 +1576,7 @@ pub trait DiscreteDistribution {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                panic!("Found NaN in `quantile_multiple`. \n");
-            }
+            assert!(!point.is_nan(), "Found NaN in `quantile_multiple`. \n");
         }
 
         let mut ret: Vec<f64> = vec![0.0; points.len()];
@@ -1581,6 +1584,7 @@ pub trait DiscreteDistribution {
         let mut bounds: (f64, f64) = domain.get_bounds();
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
         if let IntegrationType::FullInfinite = integration_type {
+            // SAFETY: should always be safe to only read
             let max_area: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
 
             bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
@@ -1737,6 +1741,7 @@ pub trait DiscreteDistribution {
                 }
             }
         } else {
+            // SAFETY: should always be safe to only read
             let area_treshold: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
             let range: (f64, f64) =
                 euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, area_treshold);
@@ -1826,7 +1831,7 @@ pub trait DiscreteDistribution {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev): (f64, f64) = (-mean, 1.0 / std_dev.sqrt());
 
         let integration_fn = |x: f64| {
@@ -1977,11 +1982,10 @@ pub trait DiscreteDistribution {
     ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`.
     #[must_use]
     fn confidence_interval(&self, hypothesys: Hypothesis, significance_level: f64) -> (f64, f64) {
-        if !significance_level.is_finite() {
-            panic!(
-                "Tried to call DiscreteDistribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "
-            );
-        }
+        assert!(
+            significance_level.is_finite(),
+            "Tried to call DiscreteDistribution::confidence_interval with a non-finite `significance_level` (infinite or NaN). `significance_level` must be a probability. "
+        );
 
         let mut bounds: (f64, f64) = self.get_domain().get_bounds();
         if significance_level <= 0.0 || bounds.1 <= bounds.0 {
@@ -2029,11 +2033,10 @@ pub trait DiscreteDistribution {
     fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
 
-        if !statistic.is_finite() {
-            panic!(
-                "Tried to call DiscreteDistribution::p_value with a non-finite `statistic` (infinite or NaN). "
-            );
-        }
+        assert!(
+            statistic.is_finite(),
+            "Tried to call DiscreteDistribution::p_value with a non-finite `statistic` (infinite or NaN). "
+        );
 
         let bounds: (f64, f64) = self.get_domain().get_bounds();
         if bounds.1 - bounds.0 <= 0.0 {
@@ -2183,11 +2186,14 @@ pub trait Parametric {
 
         self.parameter_restriction(&mut parameters);
 
+        // SAFETY: should always be safe to only read
         let learning_rate: f64 =
             unsafe { configuration::maximum_likelihood_estimation::LEARNING_RATE };
+        // SAFETY: should always be safe to only read
         let conv_diff_criteria: f64 = unsafe {
             configuration::maximum_likelihood_estimation::CONVERGENCE_DIFFERENCE_CRITERIA
         };
+        // SAFETY: should always be safe to only read
         let max_iterations: u32 =
             unsafe { configuration::maximum_likelihood_estimation::MAX_ITERATIONS };
 

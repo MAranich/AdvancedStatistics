@@ -4,11 +4,14 @@ use rand::Rng;
 use crate::errors::AdvStatError;
 
 pub struct Samples {
+    /// All the stored values
     data: Vec<f64>,
+    /// Properties related to `data`. Can contain values such as the mean, variance, skewness...
     properties: SampleProperties,
 }
 
 /// Stores the sample properties of the data if they have been computed.
+#[non_exhaustive]
 pub struct SampleProperties {
     /// the average of the sample
     ///
@@ -40,7 +43,8 @@ pub struct SampleProperties {
 }
 
 /// Decides wich Outlier detection algorithm use when calling [Samples::outlier_detection].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub enum OutlierDetectionMethod {
     /// Marks as outliers all elements that are outside `x` times the
     /// [IQR](https://en.wikipedia.org/wiki/Interquartile_range) (**I**nter **Q**uartile **R**ange).
@@ -62,9 +66,8 @@ impl Samples {
     ///
     /// If you want to just move the data without copying it,
     /// use [Samples::new_move].
-    #[must_use]
     pub fn new(data: &[f64]) -> Result<Samples, AdvStatError> {
-        for elem in data.iter() {
+        for elem in data {
             if !elem.is_finite() {
                 if elem.is_nan() {
                     return Err(AdvStatError::NanErr);
@@ -104,7 +107,7 @@ impl Samples {
 
     /// Creates a new instance of [Samples] with the given `data`.
     ///
-    /// ## Safety
+    /// ## Errors
     ///
     /// `data` must not contain NaNs or infinities (`+-inf`).
     ///
@@ -112,9 +115,8 @@ impl Samples {
     ///
     /// If you don't want to move the data (to keep ownership of it),
     /// use [Samples::new].
-    #[must_use]
     pub fn new_move(data: Vec<f64>) -> Result<Samples, AdvStatError> {
-        for elem in data.iter() {
+        for elem in &data {
             if !elem.is_finite() {
                 if elem.is_nan() {
                     return Err(AdvStatError::NanErr);
@@ -145,7 +147,7 @@ impl Samples {
     /// If you don't want to move the data (to keep ownership of it),
     /// use [Samples::new] / [Samples::new_unchecked].
     #[must_use]
-    pub unsafe fn new_move_uncheched(data: Vec<f64>) -> Samples {
+    pub const unsafe fn new_move_uncheched(data: Vec<f64>) -> Samples {
         return Samples {
             data,
             properties: SampleProperties::empty(),
@@ -157,7 +159,7 @@ impl Samples {
     /// Note that the data may be sorted or not (depending on
     /// calls to other methods).
     #[must_use]
-    pub fn peek_data(&self) -> &Vec<f64> {
+    pub const fn peek_data(&self) -> &Vec<f64> {
         return &self.data;
     }
 
@@ -180,7 +182,6 @@ impl Samples {
     ///
     /// Note that the internal [SampleProperties] is emptied.
     #[allow(clippy::result_large_err)]
-    #[must_use]
     pub fn add_data(self, data: &[f64]) -> Result<Samples, Samples> {
         let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
         if invalid_contained {
@@ -211,7 +212,6 @@ impl Samples {
     ///
     /// Note that the internal [SampleProperties] is emptied.
     #[allow(clippy::result_large_err)]
-    #[must_use]
     pub fn add_data_move(self, data: Vec<f64>) -> Result<Samples, Samples> {
         let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
         if invalid_contained {
@@ -230,7 +230,7 @@ impl Samples {
     ///
     /// If you want to also compute the properties, use [Samples::get_properties].
     #[must_use]
-    pub fn peek_properties(&self) -> &SampleProperties {
+    pub const fn peek_properties(&self) -> &SampleProperties {
         return &self.properties;
     }
 
@@ -419,7 +419,8 @@ impl Samples {
                 }
 
                 // m^3*(2*n - 3)
-                let coef_1: f64 = mean * mean * mean * (2.0 * n - 3.0);
+                // let coef_1: f64 = mean * mean * mean * (2.0 * n - 3.0);
+                let coef_1: f64 = mean * mean * mean * 2.0f64.mul_add(n, -3.0);
 
                 // -3*m*var*(n-1)
                 let coef_2: f64 = -3.0 * mean * variance * (n - 1.0);
@@ -525,7 +526,7 @@ impl Samples {
         let mut min: f64 = min.unwrap();
 
         // find the value manually. Also skip the first value since it's min
-        for &v in &self.data[1..] {
+        for &v in &self.data {
             if min < v {
                 min = v;
             }
@@ -615,7 +616,8 @@ impl Samples {
         // ranging from (0, 100].
 
         let index: usize = ((n as f64) * q).ceil() as usize;
-        let quantile: f64 = self.data.get(index).copied().unwrap();
+        // SAFETY: index belongs to `0..self.data.len()`
+        let quantile: f64 = unsafe { self.data.get(index).copied().unwrap_unchecked() };
         self.properties.quantiles.push((q, quantile));
 
         return Some(quantile);
@@ -672,33 +674,33 @@ impl Samples {
 
         // The functions already assing the values to [SampleProperties] internally.
         if mean {
-            let _ = self.mean();
+            let _: Option<f64> = self.mean();
         }
         if variance {
-            let _ = self.variance();
+            let _: Option<f64> = self.variance();
         }
         if skewness {
-            let _ = self.skewness();
+            let _: Option<f64> = self.skewness();
         }
         if excess_kurtosis {
-            let _ = self.excess_kurtosis();
+            let _: Option<f64> = self.excess_kurtosis();
         }
         if minimum {
-            let _ = self.minimum();
+            let _: Option<f64> = self.minimum();
         }
         if maximum {
-            let _ = self.maximum();
+            let _: Option<f64> = self.maximum();
         }
 
         if !quantiles.is_empty() {
             for q in quantiles {
-                let _ = self.quantile(q);
+                let _: Option<f64> = self.quantile(q);
             }
             self.sort_dedup_quantiles();
         }
 
         if log_mean {
-            let _ = self.log_mean();
+            let _: Option<f64> = self.log_mean();
         }
 
         return &self.properties;
@@ -740,7 +742,9 @@ impl Samples {
 
         for _ in 0..len {
             let index: usize = rng.random_range(0..len);
-            resample.push(unsafe { *self.data.get_unchecked(index) });
+            // SAFETY: index belongs to `0..len`
+            let value: f64 = unsafe { *self.data.get_unchecked(index) };
+            resample.push(value);
             // Safety: it is safe because we generated an index
             // that is specifically within the valid values.
         }
@@ -764,7 +768,9 @@ impl Samples {
 
             for _ in 0..len {
                 let index: usize = rng.random_range(0..len);
-                resample.push(unsafe { *self.data.get_unchecked(index) });
+                // SAFETY: index belongs to `0..len`
+                let value: f64 = unsafe { *self.data.get_unchecked(index) };
+                resample.push(value);
                 // Safety: it is safe because we generated an index
                 // that is specifically within the valid values.
             }
@@ -787,7 +793,7 @@ impl Samples {
         let len: usize = self.data.len();
         let mut new_data: Vec<f64> = self.data.clone();
 
-        for i in (1..=(len - 1)).rev() {
+        for i in (1..len).rev() {
             let mut j: f64 = rng.random::<f64>();
             j = j * ((i + 1) as f64);
             let j: usize = j as usize;
@@ -817,7 +823,7 @@ impl Samples {
         for _ in 0..n {
             let mut new_data: Vec<f64> = self.data.clone();
 
-            for i in (1..=(len - 1)).rev() {
+            for i in (1..len).rev() {
                 let mut j: f64 = rng.random::<f64>();
                 j = j * ((i + 1) as f64);
                 let j: usize = j as usize;
@@ -841,7 +847,6 @@ impl Samples {
             return ret;
         }
 
-        // safety: all unwrap unchecked are fine since we have at least 2 samples
         match method {
             OutlierDetectionMethod::IQR(m) => {
                 if m.is_nan() || m.is_sign_negative() {
@@ -850,7 +855,9 @@ impl Samples {
                 }
 
                 // Q1 − 1.5 IQR ////// Q3 + 1.5 IQR
+                // SAFETY: we already checked for `self.count() < 3`
                 let q1: f64 = unsafe { self.quantile(0.25).unwrap_unchecked() };
+                // SAFETY: we already checked for `self.count() < 3`
                 let q3: f64 = unsafe { self.quantile(0.75).unwrap_unchecked() };
 
                 let iqr: f64 = q3 - q1;
@@ -870,7 +877,9 @@ impl Samples {
                     return ret;
                 }
 
+                // SAFETY: we already checked for `self.count() < 3`
                 let mean: f64 = unsafe { self.mean().unwrap_unchecked() };
+                // SAFETY: we already checked for `self.count() < 3`
                 let variance: f64 = unsafe { self.variance().unwrap_unchecked() };
 
                 let minus_mean: f64 = -mean;
@@ -917,10 +926,11 @@ impl Samples {
             outliers_data.push(outlier);
         }
 
-        let inliners: Samples = unsafe { Samples::new_move_uncheched(original_data) };
-        let outliers: Samples = unsafe { Samples::new_move_uncheched(outliers_data) };
         // SAFETY: since the data comes from a valid Samples, both parts of
         // the splitted data are also valid.
+        let inliners: Samples = unsafe { Samples::new_move_uncheched(original_data) };
+        // SAFETY: Same as before
+        let outliers: Samples = unsafe { Samples::new_move_uncheched(outliers_data) };
 
         return (inliners, outliers);
     }
@@ -928,8 +938,9 @@ impl Samples {
 
 impl SampleProperties {
     #[must_use]
-    pub fn empty() -> SampleProperties {
-        SampleProperties {
+    #[inline]
+    pub const fn empty() -> SampleProperties {
+        return SampleProperties {
             mean: None,
             variance: None,
             skewness: None,
@@ -939,14 +950,16 @@ impl SampleProperties {
             minimum: None,
             is_sorted: false,
             log_mean: None,
-        }
+        };
         // is_sorted: data MAY be actually sorted but we cannot assume it is.
+        // And we don't want to check.
     }
 }
 
 impl Default for OutlierDetectionMethod {
+    #[inline]
     fn default() -> Self {
         // Default value of 1.5 for the IQR variant
-        OutlierDetectionMethod::IQR(1.5)
+        return OutlierDetectionMethod::IQR(1.5);
     }
 }

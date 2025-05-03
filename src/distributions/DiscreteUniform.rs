@@ -28,7 +28,6 @@ impl DiscreteUniform {
     /// and `b` (maximum). Both `a` and `b` are inclusive.
     ///
     /// Returns [Err] if `b < a`.
-    #[must_use]
     pub const fn new(a: i64, b: i64) -> Result<DiscreteUniform, AdvStatError> {
         if b < a {
             return Err(AdvStatError::InvalidNumber);
@@ -89,9 +88,10 @@ impl DiscreteDistribution for DiscreteUniform {
 
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            std::panic!("Tried to evaluate the cdf with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the cdf with a NaN value. \n"
+        );
 
         let aux: [f64; 1] = [x];
         let aux_2: Vec<f64> = self.cdf_multiple(&aux);
@@ -106,10 +106,10 @@ impl DiscreteDistribution for DiscreteUniform {
 
     #[must_use]
     fn quantile(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the quantile function with a NaN value. \n");
-        }
+        assert!(
+            !x.is_nan(),
+            "Tried to evaluate the quantile function with a NaN value. \n"
+        );
 
         let value: [f64; 1] = [x];
         let quantile_vec: Vec<f64> = self.quantile_multiple(&value);
@@ -124,9 +124,10 @@ impl DiscreteDistribution for DiscreteUniform {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `cdf_multiple` for DiscreteUniform. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `cdf_multiple` for DiscreteUniform. \n"
+            );
         }
 
         let mut ret: Vec<f64> = Vec::new();
@@ -174,9 +175,10 @@ impl DiscreteDistribution for DiscreteUniform {
 
         // panic if NAN is found
         for point in points {
-            if point.is_nan() {
-                std::panic!("Found NaN in `quantile_multiple` for DiscreteUniform. \n");
-            }
+            assert!(
+                !point.is_nan(),
+                "Found NaN in `quantile_multiple` for DiscreteUniform. \n"
+            );
         }
 
         let mut ret: Vec<f64> = Vec::new();
@@ -284,7 +286,7 @@ impl DiscreteDistribution for DiscreteUniform {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
 
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
 
         let integration_fn = |x: f64| {
@@ -292,6 +294,7 @@ impl DiscreteDistribution for DiscreteUniform {
             std_inp.powi(order_exp) * self.pmf(x)
         };
 
+        // SAFETY: should always be safe to only read
         let max_steps: u64 =
             unsafe { crate::configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));

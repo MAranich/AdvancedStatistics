@@ -1,19 +1,24 @@
+#![warn(
+    clippy::undocumented_unsafe_blocks,
+    clippy::range_minus_one,
+    clippy::missing_const_for_fn,
+    clippy::manual_assert,
+    clippy::cast_lossless,
+    clippy::match_same_arms,
+    clippy::single_match_else,
+    // clippy::implicit_return,
+    )]
 #![allow(
-    non_snake_case,
+    // Disable warning "crate `AdvancedStatistics` should have a snake case name convert the identifier to snake case: `advanced_statistics`"
+    // The rest of the names will follow the snake_case convention.
+    non_snake_case, 
+    // We prefer explicit returns in functions
     clippy::needless_return,
     clippy::assign_op_pattern,
-    clippy::excessive_precision
+    // It is Ok that some floats are truncated
+    clippy::excessive_precision, 
 )]
-
-#![warn(
-    clippy::all,
-    clippy::restriction,
-    clippy::pedantic,
-    clippy::nursery,
-    clippy::cargo,
-)]
-// ^Disable warning "crate `AdvancedStatistics` should have a snake case name convert the identifier to snake case: `advanced_statistics`"
-// The rest of the names will follow the snake_case convention.
+// ^
 
 //! # Advanced Statistics
 //!
@@ -129,6 +134,7 @@ pub mod samples;
 /// For example, the pdf of an Exponential always starts at 0, but with this
 /// Structure you can make it start at any value you desire while maintaining
 /// the same interface.
+#[non_exhaustive]
 pub struct Loation<D>
 where
     D: Distribution,

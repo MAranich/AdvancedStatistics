@@ -33,6 +33,7 @@ pub mod integration {
     /// `1 << 20 = 1 048 576`
     pub static mut DEFAULT_INTEGRATION_MAXIMUM_STEPS: usize = 1 << 20;
     /// [DEFAULT_INTEGRATION_MAXIMUM_STEPS] but as float.
+    // SAFETY: should always be safe to only read
     pub static mut DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64: f64 =
         unsafe { DEFAULT_INTEGRATION_MAXIMUM_STEPS } as f64;
 
@@ -40,6 +41,7 @@ pub mod integration {
     /// `1 << 12 = 4 096`
     pub static mut DEFAULT_INTEGRATION_MINIMUM_STEPS: usize = 1 << 12;
     /// [DEFAULT_INTEGRATION_MINIMUM_STEPS] but as float.
+    // SAFETY: should always be safe to only read
     pub static mut DEFAULT_INTEGRATION_MINIMUM_STEPS_F64: f64 =
         unsafe { DEFAULT_INTEGRATION_MINIMUM_STEPS } as f64;
 
@@ -50,11 +52,13 @@ pub mod integration {
     /// `32768` = `2^15`
     pub static mut SMALL_INTEGRATION_NUM_STEPS: usize = 1 << 15;
     /// [SMALL_INTEGRATION_NUM_STEPS]
+    // SAFETY: should always be safe to only read
     pub static mut SMALL_INTEGRATION_NUM_STEPS_F64: f64 =
         unsafe { SMALL_INTEGRATION_NUM_STEPS } as f64;
 
     /// The integration precision for small intervals (such as `[0, 1]` or `[-1, 1]`).
     /// Equal to `1/32768`
+    // SAFETY: should always be safe to only read
     pub static mut SMALL_INTEGRATION_PRECISION: f64 =
         1.0 / unsafe { SMALL_INTEGRATION_NUM_STEPS_F64 };
 }

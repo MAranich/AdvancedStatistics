@@ -28,13 +28,11 @@ impl Uniform {
     ///  - `b` indicates the maximum value.
     ///  - `a < b` must be fulfilled or an error will be returned.
     ///  - `a` and `b` must both be finite values (no `+-inf` or NaNs)
-    #[must_use]
     pub const fn new(a: f64, b: f64) -> Result<Uniform, AdvStatError> {
         if !a.is_finite() || !b.is_finite() {
             let error: AdvStatError = match (a.classify(), b.classify()) {
                 (std::num::FpCategory::Nan, _) | (_, std::num::FpCategory::Nan) => AdvStatError::NanErr,
-                (std::num::FpCategory::Infinite, _) => AdvStatError::InvalidNumber,
-                (_, std::num::FpCategory::Infinite) => AdvStatError::InvalidNumber,
+                (std::num::FpCategory::Infinite, _) | (_, std::num::FpCategory::Infinite) => AdvStatError::InvalidNumber,
                 _ => unreachable!()
             }; 
 
@@ -98,10 +96,8 @@ impl Distribution for Uniform {
     
     #[must_use]
     fn cdf(&self, x: f64) -> f64 {
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the cdf function with a NaN value. \n");
-        }
+
+        assert!(!x.is_nan(), "Tried to evaluate the cdf function with a NaN value. \n");
 
         if x < self.a {
             return 0.0; 
@@ -125,10 +121,7 @@ impl Distribution for Uniform {
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
     
-        if x.is_nan() {
-            // x is not valid
-            std::panic!("Tried to evaluate the quantile function with a NaN value. \n");
-        }
+        assert!(!x.is_nan(), "Tried to evaluate the quantile function with a NaN value. \n");
 
         if x <= 0.0 {
             return self.a;
@@ -252,9 +245,9 @@ impl Distribution for Uniform {
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
         let (mean, std_dev): (f64, f64) = match mode {
             crate::euclid::Moments::Raw => {
-                let ord: i32 = order as i32; 
+                let ord: i32 = i32::from(order); 
                 let num: f64 = self.b.powi(ord + 1) - self.a.powi(ord + 1); 
-                let den: f64 = (order as f64 + 1.0) * (self.b - self.a); 
+                let den: f64 = (f64::from(order) + 1.0) * (self.b - self.a); 
                 return num / den; 
             },
             crate::euclid::Moments::Central => (
@@ -272,7 +265,7 @@ impl Distribution for Uniform {
         // Todo: give better error handling to the above. ^
         // println!("(mean, std_dev): {:?}", (mean, std_dev));
     
-        let order_exp: i32 = order as i32;
+        let order_exp: i32 = i32::from(order);
         let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
         let (_, num_steps): (f64, usize) = crate::euclid::choose_integration_precision_and_steps(bounds, false);
     
@@ -338,7 +331,7 @@ impl Parametric for Uniform {
 
     #[must_use]
     fn number_of_parameters() -> u16 {
-        2
+        return 2; 
     }
 
     fn get_parameters(&self, parameters: &mut [f64]) {
@@ -478,7 +471,7 @@ impl Parametric for Uniform {
 
 impl Default for Uniform {
     fn default() -> Self {
-        Uniform::new(0.0, 1.0).unwrap()
+        return Uniform::new(0.0, 1.0).unwrap(); 
     }
 }
 

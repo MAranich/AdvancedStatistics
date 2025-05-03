@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum AdvStatError {
     /// A function was evaluated outside it's domain.
     #[error("A function was evaluated outside it's domain. ")]
@@ -32,6 +33,7 @@ pub enum AdvStatError {
 
 /// An enum that indicates what went wrong with the test.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum TestError {
     /// A NaN (Not a Number) was found in the input. (Or maybe `+- inf` depending on the function)
     #[error(
@@ -50,7 +52,7 @@ pub enum TestError {
     /// The significance level was set to an invalid value. (`0.0 < significance < 1.0`)
     #[error("The significance level was set to an invalid value. (`0.0 < significance < 1.0`)")]
     InvalidSignificance,
-    
+
     /// Unknown error / unimplemented
     #[error("Unknown error / unimplemented")]
     Unknown,
