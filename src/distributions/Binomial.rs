@@ -35,6 +35,7 @@ impl Binomial {
     ///      - `p` must belong in the interval `[0.0, 1.0]`. Otherwise an error will be returned.
     ///  - `n` indicates the number of trials
     ///
+    #[must_use]
     pub const fn new(p: f64, n: u64) -> Result<Binomial, AdvStatError> {
         if !p.is_finite() {
             if p.is_nan() {
@@ -65,6 +66,7 @@ impl Binomial {
     ///  - `p` must be finite (no NaNs or `+-inf`)
     ///  - `p` must belong in the interval `[0.0, 1.0]` (as `p` represents a probability).
     ///
+    #[must_use]
     pub const unsafe fn new_unchecked(p: f64, n: u64) -> Binomial {
         let domain: DiscreteDomain = DiscreteDomain::Range(0, n as i64);
 
@@ -72,17 +74,20 @@ impl Binomial {
     }
 
     /// Return `p` (probability of success).
+    #[must_use]
     pub const fn get_p(&self) -> f64 {
         return self.p;
     }
 
     /// Return `n` (number of trials).
+    #[must_use]
     pub const fn get_n(&self) -> u64 {
         return self.n;
     }
 }
 
 impl DiscreteDistribution for Binomial {
+    #[must_use]
     fn pmf(&self, x: f64) -> f64 {
         // Todo: update this basic 1:1 implementation for fomething better
         // `binomial_coef` can be very big and `prob_p * prob_q` can be very small
@@ -103,10 +108,12 @@ impl DiscreteDistribution for Binomial {
         return (binomial_coef as f64) * prob_p * prob_q;
     }
 
+    #[must_use]
     fn get_domain(&self) -> &DiscreteDomain {
         return &self.domain;
     }
 
+    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         if x.is_nan() {
             std::panic!("Tried to evaluate the cdf with a NaN value. \n");
@@ -117,6 +124,7 @@ impl DiscreteDistribution for Binomial {
         return aux_2[0];
     }
 
+    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         if x.is_nan() {
             // x is not valid
@@ -128,6 +136,7 @@ impl DiscreteDistribution for Binomial {
         return quantile_vec[0];
     }
 
+    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         // todo: This could be improved by aproximating the distribution to a normal when
         // n is large
@@ -204,6 +213,7 @@ impl DiscreteDistribution for Binomial {
         return ret;
     }
 
+    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
 
@@ -231,6 +241,7 @@ impl DiscreteDistribution for Binomial {
         return ret;
     }
 
+    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         // todo: This could be improved by aproximating the distribution to a normal when
         // n is large
@@ -296,14 +307,17 @@ impl DiscreteDistribution for Binomial {
         return ret;
     }
 
+    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.n as f64 * self.p);
     }
 
+    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.n as f64 * self.p * (1.0 - self.p));
     }
 
+    #[must_use]
     fn mode(&self) -> f64 {
         let floor: f64 = (self.n as f64 * self.p).floor();
         let ceil: f64 = (self.n as f64 * self.p).ceil();
@@ -315,10 +329,12 @@ impl DiscreteDistribution for Binomial {
         }
     }
 
+    #[must_use]
     fn median(&self) -> f64 {
         return (self.n as f64 * self.p).floor() + 0.5;
     }
 
+    #[must_use]
     fn skewness(&self) -> Option<f64> {
         // = (q - p) / sqrt(p*q*n) = ((1-p) - p) / sqrt(p*(1-p)*n)
         // = (1 - 2*p) / sqrt(p*(1-p)*n)
@@ -328,18 +344,21 @@ impl DiscreteDistribution for Binomial {
         return Some(numerator / denomiantor);
     }
 
+    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         let numerator: f64 = 1.0 - 6.0 * self.p * (1.0 - self.p);
         let denomiantor: f64 = self.p * (1.0 - self.p) * (self.n as f64);
         return Some(3.0 + numerator / denomiantor);
     }
 
+    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         let numerator: f64 = 1.0 - 6.0 * self.p * (1.0 - self.p);
         let denomiantor: f64 = self.p * (1.0 - self.p) * (self.n as f64);
         return Some(numerator / denomiantor);
     }
 
+    #[must_use]
     fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
         // This moments function can be improved:
         // https://en.wikipedia.org/wiki/Binomial_distribution#Higher_moments
@@ -406,6 +425,7 @@ impl Parametric for Binomial {
     /// > \[p, n\]
     ///
     /// If `n` is used, it will be rounded down and must be non-negative.
+    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // Todo: update this basic 1:1 implementation for fomething better
         // `binomial_coef` can be very big and `prob_p * prob_q` can be very small
@@ -428,6 +448,7 @@ impl Parametric for Binomial {
 
     /// Returns the number of parameters of the model: `2`,
     /// but we do **not** optimize for `n`.
+    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -437,6 +458,7 @@ impl Parametric for Binomial {
         parameters[1] = self.n as f64;
     }
 
+    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // P(x) = ( n | x ) * p^x * (1-p)^(n-x)
         // Where ( a | b ) is `a choose b`
@@ -500,6 +522,7 @@ impl Parametric for Binomial {
     /// Since the variable `x` and `n` (number of trials) are not continuous variables,
     /// they do not have a defined derivative. For this reason, their derivarives are
     /// considered to be `0.0` and their log_derivatives are `-inf`.
+    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -571,6 +594,7 @@ impl Parametric for Binomial {
     /// (MLE). (Using the analytical solution for the Binomial).
     ///
     /// If there are no samples in the data or `n = 0`, `p` will be set to `0`.
+    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
            If we want to maximize f(x), we should find f'(x) = 0

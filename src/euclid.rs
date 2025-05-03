@@ -477,6 +477,7 @@ pub mod combinatorics {
     ///
     /// Returns an error if there was a problem with the computation (overflow),
     /// if `n` or `k` are negative or if `n < k`.
+    #[must_use]
     pub fn binomial_coefficient(n: u64, mut k: u64) -> Result<u128, AdvStatError> {
         // todo: https://math.stackexchange.com/questions/202554/how-do-i-compute-binomial-coefficients-efficiently
 
@@ -553,6 +554,7 @@ pub mod combinatorics {
 /// Evaluetes the natural logarithm of gamma of `x` when `x` is an integer.
 ///
 /// O(input)
+#[must_use]
 pub fn ln_gamma_int(input: NonZero<u64>) -> f64 {
     // full continuous case implementation: https://www.netlib.org/fdlibm/e_lgamma_r.c
 
@@ -737,6 +739,7 @@ const GAMMA_DK: &[f64] = &[
 /// [Github repository](https://github.com/statrs-dev/statrs).
 ///
 /// See also: [gamma]
+#[must_use]
 pub fn ln_gamma(x: f64) -> f64 {
     /*
         This gamma implementation was obtained from the library
@@ -784,6 +787,7 @@ pub fn ln_gamma(x: f64) -> f64 {
 /// The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).
 ///
 /// Diverges at negative integers.
+#[must_use]
 pub fn gamma(x: f64) -> f64 {
     return ln_gamma(x).exp();
 }
@@ -803,6 +807,7 @@ pub fn gamma(x: f64) -> f64 {
 /// [Github repository](https://github.com/statrs-dev/statrs).
 ///
 /// See also: [gamma], [ln_gamma].
+#[must_use]
 pub fn digamma(x: f64) -> f64 {
     /*
         This digamma implementation was obtained from the library
@@ -866,6 +871,7 @@ pub fn digamma(x: f64) -> f64 {
 }
 
 /// Evaluates the [Beta function](https://en.wikipedia.org/wiki/Beta_function).
+#[must_use]
 pub fn beta_fn(a: f64, b: f64) -> f64 {
     // B(a, b) = gamma(a) * gamma(b) / gamma(a + b)
     let ln_b: f64 = ln_gamma(a) + ln_gamma(b) - ln_gamma(a + b);
@@ -912,6 +918,7 @@ const FAST_DIGAMMA_LOWER_APROXIMATION_TRESHOLD: f64 = 0.01;
 /// singularity there. On other places, the absolute error is usally inferior to `0.01`
 /// and the error converges to 0 as `x` grows to infinity.  
 ///
+#[must_use]
 pub fn fast_digamma(x: f64) -> f64 {
     assert!(0.0 < x);
     /*
@@ -1028,6 +1035,7 @@ const TRIGAMMA_LOWER_APROXIMATION_TRESHOLD: f64 = 0.5;
 ///
 /// The aproximation may have some non-neglibible error near `0.0` since there is a
 /// singularity there.
+#[must_use]
 pub fn fast_trigamma(x: f64) -> f64 {
     assert!(0.0 < x);
 

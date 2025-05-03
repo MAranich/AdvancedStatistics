@@ -43,6 +43,7 @@ impl Beta {
     /// - This means that a [f64] value is not precise enough.
     /// - Use [Beta::new_unchecked] if you don't need to evaluate
     ///         the pdf direcly or indirecly.
+    #[must_use]
     pub fn new(alpha: f64, beta: f64) -> Result<Beta, AdvStatError> {
         if !alpha.is_finite() {
             if alpha.is_nan() {
@@ -93,6 +94,7 @@ impl Beta {
     ///  - `beta` must be finite and be stricly positive.
     ///  - `alpha` and `beta` are too large to model properly.
     ///
+    #[must_use]
     pub unsafe fn new_unchecked(alpha: f64, beta: f64) -> Beta {
         let norm_ct: f64 = 1.0 / euclid::beta_fn(alpha, beta);
 
@@ -103,16 +105,19 @@ impl Beta {
         };
     }
 
+    #[must_use]
     pub const fn get_alpha(&self) -> f64 {
         return self.alpha;
     }
 
+    #[must_use]
     pub const fn get_beta(&self) -> f64 {
         return self.beta;
     }
 }
 
 impl Distribution for Beta {
+    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         // let a = alpha, let b = beta for conciseness sake.
         // pdf(x | a, b) = Gamma(a+b-1)/(Gamma(a-1)*Gamma(b-1)) * x^(a-1) * (1 - x)^(b-1)
@@ -123,15 +128,18 @@ impl Distribution for Beta {
         return self.normalitzation_constant * pow_alpha * pow_beta;
     }
 
+    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &BETA_DOMAIN;
     }
 
+    #[must_use]
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
     }
 
+    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
            Plan for Beta:
@@ -257,6 +265,7 @@ impl Distribution for Beta {
         return ret;
     }
 
+    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         // https://en.wikipedia.org/wiki/Beta_distribution#Random_variate_generation
 
@@ -284,6 +293,7 @@ impl Distribution for Beta {
         return gamma_alpha_samples;
     }
 
+    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             Plan for Beta:
@@ -433,15 +443,18 @@ impl Distribution for Beta {
         return ret;
     }
 
+    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.alpha / (self.alpha + self.beta));
     }
 
+    #[must_use]
     fn variance(&self) -> Option<f64> {
         let ab: f64 = self.alpha + self.beta;
         return Some(self.alpha * self.beta / (ab * ab * (ab + 1.0)));
     }
 
+    #[must_use]
     fn mode(&self) -> f64 {
         // alpha anb beta are non-nans, unwrap is safe
         match (
@@ -460,6 +473,7 @@ impl Distribution for Beta {
 
     // default median
 
+    #[must_use]
     fn skewness(&self) -> Option<f64> {
         // formula from wiki
         // Sk = 2*(b-a) * sqrt(a+b+1) / ((a+b+2) * sqrt(a*b))
@@ -475,10 +489,12 @@ impl Distribution for Beta {
         return Some(num / den);
     }
 
+    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
+    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         let sum_a_b: f64 = self.alpha + self.beta;
         let sub_a_b: f64 = self.alpha - self.beta;
@@ -490,6 +506,7 @@ impl Distribution for Beta {
         return Some(6.0 * num / den);
     }
 
+    #[must_use]
     fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
         /*
 
@@ -581,6 +598,7 @@ impl Distribution for Beta {
         return moment;
     }
 
+    #[must_use]
     fn entropy(&self) -> f64 {
         // https://en.wikipedia.org/wiki/Beta_distribution#Quantities_of_information_(entropy)
 
@@ -595,6 +613,7 @@ impl Distribution for Beta {
         return term_1 + term_2 + term_3 + term_4;
     }
 
+    #[must_use]
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         // Small modifications for the information that we know of beta.
         // Should be very effitient if alpah and beta are greater or equal to 1.0
@@ -615,6 +634,7 @@ impl Distribution for Beta {
         return ret;
     }
 
+    #[must_use]
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let range_magnitude: f64 = range.1 - range.0;
@@ -653,6 +673,7 @@ impl Parametric for Beta {
     /// > \[alpha, beta\]
     ///
     /// Alpha and beta must be both stricly positive.
+    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // let a = alpha, let b = beta for conciseness sake.
         // pdf(x | a, b) = Gamma(a+b-1)/(Gamma(a-1)*Gamma(b-1)) * x^(a-1) * (1 - x)^(b-1)
@@ -667,6 +688,7 @@ impl Parametric for Beta {
         return norm * pow_alpha * pow_beta;
     }
 
+    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -676,6 +698,7 @@ impl Parametric for Beta {
         parameters[1] = self.beta;
     }
 
+    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -837,6 +860,7 @@ impl Parametric for Beta {
         return ret;
     }
 
+    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -908,6 +932,7 @@ impl Parametric for Beta {
         parameters[1] = parameters[1].max(ep * ep * ep);
     }
 
+    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
 

@@ -140,6 +140,7 @@ pub enum TestResult {
 
 impl TestResult {
     /// Returns the [P value](https://en.wikipedia.org/wiki/P-value).
+    #[must_use]
     pub fn p(&self) -> f64 {
         // convinience method for quickly retriving the p value
         return match self {
@@ -147,6 +148,7 @@ impl TestResult {
         };
     }
 
+    #[must_use]
     pub fn statisitc(&self) -> f64 {
         // convinience method for quickly retriving the statisitc value
         return match self {
@@ -165,6 +167,7 @@ impl Default for TestResult {
 /// drawn from the `null` distribution.
 ///
 /// *do not use*: may be deprecated in the future or completely re-written
+#[must_use]
 pub fn general_test<T: crate::distribution_trait::Distribution>(
     hypothesys: Hypothesis,
     statistic: f64,
@@ -217,6 +220,7 @@ pub fn general_test<T: crate::distribution_trait::Distribution>(
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
+#[must_use]
 #[bon::builder]
 pub fn z_test(
     data: &mut Samples,
@@ -293,6 +297,7 @@ pub fn z_test(
 /// Although teoretically we cannot do it, in practice we know that the t-tests are
 /// robust to violations on it's assumptions.
 ///
+#[must_use]
 #[bon::builder]
 pub fn t_test(
     data: &mut Samples,
@@ -385,6 +390,7 @@ pub fn t_test(
 ///
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
+#[must_use]
 #[bon::builder]
 pub fn two_sample_t_test(
     data_a: &mut Samples,
@@ -554,6 +560,7 @@ pub fn two_sample_t_test(
 /// If there are an unequal number of sampes, returns [TestError::InvalidArguments].
 /// If there is not enough samples in `data`, returns [TestError::NotEnoughSamples].
 ///
+#[must_use]
 #[bon::builder]
 pub fn paired_t_test(
     data_pre: &mut Samples,

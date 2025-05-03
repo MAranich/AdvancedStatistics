@@ -50,6 +50,7 @@ impl F {
     ///      - Use [F::new_unchecked] if you don't need to evaluate
     ///         the pdf direcly or indirecly.
     ///
+    #[must_use]
     pub fn new(d1: f64, d2: f64) -> Result<F, AdvStatError> {
         if !d1.is_finite() {
             if d1.is_nan() {
@@ -106,6 +107,7 @@ impl F {
     ///  - The values for `d1` and `d2` are too large to model properly
     ///      - This means that a [f64] value is not precise enough.
     ///
+    #[must_use]
     pub unsafe fn new_unchecked(d1: f64, d2: f64) -> F {
         let norm: f64 = F::compute_normalitzation_constant(d1, d2);
 
@@ -116,6 +118,7 @@ impl F {
         };
     }
 
+    #[must_use]
     fn compute_normalitzation_constant(d1: f64, d2: f64) -> f64 {
         assert!(0.0 < d1);
         assert!(0.0 < d2);
@@ -127,20 +130,24 @@ impl F {
         return num / beta;
     }
 
+    #[must_use]
     pub fn get_d1(&self) -> f64 {
         return self.d1;
     }
 
+    #[must_use]
     pub fn get_d2(&self) -> f64 {
         return self.d2;
     }
 
+    #[must_use]
     pub fn get_normalitzation_constant(&self) -> f64 {
         return self.normalitzation_constant;
     }
 }
 
 impl Distribution for F {
+    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         // norm(d1, d2) = (d1/d2)^(d1/2) / B(d1/2, d2/2)
         // norm(d1, d2) = (d1/d2)^(d1/2) * gamma(d1/2 + d2/2) / (gamma(d1/2) * gamma(d2/2))
@@ -150,12 +157,14 @@ impl Distribution for F {
         return term_1 * term_2 * self.normalitzation_constant;
     }
 
+    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &F_DOMAIN;
     }
 
     // cdf, sample and quantile are default
 
+    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -232,6 +241,7 @@ impl Distribution for F {
         return ret;
     }
 
+    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let chi_num: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d1) };
         let chi_den: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d2) };
@@ -249,6 +259,7 @@ impl Distribution for F {
             .collect::<Vec<f64>>();
     }
 
+    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -349,6 +360,7 @@ impl Distribution for F {
         return ret;
     }
 
+    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         if self.d2 <= 2.0 {
             return None;
@@ -356,6 +368,7 @@ impl Distribution for F {
         return Some(self.d2 / (self.d2 - 2.0));
     }
 
+    #[must_use]
     fn variance(&self) -> Option<f64> {
         if self.d2 <= 4.0 {
             return None;
@@ -367,6 +380,7 @@ impl Distribution for F {
         return Some(num / den);
     }
 
+    #[must_use]
     fn mode(&self) -> f64 {
         if self.d2 <= 2.0 {
             return f64::NAN;
@@ -377,6 +391,7 @@ impl Distribution for F {
 
     // default median
 
+    #[must_use]
     fn skewness(&self) -> Option<f64> {
         if self.d2 <= 6.0 {
             return None;
@@ -388,10 +403,12 @@ impl Distribution for F {
         return Some(num / den);
     }
 
+    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
+    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         if self.d2 <= 8.0 {
             return None;
@@ -407,7 +424,7 @@ impl Distribution for F {
     }
 
     // moments: TODO: there is a formula for the moments of the F distribution https://en.wikipedia.org/wiki/F-distribution#Properties
-
+    #[must_use]
     fn entropy(&self) -> f64 {
         let d1: f64 = self.d1 * 0.5;
         let d2: f64 = self.d2 * 0.5;
@@ -439,6 +456,7 @@ impl Parametric for F {
     /// > \[degrees_freedom_numerator, degrees_freedom_denomiator\]
     ///
     /// Both must be stricly positive (usually also integers).
+    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // norm(d1, d2) = (d1/d2)^(d1/2) / B(d1/2, d2/2)
         // norm(d1, d2) = (d1/d2)^(d1/2) * gamma(d1/2 + d2/2) / (gamma(d1/2) * gamma(d2/2))
@@ -456,6 +474,7 @@ impl Parametric for F {
         return term_1 * term_2 * norm;
     }
 
+    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -470,7 +489,8 @@ impl Parametric for F {
     }
 
     // deafult derivative_pdf_parameters
-
+    
+    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -585,6 +605,7 @@ impl Parametric for F {
         return ret;
     }
 
+    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
                 Using Maximum Likelyhood estimation:

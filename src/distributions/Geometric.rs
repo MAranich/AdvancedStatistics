@@ -27,6 +27,7 @@ impl Geometric {
     ///  - `p` indicates the probability of success.
     ///  - `p` must belong in the interval `[0.0, 1.0]`.
     ///      - Otherwise an error will be returned.
+    #[must_use]
     pub const fn new(p: f64) -> Result<Geometric, AdvStatError> {
         if !p.is_finite() {
             if p.is_nan() {
@@ -54,17 +55,20 @@ impl Geometric {
     ///  - `p` indicates the probability of success.
     ///      - `p` must belong in the interval `[0.0, 1.0]`.
     ///
+    #[must_use]
     pub const unsafe fn new_unchecked(p: f64) -> Geometric {
         return Geometric { p };
     }
 
     /// Return `p` (probability of success).
+    #[must_use]
     pub const fn get_p(&self) -> f64 {
         return self.p;
     }
 }
 
 impl DiscreteDistribution for Geometric {
+    #[must_use]
     fn pmf(&self, x: f64) -> f64 {
         // pmf(x | p) = (1 - p)^(x.floor() - 1) * p
         let k: i32 = x as i32 - 1;
@@ -72,10 +76,12 @@ impl DiscreteDistribution for Geometric {
         return self.p * q.powi(k);
     }
 
+    #[must_use]
     fn get_domain(&self) -> &DiscreteDomain {
         return &GEOMETRIC_DOMAIN;
     }
 
+    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         if x.is_nan() {
             std::panic!("Tried to evaluate the cdf of Geometric with a NaN value. \n");
@@ -84,6 +90,7 @@ impl DiscreteDistribution for Geometric {
         return 1.0 - (1.0 - self.p).powi(x as i32);
     }
 
+    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         if x.is_nan() {
             // x is not valid
@@ -97,6 +104,7 @@ impl DiscreteDistribution for Geometric {
         return quantile_vec[0];
     }
 
+    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
@@ -105,6 +113,7 @@ impl DiscreteDistribution for Geometric {
     // simulating Bernoulli trials until we succeed, it is too much work
     // to avould computing a `ln()`
 
+    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -145,14 +154,17 @@ impl DiscreteDistribution for Geometric {
         return ret;
     }
 
+    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(1.0 / self.p);
     }
 
+    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some((1.0 * self.p) / (self.p * self.p));
     }
 
+    #[must_use]
     fn mode(&self) -> f64 {
         return 1.0;
     }
@@ -168,22 +180,27 @@ impl DiscreteDistribution for Geometric {
     /// ### Geometric:
     ///
     /// The median is not unique if `-1/log_2(1-p)` is an integer.
+    #[must_use]
     fn median(&self) -> f64 {
         return (-1.0 / (1.0 - self.p).log2()).floor();
     }
 
+    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some((2.0 - self.p) / (1.0 - self.p).sqrt());
     }
 
+    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
+    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(6.0 + self.p * self.p / (1.0 - self.p));
     }
 
+    #[must_use]
     fn entropy(&self) -> f64 {
         let q: f64 = 1.0 - self.p;
 
@@ -200,6 +217,7 @@ impl Parametric for Geometric {
     ///
     /// The [Geometric] distribution has 1 parameter: `p` (**p**robability of success).
     ///
+    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pmf(x | p) = (1 - p)^(x.floor() - 1) * p
         let k: i32 = x as i32 - 1;
@@ -207,6 +225,7 @@ impl Parametric for Geometric {
         return self.p * q.powi(k);
     }
 
+    #[must_use]
     fn number_of_parameters() -> u16 {
         return 1;
     }
@@ -215,6 +234,7 @@ impl Parametric for Geometric {
         parameters[0] = self.p;
     }
 
+    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -279,6 +299,7 @@ impl Parametric for Geometric {
         return ret;
     }
 
+    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -324,6 +345,7 @@ impl Parametric for Geometric {
         parameters[0] = parameters[0].max(ep * ep * ep)
     }
 
+    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         let mut parameters: Vec<f64> = Vec::new();
         parameters.reserve_exact(1);

@@ -40,6 +40,7 @@ impl Poisson {
     ///      - `0.0 < lambda`
     ///
     /// Otherwise an error will be returned.
+    #[must_use]
     pub const fn new(lambda: f64) -> Result<Poisson, AdvStatError> {
         if !lambda.is_finite() {
             if lambda.is_nan() {
@@ -67,17 +68,20 @@ impl Poisson {
     ///      - Must be finite (no `+-inf` nor NaNs)
     ///      - `0.0 < lambda`
     ///
+    #[must_use]
     pub const unsafe fn new_unchecked(lambda: f64) -> Poisson {
         return Poisson { lambda };
     }
 
     /// Returns the value of `lambda`
+    #[must_use]
     pub const fn get_lambda(&self) -> f64 {
         return self.lambda;
     }
 }
 
 impl DiscreteDistribution for Poisson {
+    #[must_use]
     fn pmf(&self, mut x: f64) -> f64 {
         /* Usual definition:
          > P(x | lambda) = exp(-lambda) * lambda^x / x!
@@ -100,12 +104,14 @@ impl DiscreteDistribution for Poisson {
         return inner_exp.exp();
     }
 
+    #[must_use]
     fn get_domain(&self) -> &DiscreteDomain {
         return &POISSON_DOMAIN;
     }
 
     // use default cdf, sample and quantile
 
+    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
                Plan:
@@ -177,6 +183,7 @@ impl DiscreteDistribution for Poisson {
         }
     }
 
+    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         /*
             Source method:
@@ -214,6 +221,7 @@ impl DiscreteDistribution for Poisson {
         return ret;
     }
 
+    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
                 Plan:
@@ -297,14 +305,17 @@ impl DiscreteDistribution for Poisson {
         }
     }
 
+    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.lambda);
     }
 
+    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.lambda);
     }
 
+    #[must_use]
     fn mode(&self) -> f64 {
         return self.lambda.floor();
     }
@@ -312,14 +323,17 @@ impl DiscreteDistribution for Poisson {
     // use defaut median because there is not any exact formula,
     // just bounds / aproximations (even if very good)
 
+    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(1.0 / self.lambda.sqrt());
     }
 
+    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
+    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(1.0 / self.lambda);
     }
@@ -343,6 +357,7 @@ impl Parametric for Poisson {
     /// ### Parameters for Poisson:
     ///
     /// The Poisson distribution has only 1 parameter, `lambda`.
+    #[must_use]
     fn general_pdf(&self, mut x: f64, parameters: &[f64]) -> f64 {
         /*
          > P(x | lambda) = exp(-lambda) * lambda^x / x!
@@ -358,6 +373,7 @@ impl Parametric for Poisson {
         return inner_exp.exp();
     }
 
+    #[must_use]
     fn number_of_parameters() -> u16 {
         return 1;
     }
@@ -366,6 +382,7 @@ impl Parametric for Poisson {
         parameters[0] = self.lambda;
     }
 
+    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -420,6 +437,7 @@ impl Parametric for Poisson {
         return ret;
     }
 
+    #[must_use]
     fn log_derivative_pdf_parameters(&self, mut x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -458,6 +476,7 @@ impl Parametric for Poisson {
         parameters[0] = parameters[0].max(ep * ep * ep)
     }
 
+    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         let mut parameters: Vec<f64> = Vec::new();
         parameters.reserve_exact(1);

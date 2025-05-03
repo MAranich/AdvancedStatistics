@@ -62,6 +62,7 @@ impl Samples {
     ///
     /// If you want to just move the data without copying it,
     /// use [Samples::new_move].
+    #[must_use]
     pub fn new(data: &[f64]) -> Result<Samples, AdvStatError> {
         for elem in data.iter() {
             if !elem.is_finite() {
@@ -93,6 +94,7 @@ impl Samples {
     ///
     /// If you want to just move the data without copying it,
     /// use [Samples::new_move] / [Samples::new_move_unchecked].
+    #[must_use]
     pub unsafe fn new_unchecked(data: &[f64]) -> Samples {
         return Samples {
             data: Vec::from(data),
@@ -110,6 +112,7 @@ impl Samples {
     ///
     /// If you don't want to move the data (to keep ownership of it),
     /// use [Samples::new].
+    #[must_use]
     pub fn new_move(data: Vec<f64>) -> Result<Samples, AdvStatError> {
         for elem in data.iter() {
             if !elem.is_finite() {
@@ -141,6 +144,7 @@ impl Samples {
     ///
     /// If you don't want to move the data (to keep ownership of it),
     /// use [Samples::new] / [Samples::new_unchecked].
+    #[must_use]
     pub unsafe fn new_move_uncheched(data: Vec<f64>) -> Samples {
         return Samples {
             data,
@@ -152,6 +156,7 @@ impl Samples {
     ///
     /// Note that the data may be sorted or not (depending on
     /// calls to other methods).
+    #[must_use]
     pub fn peek_data(&self) -> &Vec<f64> {
         return &self.data;
     }
@@ -159,6 +164,7 @@ impl Samples {
     /// Returns the contained data and drops self.
     ///
     /// If you do not want to drop self, use [Samples::peek_data]
+    #[must_use]
     pub fn get_data(self) -> Vec<f64> {
         return self.data;
     }
@@ -174,6 +180,7 @@ impl Samples {
     ///
     /// Note that the internal [SampleProperties] is emptied.
     #[allow(clippy::result_large_err)]
+    #[must_use]
     pub fn add_data(self, data: &[f64]) -> Result<Samples, Samples> {
         let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
         if invalid_contained {
@@ -204,6 +211,7 @@ impl Samples {
     ///
     /// Note that the internal [SampleProperties] is emptied.
     #[allow(clippy::result_large_err)]
+    #[must_use]
     pub fn add_data_move(self, data: Vec<f64>) -> Result<Samples, Samples> {
         let invalid_contained: bool = data.iter().any(|f: &f64| !f.is_finite());
         if invalid_contained {
@@ -221,6 +229,7 @@ impl Samples {
     /// all computed statistics ([SampleProperties]).
     ///
     /// If you want to also compute the properties, use [Samples::get_properties].
+    #[must_use]
     pub fn peek_properties(&self) -> &SampleProperties {
         return &self.properties;
     }
@@ -698,10 +707,12 @@ impl Samples {
     /// Returns the number of elements in [Samples]
     ///
     /// Identical to [Samples::count]
+    #[must_use]
     pub fn len(&self) -> usize {
         return self.data.len();
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         return self.data.len() == 0;
     }
@@ -709,6 +720,8 @@ impl Samples {
     /// Returns the number of elements in [Samples]
     ///
     /// Identical to [Samples::len]
+    #[must_use]
+    // #[confusable = len]
     pub fn count(&self) -> usize {
         //#[rustc_confusables("len", "size", "count", "shape", "n")]
         return self.data.len();
@@ -719,6 +732,7 @@ impl Samples {
     /// A classical [bootstrap resample](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)).
     ///
     /// See also: [Samples::get_resample_multiple], [Samples::get_permutation]
+    #[must_use]
     pub fn get_resample(&self) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let len: usize = self.data.len();
@@ -739,6 +753,7 @@ impl Samples {
     /// A classical [bootstrap resample](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)).
     ///
     /// See also: [Samples::get_resample_multiple], [Samples::get_permutation]
+    #[must_use]
     pub fn get_resample_multiple(&self, n: usize) -> Vec<Vec<f64>> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let len: usize = self.data.len();
@@ -764,6 +779,7 @@ impl Samples {
     /// Sorts in `O(n)` time using the [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle).
     ///
     /// See also: [Samples::get_resample], [Samples::get_permutation_multiple]
+    #[must_use]
     pub fn get_permutation(&self) -> Vec<f64> {
         // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
 
@@ -790,6 +806,7 @@ impl Samples {
     /// Sorts in `O(n)` time using the [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle).
     ///
     /// See also: [Samples::get_permutation], [Samples::get_resample]
+    #[must_use]
     pub fn get_permutation_multiple(&self, n: usize) -> Vec<Vec<f64>> {
         // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
 
@@ -816,6 +833,7 @@ impl Samples {
 
     /// Returns a vector of indicies of all the samples marked as otliers byt the
     /// selected [OutlierDetectionMethod].
+    #[must_use]
     pub fn outlier_detection(&mut self, method: OutlierDetectionMethod) -> Vec<usize> {
         let mut ret: Vec<usize> = Vec::new();
 
@@ -889,6 +907,7 @@ impl Samples {
 
     /// Returns 2 Samples structures `(inliners, outliers)` from self and the given
     /// outliers.
+    #[must_use]
     pub fn outlier_removal(self, outliers_idx: Vec<usize>) -> (Samples, Samples) {
         let mut original_data: Vec<f64> = self.get_data();
 
@@ -908,6 +927,7 @@ impl Samples {
 }
 
 impl SampleProperties {
+    #[must_use]
     pub fn empty() -> SampleProperties {
         SampleProperties {
             mean: None,

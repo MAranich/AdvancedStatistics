@@ -77,6 +77,7 @@ impl DiscreteDomain {
     ///  - No NaNs
     ///  - No repeated elements
     ///  - The values in the vector must be sorted
+    #[must_use]
     pub fn new_discrete_custom(values: &[f64]) -> Self {
         let mut points: Vec<f64> = values
             .iter()
@@ -91,6 +92,7 @@ impl DiscreteDomain {
         return DiscreteDomain::Custom(points);
     }
 
+    #[must_use]
     pub fn contains(&self, x: f64) -> bool {
         if let DiscreteDomain::Custom(vec) = self {
             return vec
@@ -125,6 +127,7 @@ impl DiscreteDomain {
     /// themselves are included.
     ///
     /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
+    #[must_use]
     pub fn get_bounds(&self) -> (f64, f64) {
         match &self {
             DiscreteDomain::Integers => (f64::NEG_INFINITY, f64::INFINITY),
@@ -141,6 +144,7 @@ impl DiscreteDomain {
     /// Returns an iteratior that iterates trough all the elements in the domain.
     ///
     /// Warning: the iterator may be infinite.
+    #[must_use]
     pub fn iter(&self) -> DiscreteDomainIterator {
         // current_value being a NaN sybmolyzes that no values have been given yet
         DiscreteDomainIterator {
@@ -151,6 +155,7 @@ impl DiscreteDomain {
     }
 
     /// Returns true if the domain contains a finite number of elements.
+    #[must_use]
     pub fn contains_finite_elements(&self) -> bool {
         match self {
             DiscreteDomain::Range(_, _) | DiscreteDomain::Custom(_) => true,
@@ -160,6 +165,7 @@ impl DiscreteDomain {
 }
 
 impl ContinuousDomain {
+    #[must_use]
     pub fn contains(&self, x: f64) -> bool {
         match self {
             ContinuousDomain::Reals => true,
@@ -176,6 +182,7 @@ impl ContinuousDomain {
     /// themselves are included.
     ///
     /// If the domain is empty, [DEFAULT_EMPTY_DOMAIN_BOUNDS] = `(-0.0, 0.0)` is returned.
+    #[must_use]
     pub fn get_bounds(&self) -> (f64, f64) {
         match &self {
             ContinuousDomain::Reals => (f64::NEG_INFINITY, f64::INFINITY),

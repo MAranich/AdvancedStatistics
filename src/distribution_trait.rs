@@ -34,10 +34,12 @@ pub trait Distribution {
     ///  - The function must be real valued (no `+-inf` or NaNs)
     ///  - As `x` approaches `+-inf` (if inside the domain), `pdf(x)` should
     ///     tend to `0.0`.
+    #[must_use]
     fn pdf(&self, x: f64) -> f64;
 
     /// Returns a reference to the pdf [ContinuousDomain], wich indicates at wich points
     /// the pdf can be evaluated. The returned domain should be constant and not change.
+    #[must_use]
     fn get_domain(&self) -> &ContinuousDomain;
 
     // Provided methods:
@@ -54,6 +56,7 @@ pub trait Distribution {
     ///
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive.
+    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         if x.is_nan() {
             // x is not valid
@@ -74,6 +77,7 @@ pub trait Distribution {
     /// Note that the deafult implemetation requieres numerical integration and
     /// may be expensive. The method [Distribution::sample_multiple] is more
     /// effitient for multiple sampling.
+    #[must_use]
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
@@ -98,6 +102,7 @@ pub trait Distribution {
     ///
     /// Also, if you are considering calling this function multiple times, use
     /// [Distribution::quantile_multiple] for better performance.
+    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
@@ -141,6 +146,7 @@ pub trait Distribution {
     ///     points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     /// }
     /// ```
+    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             Plan: (sery similar to [Distribution::quantile_multiple])
@@ -389,6 +395,7 @@ pub trait Distribution {
     ///     (0..n).map(|_| self.sample()).collect::<Vec<f64>>()
     /// }
     /// ```
+    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = vec![0.0; n];
@@ -435,6 +442,7 @@ pub trait Distribution {
     ///         .collect::<Vec<f64>>();
     /// }
     /// ```
+    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             Plan:
@@ -686,6 +694,7 @@ pub trait Distribution {
     /// Returns the [expected value](https://en.wikipedia.org/wiki/Expected_value)
     /// of the distribution if it exists. Represents the theorical mean of the distribution;
     /// the average of it's samples.
+    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.moments(1, Moments::Raw));
     }
@@ -695,6 +704,7 @@ pub trait Distribution {
     /// distribution is.
     ///
     /// The variance is the square of the standard deviation.
+    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.moments(2, Moments::Central));
     }
@@ -710,6 +720,7 @@ pub trait Distribution {
     /// the function always returns the correct awnser, but be aware of it's limitations.
     /// Note that you may get incorrect results if the algorithm gets "stuck" in areas where
     /// the function is almost flat.
+    #[must_use]
     fn mode(&self) -> f64 {
         let bounds: (f64, f64) = self.get_domain().get_bounds();
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
@@ -824,18 +835,21 @@ pub trait Distribution {
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
     /// evaluating the [Distribution::quantile] function at `0.5`.
+    #[must_use]
     fn median(&self) -> f64 {
         return self.quantile(0.5);
     }
 
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
     /// of the distribution if it exists. Measures how asymetric is the distribution.
+    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(self.moments(3, Moments::Standarized));
     }
 
     /// Returns the [kurtosis](https://en.wikipedia.org/wiki/Kurtosis)
     /// of the distribution.
+    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
@@ -844,6 +858,7 @@ pub trait Distribution {
     /// of the distribution.
     ///
     /// The excess kurtosis is defined as `kurtosis - 3`.
+    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(self.moments(4, Moments::Standarized) - 3.0);
     }
@@ -853,6 +868,7 @@ pub trait Distribution {
     ///  - [Moments::Raw]
     ///  - [Moments::Central]
     ///  - [Moments::Standarized]
+    #[must_use]
     fn moments(&self, order: u8, mode: Moments) -> f64 {
         /*
 
@@ -995,6 +1011,7 @@ pub trait Distribution {
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution. Measures how "uncertain" are the samples from the
     /// distribution.
+    #[must_use]
     fn entropy(&self) -> f64 {
         // the `f64::MIN_POSITIVE` is added to avoid problems if p is 0. It should be mostly
         // negligible. `ln(f64::MIN_POSITIVE) = -744.4400719213812`
@@ -1032,6 +1049,7 @@ pub trait Distribution {
     /// It is usually more effitient because it does **not** requiere the evaluation of the
     /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
+    #[must_use]
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let domain: &ContinuousDomain = self.get_domain();
@@ -1068,6 +1086,7 @@ pub trait Distribution {
     ///         computational cost.
     ///      - Can be computed with [Distribution::mode].
     ///  - `range`: the bounds of the region to be sampled from.
+    #[must_use]
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let domain: &ContinuousDomain = self.get_domain();
@@ -1108,6 +1127,7 @@ pub trait Distribution {
     ///  - **Panics** if `significance_level` is `+-inf` or a NaN.
     ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS].
     ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`.
+    #[must_use]
     fn confidence_interval(&self, hypothesys: Hypothesis, significance_level: f64) -> (f64, f64) {
         if !significance_level.is_finite() {
             panic!(
@@ -1157,6 +1177,7 @@ pub trait Distribution {
     ///
     /// Notes:
     ///  - **Panics** if `statistic` is non-finite (`+-inf` or NaN)
+    #[must_use]
     fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
         let bounds: (f64, f64) = self.get_domain().get_bounds();
@@ -1190,10 +1211,12 @@ pub trait DiscreteDistribution {
     ///      - If you are not sure if the PDF is normalized, you can use
     ///         [crate::euclid::discrete_integration].
     ///  - The function must be real valued (no `+-inf` or NaNs)
+    #[must_use]
     fn pmf(&self, x: f64) -> f64;
 
     /// Returns a reference to the pdf domain, wich indicates at wich points the pdf can
     /// be evaluated. The returned domain should be constant and not change.
+    #[must_use]
     fn get_domain(&self) -> &DiscreteDomain;
 
     // Provided methods:
@@ -1208,6 +1231,7 @@ pub trait DiscreteDistribution {
     ///
     /// The cdf **includes** the `x` itself. Note that the deafult implemetation
     /// requieres evaluating the pmf many times and may be expensive.
+    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         if x.is_nan() {
             panic!("Tried to evaluate the cdf with a NaN value. \n");
@@ -1227,6 +1251,7 @@ pub trait DiscreteDistribution {
     ///
     /// The method [Distribution::sample_multiple] is more effitient for
     /// multiple sampling.
+    #[must_use]
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
@@ -1269,6 +1294,7 @@ pub trait DiscreteDistribution {
     ///
     /// If you are considering calling this function multiple times, use
     /// [Distribution::quantile_multiple] for better performance.
+    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         if x.is_nan() {
             // x is not valid
@@ -1312,6 +1338,7 @@ pub trait DiscreteDistribution {
     ///     points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     /// }
     /// ```
+    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
                 Plan:
@@ -1463,6 +1490,7 @@ pub trait DiscreteDistribution {
     ///     (0..n).map(|_| self.sample()).collect::<Vec<f64>>()
     /// }
     /// ```
+    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = vec![0.0; n];
@@ -1519,6 +1547,7 @@ pub trait DiscreteDistribution {
     ///     return list;
     /// }
     /// ```
+    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
                 Plan:
@@ -1660,6 +1689,7 @@ pub trait DiscreteDistribution {
     /// Returns the [expected value](https://en.wikipedia.org/wiki/Expected_value)
     /// of the distribution if it exists. Represents the theorical mean of the distribution;
     /// the average of it's samples.
+    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.moments(1, Moments::Raw));
     }
@@ -1669,6 +1699,7 @@ pub trait DiscreteDistribution {
     /// distribution is.
     ///
     /// The variance is the square of the standard deviation.
+    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.moments(2, Moments::Central));
     }
@@ -1683,6 +1714,7 @@ pub trait DiscreteDistribution {
     /// values.
     ///
     /// Panics if the domain contains no values.
+    #[must_use]
     fn mode(&self) -> f64 {
         let domain: &DiscreteDomain = self.get_domain();
         let mut domain_iter: crate::domain::DiscreteDomainIterator<'_> = domain.iter();
@@ -1733,18 +1765,21 @@ pub trait DiscreteDistribution {
     /// It may happen that the quantile distribution is hard to evaluate but that
     /// the median has a closed form solution. Otherwise, it will be equivalent to
     /// evaluating the [DiscreteDistribution::quantile] function at `0.5`.
+    #[must_use]
     fn median(&self) -> f64 {
         return self.quantile(0.5);
     }
 
     /// Returns the [skewness](https://en.wikipedia.org/wiki/Skewness)
     /// of the distribution if it exists. Measures how asymetric is the distribution.
+    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(self.moments(3, Moments::Standarized));
     }
 
     /// Returns the [kurtosis](https://en.wikipedia.org/wiki/Kurtosis)
     /// of the distribution.
+    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         // return self.kurtosis().map(|x| x + 3.0);
         return Some(self.moments(4, Moments::Standarized));
@@ -1754,6 +1789,7 @@ pub trait DiscreteDistribution {
     /// of the distribution.
     ///
     /// The excess kurtosis is defined as `kurtosis - 3`.
+    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         // return Some(self.moments(4, Moments::Standarized) - 3.0);
         return self.kurtosis().map(|x| x - 3.0);
@@ -1764,6 +1800,7 @@ pub trait DiscreteDistribution {
     ///  - [Moments::Raw]
     ///  - [Moments::Central]
     ///  - [Moments::Standarized]
+    #[must_use]
     fn moments(&self, order: u8, mode: Moments) -> f64 {
         let domain: &DiscreteDomain = self.get_domain();
 
@@ -1814,6 +1851,7 @@ pub trait DiscreteDistribution {
     /// Returns the [entropy](https://en.wikipedia.org/wiki/Information_entropy)
     /// of the distribution. Measures how "uncertain" are the samples from the
     /// distribution.
+    #[must_use]
     fn entropy(&self) -> f64 {
         let domain: &DiscreteDomain = self.get_domain();
         //let max_steps: u64 = unsafe { configuration::disrete_distribution_deafults::MAXIMUM_STEPS };
@@ -1863,6 +1901,7 @@ pub trait DiscreteDistribution {
     ///      - Can be computed with [DiscreteDistribution::mode].
     ///  - `range`: the bounds of the region to be sampled from.
     ///      - Both values are inclusive.
+    #[must_use]
     fn rejection_sample_range(&self, n: usize, pmf_max: f64, range: (i64, i64)) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let range_f: (f64, f64);
@@ -1936,6 +1975,7 @@ pub trait DiscreteDistribution {
     ///  - **Panics** if `significance_level` is `+-inf` or a NaN.
     ///  - If `significance_level <= 0.0` then returns [DEFAULT_EMPTY_DOMAIN_BOUNDS].
     ///  - If `1.0 <= significance_level` then returns `self.get_domain().get_bounds()`.
+    #[must_use]
     fn confidence_interval(&self, hypothesys: Hypothesis, significance_level: f64) -> (f64, f64) {
         if !significance_level.is_finite() {
             panic!(
@@ -1985,6 +2025,7 @@ pub trait DiscreteDistribution {
     ///
     /// Notes:
     ///  - **Panics** if `statistic` is non-finite (`+-inf` or NaN)
+    #[must_use]
     fn p_value(&self, hypothesys: Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
 
@@ -2043,6 +2084,7 @@ pub trait Parametric {
     /// [Distribution::pdf](crate::distribution_trait::Distribution::pdf)
     /// (or [DiscreteDistribution::pmf](crate::distribution_trait::DiscreteDistribution::pmf))
     /// but also taking the parameters into account.
+    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64;
 
     /// Returns the gradient of the pdf in respect to the parameters and the point `x`.
@@ -2054,6 +2096,7 @@ pub trait Parametric {
     ///
     /// If a parameter is discrete (for example can only be a natural number) then the
     /// derivative will be `0.0`.
+    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -2080,6 +2123,7 @@ pub trait Parametric {
     ///
     /// See: [logarithmic derivative](https://en.wikipedia.org/wiki/Logarithmic_derivative)
     /// `d/dx ln(f(x)) = f'(x)/f(x)`
+    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -2098,6 +2142,7 @@ pub trait Parametric {
     ///
     /// If [u16] is not enough, you may be interested in other machine leaning
     /// approaches that AdvancedStatistics does not focus on.
+    #[must_use]
     fn number_of_parameters() -> u16;
 
     /// Writes the parameters of the model in order in the given
@@ -2130,6 +2175,7 @@ pub trait Parametric {
     ///
     /// If there has been an error, returns an empty vector. If using the
     /// default implemetation, it gets the initial guess from the values in self.
+    #[must_use]
     fn fit(&self, data: &mut Samples) -> Vec<f64> {
         let d: usize = Self::number_of_parameters() as usize;
         let mut parameters: Vec<f64> = vec![0.0; d];

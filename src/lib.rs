@@ -4,6 +4,14 @@
     clippy::assign_op_pattern,
     clippy::excessive_precision
 )]
+
+#![warn(
+    clippy::all,
+    clippy::restriction,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::cargo,
+)]
 // ^Disable warning "crate `AdvancedStatistics` should have a snake case name convert the identifier to snake case: `advanced_statistics`"
 // The rest of the names will follow the snake_case convention.
 
