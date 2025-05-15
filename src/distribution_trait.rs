@@ -11,17 +11,14 @@ use crate::euclid::{
 use crate::hypothesis::Hypothesis;
 use crate::samples::Samples;
 
-/// The trait for any continuous distribution.
+/// The trait for any continuous distribution. It provides methods to obtain 
+/// the most uscefull values. 
 ///
-/// The [Distribution::pdf] must be a simple function. If you want a piecewise function,
-/// look first at [crate::mixed_distribution]
-///
-/// None of the provided methods are guaranteed to work if the implemented [Distribution::pdf]
-/// is NOT a [valid pdf](https://en.wikipedia.org/wiki/Probability_density_function).
-/// So, it needs to fullfill:
-///  - The function must be stricly non-negative
-///  - The function must be real valued (no `+-inf` or NaNs)
-///  - The function must have a total area of 1 under the curve.
+/// ## Requiered methods: 
+/// 
+///  - [Distribution::pdf]: specifies the distribution of the distribution. 
+///  - [Distribution::get_domain]: Returns a reference to the pdf [ContinuousDomain]. 
+/// 
 pub trait Distribution {
     //Requiered method:
 
@@ -29,6 +26,9 @@ pub trait Distribution {
     /// (Probability Density function) of the distribution at point `x`. The function
     /// should not be evaluated outside the domain (because it should return 0.0 anyway).
     ///
+    /// The [Distribution::pdf] must be a simple function. If you want a piecewise function,
+    /// look first at [mixed distribution](crate::mixed_distribution). 
+    /// 
     /// The PDF is assumed to be a valid probability distribution. It is must fullfill:
     ///  - `0.0 <= pdf(x)`
     ///  - It is normalized. (It has an area under the curbe of `1.0`)

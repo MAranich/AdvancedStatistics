@@ -484,7 +484,6 @@ impl Parametric for ChiSquared {
     ///
     /// If follows the same constraits as the normal
     /// [Distribution::pdf]
-    /// (or [DiscreteDistribution::pmf])
     /// but also taking the parameters into account.
     ///
     /// ### Parameters for Chi Squared:

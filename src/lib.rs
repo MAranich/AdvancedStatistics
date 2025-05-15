@@ -21,6 +21,7 @@
     clippy::assign_op_pattern,
     // It is Ok that some floats are truncated
     clippy::excessive_precision, 
+    rustdoc::redundant_explicit_links, 
 )]
 // ^
 
@@ -99,7 +100,7 @@
 //! ## Tests
 //!
 //! We have provided some structures to simplify the computation of tests.
-//! Collected data can be stored in [Samples](Samples::Samples), wich also
+//! Collected data can be stored in [Samples](crate::samples::Samples), wich also
 //! allows effitient computation of common statistics (mean, variance, median...).
 //!
 //! We also provided an implemetation of common tests:
@@ -108,11 +109,11 @@
 //!  - [x] [t-test](hypothesis::t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#One-sample_t-test))
 //!  - [x] [2 sample t-test](hypothesis::two_sample_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test#Two-sample_t-tests))
 //!  - [x] [Paired t-test](hypothesis::paired_t_test) ([Wiki](https://en.wikipedia.org/wiki/Student%27s_t-test))
-//!  - [ ] [F-test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/F-test))
-//!  - [ ] [Sign test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Sign_test))
-//!  - [ ] [Wilcoxon signed-rank test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test))
-//!  - [ ] [Chi-squared test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Chi-squared_test))
-//!  - [ ] [Pearson's chi-squared test](hypothesis::test_function) ([Wiki](https://en.wikipedia.org/wiki/Pearson%27s_chi-squared_test))
+//!  - [ ] [F-test]() ([Wiki](https://en.wikipedia.org/wiki/F-test))
+//!  - [ ] [Sign test]() ([Wiki](https://en.wikipedia.org/wiki/Sign_test))
+//!  - [ ] [Wilcoxon signed-rank test]() ([Wiki](https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test))
+//!  - [ ] [Chi-squared test]() ([Wiki](https://en.wikipedia.org/wiki/Chi-squared_test))
+//!  - [ ] [Pearson's chi-squared test]() ([Wiki](https://en.wikipedia.org/wiki/Pearson%27s_chi-squared_test))
 //!  - [ ] ... (more to come (?))
 //!
 //!

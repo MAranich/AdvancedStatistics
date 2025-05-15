@@ -443,7 +443,6 @@ impl Parametric for F {
     ///
     /// If follows the same constraits as the normal
     /// [Distribution::pdf]
-    /// (or [DiscreteDistribution::pmf])
     /// but also taking the parameters into account.
     ///
     /// ### Parameters for the F distribution:

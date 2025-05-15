@@ -96,7 +96,7 @@ impl Samples {
     /// ## Alternatives
     ///
     /// If you want to just move the data without copying it,
-    /// use [Samples::new_move] / [Samples::new_move_unchecked].
+    /// use [Samples::new_move] or [Samples::new_move_uncheched].
     #[must_use]
     pub unsafe fn new_unchecked(data: &[f64]) -> Samples {
         return Samples {
