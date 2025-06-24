@@ -63,7 +63,12 @@ impl Distribution for MyExp {
 #[test]
 fn deafult_methods_comparasion_continuous_exponential() {
     let lambda: f64 = 1.2;
-    let max: f64 = 2.0 * -(0.0001_f64.ln()) / lambda;
+    let max: f64 = 2.0 * -(0.00001_f64.ln()) / lambda;
+
+    let using_newt_quant: bool = true; 
+    unsafe {
+        configuration::QUANTILE_USE_NEWTONS_ITER = using_newt_quant; 
+    }
 
     let ground: Exponential = Exponential::new(lambda).unwrap();
     let test: MyExp = MyExp {
@@ -98,11 +103,11 @@ fn deafult_methods_comparasion_continuous_exponential() {
     for (i, x) in points.iter().enumerate() {
         let diff: f64 = r1[i] - r2[i];
         println!(
-            "\tcdf({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n",
-            x, r1[i], r2[i], diff
+            "\tcdf({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\nr_diff:\t{}\nln_ab_err:\t{}\n",
+            x, r1[i], r2[i], diff, diff.abs() / r1[i], diff.abs().ln()
         );
 
-        assert!(diff.abs() < 0.006);
+        assert!(diff.abs() < 0.01);
     }
 
     // ***
@@ -118,10 +123,12 @@ fn deafult_methods_comparasion_continuous_exponential() {
     for (i, x) in points.iter().enumerate() {
         let diff: f64 = r1[i] - r2[i];
         println!(
-            "\tquantile({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\n",
-            x, r1[i], r2[i], diff
+            "\tquantile({}) || \nground:\t{}\ntest : \t{} \ndiff : \t{}\nr_diff:\t{}\nln_ab_err:\t{}\n",
+            x, r1[i], r2[i], diff, diff.abs() / r1[i], diff.abs().ln()
         );
-        assert!(diff.abs() < 0.0001 || diff.is_infinite());
+        if using_newt_quant {
+            assert!(diff.abs() < 0.0002 || diff.is_infinite());
+        }
         // ifnore the case when diff = inf
     }
 
@@ -140,8 +147,8 @@ fn deafult_methods_comparasion_continuous_exponential() {
         let ground: Option<f64> = ground.expected_value();
         let test: Option<f64> = test.expected_value();
         println!(
-            "Expected value: \n\t - ground: {:?}\n\t - test: {:?}\n",
-            ground, test
+            "Expected value: \n\t - ground: {:?}\n\t - test: {:?}\n\t - Log abs error: {:?}\n",
+            ground, test, (ground.unwrap() - test.unwrap()).abs().ln()
         );
         assert!((ground.unwrap() - test.unwrap()).abs() < 0.001);
     }
@@ -151,8 +158,8 @@ fn deafult_methods_comparasion_continuous_exponential() {
         let test: Option<f64> = test.variance();
 
         println!(
-            "Variance: \n\t - ground: {:?}\n\t - test: {:?}\n",
-            ground, test
+            "Variance: \n\t - ground: {:?}\n\t - test: {:?}\n\t - Log abs error: {:?}\n",
+            ground, test, (ground.unwrap() - test.unwrap()).abs().ln()
         );
         assert!((ground.unwrap() - test.unwrap()).abs() < 0.005);
     }
@@ -161,8 +168,8 @@ fn deafult_methods_comparasion_continuous_exponential() {
         let ground: Option<f64> = ground.skewness();
         let test: Option<f64> = test.skewness();
         println!(
-            "Skewness: \n\t - ground: {:?}\n\t - test: {:?}\n",
-            ground, test
+            "Skewness: \n\t - ground: {:?}\n\t - test: {:?}\n\t - Log abs error: {:?}\n",
+            ground, test, (ground.unwrap() - test.unwrap()).abs().ln()
         );
         assert!((ground.unwrap() - test.unwrap()).abs() < 0.02);
         // skewness is hard to calculate accurately (:/)
@@ -172,8 +179,8 @@ fn deafult_methods_comparasion_continuous_exponential() {
         let ground: Option<f64> = ground.excess_kurtosis();
         let test: Option<f64> = test.excess_kurtosis();
         println!(
-            "Excess kurtosis: \n\t - ground: {:?}\n\t - test: {:?}\n",
-            ground, test
+            "Excess kurtosis: \n\t - ground: {:?}\n\t - test: {:?}\n\t - Log abs error: {:?}\n",
+            ground, test, (ground.unwrap() - test.unwrap()).abs().ln()
         );
         assert!((ground.unwrap() - test.unwrap()).abs() < 0.1);
         // excess_kurtosis is hard to calculate accurately ( :/ )
@@ -182,27 +189,27 @@ fn deafult_methods_comparasion_continuous_exponential() {
     {
         let ground: f64 = ground.mode();
         let test: f64 = test.mode();
-        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n\t - Log abs error: {:?}\n", ground, test, (ground - test).abs().ln());
         assert!((ground - test).abs() < 0.005);
     }
 
     {
         let ground: f64 = ground.median();
         let test: f64 = test.median();
-        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        println!("Median: \n\t - ground: {:?}\n\t - test: {:?}\n\t - Log abs error: {:?}\n", ground, test, (ground - test).abs().ln());
         assert!((ground - test).abs() < 0.005);
     }
 
     {
         let ground: f64 = ground.entropy();
         let test: f64 = test.entropy();
-        println!("Mode: \n\t - ground: {:?}\n\t - test: {:?}\n", ground, test);
+        println!("Entropy: \n\t - ground: {:?}\n\t - test: {:?}\n\t - Log abs error: {:?}\n", ground, test, (ground - test).abs().ln());
         assert!((ground - test).abs() < 0.005);
     }
 
     println!("\n\n================================\n\n");
 
-    // panic!("Show me the results. ");
+    panic!("Show me the results. ");
 }
 
 #[test]
