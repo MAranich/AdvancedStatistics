@@ -64,6 +64,8 @@
 //! But if you are interested on a more common distribution, you may find it among the
 //! ones that we have already implemented:
 //!
+//! See [distributions] for a list with all the distributions. 
+//! 
 //! ### Continuous distributions:
 //!
 //!  - [x] [Normal distribution](crate::distributions::Normal) ([Wiki](https://en.wikipedia.org/wiki/Normal_distribution))

@@ -56,7 +56,7 @@ pub struct GammaGenerator {
 impl Gamma {
     /// Creates a new [Gamma] distribution with parameters `alpha` and `theta`.
     ///
-    /// It will return error under the following conditions:
+    /// It will return error under any of the following conditions:
     ///  - `alpha` is `+-inf` or a NaN
     ///  - `theta` is `+-inf` or a NaN
     ///  - `alpha <= 0.0`
@@ -110,7 +110,7 @@ impl Gamma {
     ///
     /// ## Safety
     ///
-    /// If the following conditions are not fullfiled, the returned distribution
+    /// If any of the following conditions are met, the returned distribution
     /// will be invalid.
     ///
     ///  - `alpha` is `+-inf` or a NaN

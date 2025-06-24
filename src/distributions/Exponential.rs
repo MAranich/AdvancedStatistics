@@ -192,7 +192,7 @@ impl Distribution for Exponential {
 
     #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
-        return self.kurtosis().map(|x| x - 3.0);
+        return self.kurtosis().map(|x: f64| x - 3.0);
     }
 
     #[must_use]

@@ -542,9 +542,6 @@ pub mod combinatorics {
 
            (n | k) = productory {i = 1 -> k} (n - k + i) / i
 
-
-
-
         */
 
         // Since C(n, k) = C(n, n-k)
