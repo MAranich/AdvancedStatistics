@@ -6,8 +6,9 @@
 
 use AdvancedStatistics::distribution_trait::Distribution;
 use AdvancedStatistics::distributions::Normal::*;
-use AdvancedStatistics::hypothesis::*;
-use AdvancedStatistics::samples::*;
+use AdvancedStatistics::errors::TestError;
+use AdvancedStatistics::hypothesis::{Hypothesis, TestResult, t_test};
+use AdvancedStatistics::samples::Samples;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
 
@@ -18,7 +19,7 @@ fn main() {
     let mut rng: SmallRng = {
         // use seeded or random
         if true {
-            let seed: u64 = 1_157_447;
+            let seed: u64 = 1_157_446;
             SmallRng::seed_from_u64(seed)
         } else {
             SmallRng::from_os_rng()
@@ -31,18 +32,21 @@ fn main() {
 
         // store the true values in static variable so they can be accessed from everywhere.
         // (not optimal)
+
         unsafe { TRUE_MEAN = rng.random::<f64>() + 0.1 };
+        // unsafe { TRUE_MEAN = 0.5 };
         let true_mean: f64 = unsafe { TRUE_MEAN };
         println!("The true mean of our data: {}\n\t[0.1, 1.1]", true_mean);
 
         unsafe { TRUE_VARIANCE = rng.random::<f64>() * 1.2 + 0.5 };
+        //unsafe { TRUE_VARIANCE = 1.1 };
         let true_variance: f64 = unsafe { TRUE_VARIANCE };
         println!(
             "The true variance of our data: {}\n\t[1.0, 3.0]",
             true_variance
         );
 
-        let n_samples: usize = 30;
+        let n_samples: usize = 20;
         let shown_samples: usize = n_samples;
         assert!(shown_samples <= n_samples); // or the slicing later may panic
 
@@ -71,23 +75,23 @@ fn main() {
             "We define H0 as the \"mean of our data is 0.0\" and Ha as \"the mean of the data is != 0.0\". Therefore we perform a 2 tailed test. \n"
         );
 
-        let significance: f64 = 0.05;
+        let significance_level: f64 = 0.05;
 
-        one_sample_t_test_example(&mut data, significance);
+        one_sample_t_test_example(&mut data, significance_level);
     }
 }
 
-fn one_sample_t_test_example(data: &mut Samples, significance: f64) {
+fn one_sample_t_test_example(data: &mut Samples, significance_level: f64) {
     println!("Performing the test computations... ");
 
-    let results: Result<TestResult, AdvancedStatistics::errors::TestError> = t_test()
+    let t_test_result: Result<TestResult, TestError> = t_test()
         .data(data)
         .hypothesys(Hypothesis::TwoTailed)
         .null_mean(0.0)
-        .significance(significance)
+        .significance(significance_level)
         .call();
 
-    let results: TestResult = match results {
+    let results: TestResult = match t_test_result {
         Ok(v) => v,
         Err(e) => panic!("Error: {:?}", e),
     };
@@ -95,11 +99,13 @@ fn one_sample_t_test_example(data: &mut Samples, significance: f64) {
     match results {
         TestResult::PValue(_, _) => unreachable!("We have given the t-test a significance value. "),
         TestResult::PValueCI(t, p, ci) => {
-            let confidence: f64 = 100.0 * (1.0 - significance);
+            let confidence: f64 = 100.0 * (1.0 - significance_level); // in percentage
+            println!("t statistic: {:.5}", t);
             println!(
-                "t: {:.5} \nThe {confidence:.2}% confidence interval is: ({:.5}, {:.5}) \nThe P value is: {p}",
-                t, ci.0, ci.1
+                "The {confidence:.2}% confidence interval is: ({:.5}, {:.5})",
+                ci.0, ci.1
             );
+            println!("The P value is: {}", p);
 
             let true_mean: f64 = unsafe { TRUE_MEAN };
             if ci.0 <= true_mean && true_mean <= ci.1 {
@@ -112,7 +118,7 @@ fn one_sample_t_test_example(data: &mut Samples, significance: f64) {
                 );
             }
 
-            if p <= significance {
+            if p <= significance_level {
                 println!(
                     "Result: We reject H0. \n\nKnowing the true parameters of the true distribution, this is the correct result. "
                 );
@@ -126,7 +132,7 @@ fn one_sample_t_test_example(data: &mut Samples, significance: f64) {
                 );
             }
         }
-        _ => unimplemented!()
+        _ => unimplemented!(),
     }
 
     /*
