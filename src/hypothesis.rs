@@ -614,10 +614,9 @@ mod simulation_study {
     //! This mudule is dedicated to performing simulation studies for the different tests.
     //!
 
-    use std::ptr::null;
-
+    use crate::hypothesis::{Hypothesis, t_test};
     use crate::{distribution_trait::Distribution, errors::SimulationError};
-
+    use crate::{errors::TestError, samples::Samples};
     /// The default number of repetitions for simulation studies.
     pub const DEFAULT_NUM_REPETITIONS: usize = 128;
 
@@ -637,6 +636,9 @@ mod simulation_study {
     ///
     ///  - `null_distribution`: The distribution of the samples under the null hypothesys.
     ///  - `alternative_distribution`: The distribution of the samples under the alternative hypothesys.
+    ///  - `hypothesys`: `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+    ///      - (Optional)
+    ///      - The default is a 2 tailed test.
     ///  - `significance_level`: The [significance level](https://en.wikipedia.org/wiki/Statistical_significance) of the test.
     ///      - (Optional)
     ///      - If it is **not** set, then the function will compute it.
@@ -661,12 +663,15 @@ mod simulation_study {
     pub fn simulation_t_test(
         null_distribution: &dyn Distribution,
         alternative_distribution: &dyn Distribution,
+        #[builder(default)] hypothesys: Hypothesis,
         significance_level: Option<f64>,
         power: Option<f64>,
         sample_size: Option<usize>,
         number_of_repetitions: Option<usize>,
     ) -> SimulationResult {
-        let n_repetitions: usize = number_of_repetitions.unwrap_or(DEFAULT_NUM_REPETITIONS);
+        let n_repetitions: usize = number_of_repetitions
+            .unwrap_or(DEFAULT_NUM_REPETITIONS)
+            .max(1);
 
         let alpha: f64 = if let Some(a) = significance_level {
             if a.is_nan() || !(0.0 < a && a < 1.0) {
@@ -695,6 +700,7 @@ mod simulation_study {
             return significance_level_t_test()
                 .null_distribution(null_distribution)
                 .alternative_distribution(alternative_distribution)
+                .hypothesys(hypothesys)
                 .power(powr)
                 .sample_size(n_samples)
                 .number_of_repetitions(n_repetitions)
@@ -713,6 +719,7 @@ mod simulation_study {
             return power_t_test()
                 .null_distribution(null_distribution)
                 .alternative_distribution(alternative_distribution)
+                .hypothesys(hypothesys)
                 .significance_level(alpha)
                 .sample_size(n_samples)
                 .number_of_repetitions(n_repetitions)
@@ -725,6 +732,7 @@ mod simulation_study {
             return sample_size_t_test()
                 .null_distribution(null_distribution)
                 .alternative_distribution(alternative_distribution)
+                .hypothesys(hypothesys)
                 .significance_level(alpha)
                 .power(powr)
                 .number_of_repetitions(n_repetitions)
@@ -734,6 +742,7 @@ mod simulation_study {
         return feasibility_t_test()
             .null_distribution(null_distribution)
             .alternative_distribution(alternative_distribution)
+            .hypothesys(hypothesys)
             .significance_level(alpha)
             .power(powr)
             .sample_size(n_samples)
@@ -745,6 +754,7 @@ mod simulation_study {
     fn significance_level_t_test(
         null_distribution: &dyn Distribution,
         alternative_distribution: &dyn Distribution,
+        hypothesys: Hypothesis,
         power: f64,
         sample_size: usize,
         number_of_repetitions: usize,
@@ -756,17 +766,59 @@ mod simulation_study {
     fn power_t_test(
         null_distribution: &dyn Distribution,
         alternative_distribution: &dyn Distribution,
+        hypothesys: Hypothesis,
         significance_level: f64,
         sample_size: usize,
         number_of_repetitions: usize,
     ) -> SimulationResult {
-        todo!();
+        /*
+           power: https://en.wikipedia.org/wiki/Power_(statistics)
+           ***
+           Samples:
+
+           The generating process *could* be improved by pregenerating all the data before.
+           But it can be problematic if there is too much data to generate.
+
+        */
+
+        let null_mean: f64 = if let Some(mean) = null_distribution.expected_value() {
+            mean
+        } else {
+            return SimulationResult::Error(SimulationError::DistributionError(
+                crate::errors::AdvStatError::InvalidNumber,
+            ));
+        };
+
+        let mut correct: usize = 0;
+        for _ in 0..number_of_repetitions {
+            let data: Vec<f64> = alternative_distribution.sample_multiple(sample_size);
+            // SAFETY: we have generated all the data from the distribution, hence the data is valid.
+            let mut samples: Samples = unsafe { Samples::new_move_uncheched(data) };
+
+            let test_result: Result<super::TestResult, TestError> = t_test()
+                .data(&mut samples)
+                .hypothesys(hypothesys)
+                .null_mean(null_mean)
+                .call();
+            match test_result {
+                Ok(result) => {
+                    if result.p() <= significance_level {
+                        correct += 1;
+                    }
+                }
+                Err(e) => return SimulationResult::Error(SimulationError::TestError(e)),
+            }
+        }
+
+        let power: f64 = (correct as f64) / (number_of_repetitions as f64);
+        return SimulationResult::Power(power);
     }
 
     #[bon::builder]
     fn sample_size_t_test(
         null_distribution: &dyn Distribution,
         alternative_distribution: &dyn Distribution,
+        hypothesys: Hypothesis,
         significance_level: f64,
         power: f64,
         number_of_repetitions: usize,
@@ -778,6 +830,7 @@ mod simulation_study {
     fn feasibility_t_test(
         null_distribution: &dyn Distribution,
         alternative_distribution: &dyn Distribution,
+        hypothesys: Hypothesis,
         significance_level: f64,
         power: f64,
         sample_size: usize,
