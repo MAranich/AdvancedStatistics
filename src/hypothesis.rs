@@ -836,6 +836,35 @@ mod simulation_study {
         sample_size: usize,
         number_of_repetitions: usize,
     ) -> SimulationResult {
-        todo!();
+
+        /*
+        
+            To know if this study is feasible, we neet to check if the power is achieved. 
+            The statistical test already constrol for the type 1 error (significance level). 
+            Therefore we just need to check if we managed to achieve the necessary power. 
+
+         */
+
+        
+
+        let power_test: SimulationResult = power_t_test()
+        .null_distribution(null_distribution)
+        .alternative_distribution(alternative_distribution)
+        .hypothesys(hypothesys)
+        .significance_level(significance_level)
+        .sample_size(sample_size)
+        .number_of_repetitions(number_of_repetitions)
+        .call(); 
+
+        let computed_power: f64 = match power_test {
+            SimulationResult::Power(pow) => pow,
+            SimulationResult::Error(simulation_error) => {
+                return SimulationResult::Error(simulation_error); 
+            },
+            _ => unreachable!()
+        }; 
+
+
+        return SimulationResult::Feasibility(!(computed_power < power)); 
     }
 }
