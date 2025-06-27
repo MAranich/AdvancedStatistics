@@ -382,8 +382,8 @@ pub fn t_test(
 ///     will be computed.
 ///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
-/// 5. `use_welch`: (optional) If set to `true`, will always use the [Welch's t-test](https://en.wikipedia.org/wiki/Welch%27s_t-test), 
-///     wich accounts for different amount of samples and different variance. 
+/// 5. `use_welch`: (optional) If set to `true`, will always use the [Welch's t-test](https://en.wikipedia.org/wiki/Welch%27s_t-test),
+///     wich accounts for different amount of samples and different variance.
 ///
 /// ## Results
 ///
@@ -608,4 +608,181 @@ pub fn paired_t_test(
         .null_mean(0.0)
         .maybe_significance(significance)
         .call();
+}
+
+mod simulation_study {
+    //! This mudule is dedicated to performing simulation studies for the different tests.
+    //!
+
+    use std::ptr::null;
+
+    use crate::{distribution_trait::Distribution, errors::SimulationError};
+
+    /// The default number of repetitions for simulation studies.
+    pub const DEFAULT_NUM_REPETITIONS: usize = 128;
+
+    pub enum SimulationResult {
+        SignificanceLevel(f64),
+        Power(f64),
+        SampleSize(usize),
+        Feasibility(bool),
+        Error(SimulationError),
+    }
+
+    /// Performs a simulation strudy for the [one sample t-test](hypothesis::t_test).
+    ///
+    /// It will comupte the optional variable wich is not set.
+    ///
+    /// ## Inputs
+    ///
+    ///  - `null_distribution`: The distribution of the samples under the null hypothesys.
+    ///  - `alternative_distribution`: The distribution of the samples under the alternative hypothesys.
+    ///  - `significance_level`: The [significance level](https://en.wikipedia.org/wiki/Statistical_significance) of the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///  - `power`: The [statistical power](https://en.wikipedia.org/wiki/Power_(statistics)) of the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///  - `sample_size`: the number of samples used in the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///  - `number_of_repetitions`: the number of times this experiment will be repeated.
+    ///      - (Optional)
+    ///      - Deafult is [DEFAULT_NUM_REPETITIONS].
+    ///
+    /// In the case where all 3 of `significance_level`, `power` and `sample_size` are set,
+    /// then it will compute if these results are achievable. The result will be on
+    /// `SimulationResult::Feasibility`. If it is true, it means that the statistical test
+    /// has the desired propreties or better.
+    ///
+    ///
+    ///
+    #[bon::builder]
+    pub fn simulation_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        significance_level: Option<f64>,
+        power: Option<f64>,
+        sample_size: Option<usize>,
+        number_of_repetitions: Option<usize>,
+    ) -> SimulationResult {
+        let n_repetitions: usize = number_of_repetitions.unwrap_or(DEFAULT_NUM_REPETITIONS);
+
+        let alpha: f64 = if let Some(a) = significance_level {
+            if a.is_nan() || !(0.0 < a && a < 1.0) {
+                return SimulationResult::Error(SimulationError::InvalidSignificanceLevel);
+            }
+            a
+        } else {
+            // solving for alpha
+
+            let powr: f64 = if let Some(p) = power {
+                if p.is_nan() || !(0.0 < p && p < 1.0) {
+                    return SimulationResult::Error(SimulationError::InvalidPower);
+                }
+                p
+            } else {
+                return SimulationResult::Error(SimulationError::MissingArguments);
+            };
+
+            let n_samples: usize = if let Some(n) = sample_size {
+                n
+                // maybe 0
+            } else {
+                return SimulationResult::Error(SimulationError::MissingArguments);
+            };
+
+            return significance_level_t_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .power(powr)
+                .sample_size(n_samples)
+                .number_of_repetitions(n_repetitions)
+                .call();
+        };
+
+        let powr: f64 = if let Some(p) = power {
+            p
+        } else {
+            let n_samples: usize = if let Some(n) = sample_size {
+                n
+            } else {
+                return SimulationResult::Error(SimulationError::MissingArguments);
+            };
+
+            return power_t_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .significance_level(alpha)
+                .sample_size(n_samples)
+                .number_of_repetitions(n_repetitions)
+                .call();
+        };
+
+        let n_samples: usize = if let Some(n) = sample_size {
+            n
+        } else {
+            return sample_size_t_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .significance_level(alpha)
+                .power(powr)
+                .number_of_repetitions(n_repetitions)
+                .call();
+        };
+
+        return feasibility_t_test()
+            .null_distribution(null_distribution)
+            .alternative_distribution(alternative_distribution)
+            .significance_level(alpha)
+            .power(powr)
+            .sample_size(n_samples)
+            .number_of_repetitions(n_repetitions)
+            .call();
+    }
+
+    #[bon::builder]
+    fn significance_level_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        power: f64,
+        sample_size: usize,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        todo!();
+    }
+
+    #[bon::builder]
+    fn power_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        significance_level: f64,
+        sample_size: usize,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        todo!();
+    }
+
+    #[bon::builder]
+    fn sample_size_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        significance_level: f64,
+        power: f64,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        todo!();
+    }
+
+    #[bon::builder]
+    fn feasibility_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        significance_level: f64,
+        power: f64,
+        sample_size: usize,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        todo!();
+    }
 }

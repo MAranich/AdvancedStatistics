@@ -57,3 +57,28 @@ pub enum TestError {
     #[error("Unknown error / unimplemented")]
     Unknown,
 }
+
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum SimulationError {
+    #[error("There was an error when using the distribution. ")]
+    DistributionError(AdvStatError),
+
+    #[error("There was an error when performing the test. ")]
+    TestError(TestError),
+
+    #[error(
+        "There are not enough arguments for the simulation. At maximum, only one of `significance_level`, `power` or `sample_size` must be left as None. "
+    )]
+    MissingArguments,
+
+    #[error("The variable `number_of_repetitions` was set to 0. ")]
+    ZeroRepetitions,
+    
+    #[error("The variable `significance_level` was **NOT** a valid probability. It must be non-Nan and fullfill `0.0 < significance_level < 1`. ")]
+    InvalidSignificanceLevel,
+    
+    #[error("The variable `power` was **NOT** a valid probability. It must be non-Nan and fullfill `0.0 < power < 1`. ")]
+    InvalidPower,
+
+}
