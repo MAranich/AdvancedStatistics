@@ -382,6 +382,8 @@ pub fn t_test(
 ///     will be computed.
 ///      - It needs to be a valid probability (`0 < significance < 1`, tipically 0.05 or less)
 ///      - (The P-value is always computed)
+/// 5. `use_welch`: (optional) If set to `true`, will always use the [Welch's t-test](https://en.wikipedia.org/wiki/Welch%27s_t-test), 
+///     wich accounts for different amount of samples and different variance. 
 ///
 /// ## Results
 ///
@@ -396,6 +398,7 @@ pub fn two_sample_t_test(
     data_b: &mut Samples,
     #[builder(default)] hypothesys: Hypothesis,
     significance: Option<f64>,
+    #[builder(default)] use_welch: bool,
 ) -> Result<TestResult, TestError> {
     let n_a: f64 = data_a.count() as f64;
     let n_b: f64 = data_b.count() as f64;
@@ -415,7 +418,7 @@ pub fn two_sample_t_test(
     };
 
     #[allow(clippy::float_cmp)]
-    if n_a == n_b && similar_var {
+    if n_a == n_b && similar_var && !use_welch {
         // Equal sample sizes and variance
         // https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_sample_sizes_and_variance
 
@@ -451,7 +454,7 @@ pub fn two_sample_t_test(
         return Ok(ret);
     }
 
-    if similar_var {
+    if similar_var && !use_welch {
         // Equal or unequal sample sizes, similar variances
         // https://en.wikipedia.org/wiki/Student%27s_t-test#Equal_or_unequal_sample_sizes,_similar_variances_(%E2%81%A01/2%E2%81%A0_%3C_%E2%81%A0sX1/sX2%E2%81%A0_%3C_2)
 

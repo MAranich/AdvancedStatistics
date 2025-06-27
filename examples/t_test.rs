@@ -54,7 +54,7 @@ fn main() {
             Normal::new(true_mean, true_variance.sqrt()).expect("Parameters should be valid. ");
 
         let samples: Vec<f64> = normal.sample_multiple(n_samples);
-        //let samples: Vec<f64> = vec![1.692, -0.070, 0.446, 2.292, -0.532, -0.186, -0.806, 2.888, 0.143, 0.820, 0.000, 1.025, 0.298, 3.535, 0.032, 1.476, 1.209, 1.029, -0.745, 1.369, -0.141, -0.413, 0.722, 0.510, -0.951, -0.164, 1.599, 1.163, 0.940, 0.649];
+        // let samples: Vec<f64> = vec![1.692, -0.070, 0.446, 2.292, -0.532, -0.186, -0.806, 2.888, 0.143, 0.820, 0.000, 1.025, 0.298, 3.535, 0.032, 1.476, 1.209, 1.029, -0.745, 1.369, -0.141, -0.413, 0.722, 0.510, -0.951, -0.164, 1.599, 1.163, 0.940, 0.649];
         let mut data: Samples = Samples::new_move(samples).unwrap();
 
         let samples: &Vec<f64> = data.peek_data();
