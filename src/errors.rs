@@ -74,11 +74,19 @@ pub enum SimulationError {
 
     #[error("The variable `number_of_repetitions` was set to 0. ")]
     ZeroRepetitions,
-    
-    #[error("The variable `significance_level` was **NOT** a valid probability. It must be non-Nan and fullfill `0.0 < significance_level < 1`. ")]
+
+    #[error(
+        "The variable `significance_level` was **NOT** a valid probability. It must be non-Nan and fullfill `0.0 < significance_level < 1`. "
+    )]
     InvalidSignificanceLevel,
-    
-    #[error("The variable `power` was **NOT** a valid probability. It must be non-Nan and fullfill `0.0 < power < 1`. ")]
+
+    #[error(
+        "The variable `power` was **NOT** a valid probability. It must be non-Nan and fullfill `0.0 < power < 1`. "
+    )]
     InvalidPower,
 
+    #[error(
+        "The sample size we are requiered to operate on may be too large for the integer datatypes. Perhaps there is an error in the arguments. "
+    )]
+    MassiveSampleSize,
 }
