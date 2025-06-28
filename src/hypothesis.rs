@@ -673,38 +673,12 @@ mod simulation_study {
             .unwrap_or(DEFAULT_NUM_REPETITIONS)
             .max(1);
 
-        let alpha: f64 = if let Some(a) = significance_level {
+        let alpha: f64 = {
+            let a: f64 = significance_level.unwrap_or(0.05);
             if a.is_nan() || !(0.0 < a && a < 1.0) {
                 return SimulationResult::Error(SimulationError::InvalidSignificanceLevel);
             }
             a
-        } else {
-            // solving for alpha
-
-            let powr: f64 = if let Some(p) = power {
-                if p.is_nan() || !(0.0 < p && p < 1.0) {
-                    return SimulationResult::Error(SimulationError::InvalidPower);
-                }
-                p
-            } else {
-                return SimulationResult::Error(SimulationError::MissingArguments);
-            };
-
-            let n_samples: usize = if let Some(n) = sample_size {
-                n
-                // maybe 0
-            } else {
-                return SimulationResult::Error(SimulationError::MissingArguments);
-            };
-
-            return significance_level_t_test()
-                .null_distribution(null_distribution)
-                .alternative_distribution(alternative_distribution)
-                .hypothesys(hypothesys)
-                .power(powr)
-                .sample_size(n_samples)
-                .number_of_repetitions(n_repetitions)
-                .call();
         };
 
         let powr: f64 = if let Some(p) = power {
@@ -759,18 +733,6 @@ mod simulation_study {
     }
 
     #[bon::builder]
-    fn significance_level_t_test(
-        null_distribution: &dyn Distribution,
-        alternative_distribution: &dyn Distribution,
-        hypothesys: Hypothesis,
-        power: f64,
-        sample_size: usize,
-        number_of_repetitions: usize,
-    ) -> SimulationResult {
-        todo!();
-    }
-
-    #[bon::builder]
     fn power_t_test(
         null_mean: f64,
         alternative_distribution: &dyn Distribution,
@@ -787,7 +749,7 @@ mod simulation_study {
            The generating process *could* be improved by pregenerating all the data before.
            But it can be problematic if there is too much data to generate.
 
-           IMPRECISION: the numbers returned by this function may not be completely accurate. 
+           IMPRECISION: the numbers returned by this function may not be completely accurate.
 
         */
 
@@ -836,19 +798,19 @@ mod simulation_study {
            a lower bound fro the sample size and with the binary search we will find the
            exact result.
 
-            WARNING: this function has a random component. There is no guarantee that 
-            2 successive executions with the same arguments lead to the same output. 
+            WARNING: this function has a random component. There is no guarantee that
+            2 successive executions with the same arguments lead to the same output.
 
             This is because this code assumes that the power of a test with higher sample size is
             always greater than the same test with a lower sample size. This is theoretically
-            true, but a low number_of_repetitions could make the `power_t_test` return a 
-            lower value than it should. This could lead to *small* inacuracies. Fortunately, 
-            the law of large numbers assures us that the power will converge to the correct 
-            value as number_of_repetitions tends to bigger values. 
+            true, but a low number_of_repetitions could make the `power_t_test` return a
+            lower value than it should. This could lead to *small* inacuracies. Fortunately,
+            the law of large numbers assures us that the power will converge to the correct
+            value as number_of_repetitions tends to bigger values.
 
-           IMPRECISION: the numbers returned by this function may not be completely accurate. 
+           IMPRECISION: the numbers returned by this function may not be completely accurate.
 
-           The minimum sample size is 2. 
+           The minimum sample size is 2.
 
         */
 
@@ -888,12 +850,13 @@ mod simulation_study {
             };
         }
 
-        // Step 2: use binary search to narrow down the result to the exact value. 
-        let (mut lower, mut upper): (usize, usize) = (current_sample_size >> 1, current_sample_size);
+        // Step 2: use binary search to narrow down the result to the exact value.
+        let (mut lower, mut upper): (usize, usize) =
+            (current_sample_size >> 1, current_sample_size);
 
         while lower + 1 != upper {
             // (a+b)/2 = (a - b) / 2 + b
-            let mid: usize = ((upper - lower) >> 1) + lower; 
+            let mid: usize = ((upper - lower) >> 1) + lower;
 
             let power_test: SimulationResult = power_t_test()
                 .null_mean(null_mean)
@@ -914,12 +877,12 @@ mod simulation_study {
 
             if mid_power < power {
                 // set lower bound
-                lower = mid; 
+                lower = mid;
             } else {
-                upper = mid; 
+                upper = mid;
             }
 
-            assert!( lower < upper ); 
+            assert!(lower < upper);
         }
 
         return SimulationResult::SampleSize(upper);
@@ -941,7 +904,7 @@ mod simulation_study {
            The statistical test already constrol for the type 1 error (significance level).
            Therefore we just need to check if we managed to achieve the necessary power.
 
-           IMPRECISION: the method has random components. The result may be imprecise. 
+           IMPRECISION: the method has random components. The result may be imprecise.
 
         */
 
