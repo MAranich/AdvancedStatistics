@@ -123,21 +123,18 @@ impl ChiSquared {
 }
 
 impl Distribution for ChiSquared {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         // let norm(k) = 1.0 / (2^(k/2)*gamma(k/2))
         // pdf(x | k) = norm(k) * x^(k/2 - 1) * exp(-x/2)
         return x.powf(self.degrees_of_freedom * 0.5 - 1.0) * (-0.5 * x).exp() * self.normalitzation_constant;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &ContinuousDomain {
         return &CHI_SQUARED_DOMAIN;
     }
 
     // default cdf, sample and quantile
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -212,14 +209,12 @@ impl Distribution for ChiSquared {
         return ret;
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let gamma: super::Gamma::Gamma = crate::distributions::Gamma::Gamma::from_chi_squared(self); 
 
         return gamma.sample_multiple(n);
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -324,43 +319,35 @@ impl Distribution for ChiSquared {
         return ret;
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.degrees_of_freedom);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(2.0 * self.degrees_of_freedom);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         return (self.degrees_of_freedom - 2.0).max(0.0);
     }
 
-    #[must_use]
     fn median(&self) -> f64 {
         let term: f64 = 1.0 - 2.0 / (9.0 * self.degrees_of_freedom);
         return self.degrees_of_freedom * term * term * term;
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some((8.0 / self.degrees_of_freedom).sqrt());
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x: f64| x + 3.0);
     }
     
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(12.0 / self.degrees_of_freedom);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
         /*
 
@@ -466,7 +453,6 @@ impl Distribution for ChiSquared {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         let term_1: f64 = self.degrees_of_freedom * 0.5; 
         let term_2: f64 = 2.0_f64.ln() + ln_gamma(term_1); 
@@ -489,7 +475,6 @@ impl Parametric for ChiSquared {
     /// ### Parameters for Chi Squared:
     ///
     /// The Chi Squared distribution has only 1 parameter, `degrees_of_freedom`.
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // let norm(k) = 1.0 / (2^(k/2)*gamma(k/2))
         // pdf(x | k) = norm(k) * x^(k/2 - 1) * exp(-x/2)
@@ -498,7 +483,6 @@ impl Parametric for ChiSquared {
         return x.powf(k * 0.5 - 1.0) * (-0.5 * x).exp() * c;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 1; 
     }
@@ -507,7 +491,6 @@ impl Parametric for ChiSquared {
         parameters[0] = self.degrees_of_freedom; 
     }
     
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -526,7 +509,6 @@ impl Parametric for ChiSquared {
         return log_der; 
     }
     
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -571,7 +553,6 @@ impl Parametric for ChiSquared {
         return ret;
     }
     
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
                 Using Maximum Likelyhood estimation:

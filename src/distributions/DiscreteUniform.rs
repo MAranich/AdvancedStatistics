@@ -76,17 +76,14 @@ impl DiscreteUniform {
 }
 
 impl DiscreteDistribution for DiscreteUniform {
-    #[must_use]
     fn pmf(&self, _x: f64) -> f64 {
         return 1.0 / (self.b as f64 - self.a as f64 + 1.0);
     }
 
-    #[must_use]
     fn get_domain(&self) -> &DiscreteDomain {
         &self.domain
     }
 
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -98,13 +95,11 @@ impl DiscreteDistribution for DiscreteUniform {
         return aux_2[0];
     }
 
-    #[must_use]
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
     }
 
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -116,7 +111,6 @@ impl DiscreteDistribution for DiscreteUniform {
         return quantile_vec[0];
     }
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -155,7 +149,6 @@ impl DiscreteDistribution for DiscreteUniform {
         return ret;
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
 
@@ -167,7 +160,6 @@ impl DiscreteDistribution for DiscreteUniform {
         return ret;
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -218,12 +210,10 @@ impl DiscreteDistribution for DiscreteUniform {
         return ret;
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some((self.a + self.b) as f64 / 2.0);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         let n: f64 = (self.b - self.a + 1) as f64;
         return Some((n * n - 1.0) / 12.0);
@@ -235,27 +225,22 @@ impl DiscreteDistribution for DiscreteUniform {
     ///
     /// It will always return `self.a` (the minimum value), but take into
     /// account that every value in it's domain is the mode.
-    #[must_use]
     fn mode(&self) -> f64 {
         return self.a as f64;
     }
 
-    #[must_use]
     fn median(&self) -> f64 {
         return (self.a + self.b) as f64 / 2.0;
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(0.0);
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         let n: f64 = (self.b - self.a + 1) as f64;
         let num: f64 = -6.0 * (n * n + 1.0);
@@ -264,7 +249,6 @@ impl DiscreteDistribution for DiscreteUniform {
         return Some(num / den);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: crate::euclid::Moments) -> f64 {
         let domain: &DiscreteDomain = self.get_domain();
 
@@ -305,7 +289,6 @@ impl DiscreteDistribution for DiscreteUniform {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         let n: f64 = (self.b - self.a + 1) as f64;
         return n.ln();

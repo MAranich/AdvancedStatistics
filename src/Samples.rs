@@ -495,7 +495,8 @@ impl Samples {
             kurtosis += centered_value_sq * centered_value_sq;
         }
 
-        kurtosis = coef_1 * kurtosis / (variance * variance);
+        let var_sq: f64 = variance * variance; 
+        kurtosis = coef_1 * kurtosis / var_sq;
         let excess_kurtosis: f64 = kurtosis + coef_2;
 
         self.properties.excess_kurtosis = Some(excess_kurtosis);

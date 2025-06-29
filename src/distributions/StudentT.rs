@@ -142,7 +142,6 @@ impl StudentT {
 }
 
 impl Distribution for StudentT {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         // let norm = gamma((nu+1)/2) / (sqrt(pi * nu) * gamma(nu/2))
         // pdf(x | nu) = norm(nu) * (1 + x^2 / nu) ^ (-(nu+1)/2)
@@ -152,14 +151,12 @@ impl Distribution for StudentT {
         return base.powf(exponent) * self.normalitzation_constant;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &ContinuousDomain {
         return &STUDENT_T_DOMAIN;
     }
 
     // default cdf, sample and quantile
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             optimeize for StudentT
@@ -274,7 +271,6 @@ impl Distribution for StudentT {
         return ret;
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         // default sample_multiple, I have not found any better method than the
         // Inverse transform sampling or rejection sampling
@@ -299,7 +295,6 @@ impl Distribution for StudentT {
             .collect::<Vec<f64>>();
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             Optimize for Full infinite domain
@@ -433,12 +428,10 @@ impl Distribution for StudentT {
         return ret;
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(0.0);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return if 2.0 < self.degrees_of_freedom {
             Some(self.degrees_of_freedom / (self.degrees_of_freedom - 2.0))
@@ -450,17 +443,14 @@ impl Distribution for StudentT {
         };
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         return 0.0;
     }
 
-    #[must_use]
     fn median(&self) -> f64 {
         return 0.0;
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return if 3.0 < self.degrees_of_freedom {
             Some(0.0)
@@ -469,12 +459,10 @@ impl Distribution for StudentT {
         };
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return if 4.0 < self.degrees_of_freedom {
             Some(6.0 / (self.degrees_of_freedom - 4.0))
@@ -486,7 +474,6 @@ impl Distribution for StudentT {
         };
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: crate::euclid::Moments) -> f64 {
         // https://en.wikipedia.org/wiki/Student%27s_t-distribution#Moments
 
@@ -563,7 +550,6 @@ impl Distribution for StudentT {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         let a: f64 = (self.degrees_of_freedom + 1.0) * 0.5;
         let b: f64 = self.degrees_of_freedom * 0.5;
@@ -575,7 +561,6 @@ impl Distribution for StudentT {
         return term_1 + term_2;
     }
 
-    #[must_use]
     fn confidence_interval(
         &self,
         hypothesys: crate::hypothesis::Hypothesis,
@@ -625,7 +610,6 @@ impl Distribution for StudentT {
         return bounds;
     }
 
-    #[must_use]
     fn p_value(&self, hypothesys: crate::hypothesis::Hypothesis, statistic: f64) -> f64 {
         // https://en.wikipedia.org/wiki/P-value#Definition
         let bounds: (f64, f64) = self.get_domain().get_bounds();
@@ -645,7 +629,6 @@ impl Distribution for StudentT {
 }
 
 impl Parametric for StudentT {
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // let norm = gamma((nu-1)/2) / (sqrt(pi * nu) * gamma(nu/2))
         // pdf(x | nu) = norm(nu) * (1 + x^2 / nu) ^ (-(nu+1)/2)
@@ -658,7 +641,6 @@ impl Parametric for StudentT {
         return base.powf(exponent) * norm;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 1;
     }
@@ -667,7 +649,6 @@ impl Parametric for StudentT {
         parameters[0] = self.degrees_of_freedom;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -732,7 +713,6 @@ impl Parametric for StudentT {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -804,7 +784,6 @@ impl Parametric for StudentT {
 
     // fn parameter_restriction(&self, parameters: &mut [f64]) {}
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
 

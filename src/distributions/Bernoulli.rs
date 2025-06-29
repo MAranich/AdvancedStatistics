@@ -74,7 +74,6 @@ impl Bernoulli {
 }
 
 impl DiscreteDistribution for Bernoulli {
-    #[must_use]
     fn pmf(&self, x: f64) -> f64 {
         let mut ret: f64 = 0.0;
         if x == 1.0 {
@@ -85,12 +84,10 @@ impl DiscreteDistribution for Bernoulli {
         return ret;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::DiscreteDomain {
         return &BERNOULLI_DOMAIN;
     }
 
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -108,13 +105,11 @@ impl DiscreteDistribution for Bernoulli {
         return 1.0 - self.p;
     }
 
-    #[must_use]
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
     }
 
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -128,12 +123,10 @@ impl DiscreteDistribution for Bernoulli {
         return 1.0;
     }
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
@@ -145,7 +138,6 @@ impl DiscreteDistribution for Bernoulli {
             .collect();
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         return points
             .iter()
@@ -153,17 +145,14 @@ impl DiscreteDistribution for Bernoulli {
             .collect::<Vec<f64>>();
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.p);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.p * (1.0 - self.p));
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         if 0.5 <= self.p {
             return 1.0;
@@ -171,26 +160,22 @@ impl DiscreteDistribution for Bernoulli {
         return 0.0;
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         let num: f64 = 1.0 - 2.0 * self.p;
         let den: f64 = (self.p * (1.0 - self.p)).sqrt();
         return Some(num / den);
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         let pq: f64 = self.p * (1.0 - self.p);
         return Some(3.0 + (1.0 - 6.0 * pq) / pq);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         let pq: f64 = self.p * (1.0 - self.p);
         return Some((1.0 - 6.0 * pq) / pq);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: crate::euclid::Moments) -> f64 {
         let domain: &DiscreteDomain = self.get_domain();
 
@@ -227,7 +212,6 @@ impl DiscreteDistribution for Bernoulli {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         let q: f64 = 1.0 - self.p;
         let entropy: f64 = -q * q.ln() - self.p * self.p.ln();
@@ -245,7 +229,6 @@ impl Parametric for Bernoulli {
     ///
     /// The [Bernoulli] distribution has 1 parameter: `p`
     /// (**p**robability of success (get 1))
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         let mut ret: f64 = 0.0;
         let p: f64 = parameters[0];
@@ -257,7 +240,6 @@ impl Parametric for Bernoulli {
         return ret;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         1
     }
@@ -267,7 +249,6 @@ impl Parametric for Bernoulli {
         parameters[0] = self.p;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, _parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -315,7 +296,6 @@ impl Parametric for Bernoulli {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -370,7 +350,6 @@ impl Parametric for Bernoulli {
         parameters[0] = parameters[0].clamp(0.0, 1.0);
     }
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         // Reserve a vector with exacly 1 elements
         let mut ret: Vec<f64> = Vec::new();

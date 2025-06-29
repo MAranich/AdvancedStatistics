@@ -26,17 +26,14 @@ impl Dirac {
 }
 
 impl Distribution for Dirac {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         return if x == 0.0 { f64::INFINITY } else { 0.0 };
     }
 
-    #[must_use]
     fn get_domain(&self) -> &ContinuousDomain {
         &DIRAC_DOMAIN
     }
 
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -46,12 +43,10 @@ impl Distribution for Dirac {
         return x.signum();
     }
 
-    #[must_use]
     fn sample(&self) -> f64 {
         return 0.0;
     }
 
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
@@ -64,62 +59,51 @@ impl Distribution for Dirac {
         return 0.0;
     }
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         return vec![0.0; n];
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         return vec![0.0; points.len()];
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         // who would have guessed...! (continuous ver.)
         return Some(0.0);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         // Only continuous distribution with 0 varaince!
         return Some(0.0);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         return 0.0;
     }
 
-    #[must_use]
     fn median(&self) -> f64 {
         return 0.0;
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         // Since Variance is 0.0, skewness is also undefined
         return None;
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         // Since Variance is 0.0, kurtosis is also undefined
         return None;
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         // Since Variance is 0.0, excess_kurtosis is also undefined
         return None;
     }
 
-    #[must_use]
     fn moments(&self, _order: u8, mode: crate::euclid::Moments) -> f64 {
         return match mode {
             crate::euclid::Moments::Raw | crate::euclid::Moments::Central => 0.0,
@@ -127,7 +111,6 @@ impl Distribution for Dirac {
         };
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         return 0.0;
     }

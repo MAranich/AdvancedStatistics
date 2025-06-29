@@ -146,7 +146,6 @@ impl F {
 }
 
 impl Distribution for F {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         // norm(d1, d2) = (d1/d2)^(d1/2) / B(d1/2, d2/2)
         // norm(d1, d2) = (d1/d2)^(d1/2) * gamma(d1/2 + d2/2) / (gamma(d1/2) * gamma(d2/2))
@@ -156,14 +155,12 @@ impl Distribution for F {
         return term_1 * term_2 * self.normalitzation_constant;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &F_DOMAIN;
     }
 
     // cdf, sample and quantile are default
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -238,7 +235,6 @@ impl Distribution for F {
         return ret;
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         // SAFETY: if self is valid, then self.d1 is positive and the call is safe
         let chi_num: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d1) };
@@ -258,7 +254,6 @@ impl Distribution for F {
             .collect::<Vec<f64>>();
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -358,7 +353,6 @@ impl Distribution for F {
         return ret;
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         if self.d2 <= 2.0 {
             return None;
@@ -366,7 +360,6 @@ impl Distribution for F {
         return Some(self.d2 / (self.d2 - 2.0));
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         if self.d2 <= 4.0 {
             return None;
@@ -378,7 +371,6 @@ impl Distribution for F {
         return Some(num / den);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         if self.d2 <= 2.0 {
             return f64::NAN;
@@ -389,7 +381,6 @@ impl Distribution for F {
 
     // default median
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         if self.d2 <= 6.0 {
             return None;
@@ -401,12 +392,10 @@ impl Distribution for F {
         return Some(num / den);
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         if self.d2 <= 8.0 {
             return None;
@@ -422,7 +411,6 @@ impl Distribution for F {
     }
 
     // moments: TODO: there is a formula for the moments of the F distribution https://en.wikipedia.org/wiki/F-distribution#Properties
-    #[must_use]
     fn entropy(&self) -> f64 {
         let d1: f64 = self.d1 * 0.5;
         let d2: f64 = self.d2 * 0.5;
@@ -453,7 +441,6 @@ impl Parametric for F {
     /// > \[degrees_freedom_numerator, degrees_freedom_denomiator\]
     ///
     /// Both must be stricly positive (usually also integers).
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // norm(d1, d2) = (d1/d2)^(d1/2) / B(d1/2, d2/2)
         // norm(d1, d2) = (d1/d2)^(d1/2) * gamma(d1/2 + d2/2) / (gamma(d1/2) * gamma(d2/2))
@@ -471,7 +458,6 @@ impl Parametric for F {
         return term_1 * term_2 * norm;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -487,7 +473,6 @@ impl Parametric for F {
 
     // deafult derivative_pdf_parameters
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -602,7 +587,6 @@ impl Parametric for F {
         return ret;
     }
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
                 Using Maximum Likelyhood estimation:

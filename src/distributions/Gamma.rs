@@ -174,18 +174,15 @@ impl Gamma {
 }
 
 impl Distribution for Gamma {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         let shape: f64 = x.powf(self.alpha - 1.0) * (-x / self.theta).exp();
         return self.normalitzation_constant * shape;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &GAMMA_DOMAIN;
     }
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             Plan: (sery similar to [Distribution::quantile_multiple])
@@ -298,7 +295,6 @@ impl Distribution for Gamma {
         return ret;
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         // https://en.wikipedia.org/wiki/Gamma_distribution#Random_variate_generation
         // https://github.com/numpy/numpy/blob/main/numpy/random/src/distributions/distributions.c#L220
@@ -382,7 +378,6 @@ impl Distribution for Gamma {
         return ret;
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         /*
             Plan:
@@ -525,39 +520,32 @@ impl Distribution for Gamma {
         return ret;
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.alpha * self.theta);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.alpha * self.theta * self.theta);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         return ((self.alpha - 1.0) * self.theta).max(0.0);
     }
 
     // median has no simple closed form
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(2.0 / self.alpha.sqrt());
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(6.0 / self.alpha);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
         /*
 
@@ -662,7 +650,6 @@ impl Distribution for Gamma {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         return self.alpha
             + self.theta.ln()
@@ -683,7 +670,6 @@ impl Parametric for Gamma {
     /// > \[alpha, theta\]
     ///
     /// Alpha and theta must be both stricly positive.
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pdf(x | a, t) = 1/(Gamma(a)*t^a) * x^(a-1) * exp(-x/t)
         let a: f64 = parameters[0];
@@ -692,7 +678,6 @@ impl Parametric for Gamma {
         return self.normalitzation_constant * shape;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -702,7 +687,6 @@ impl Parametric for Gamma {
         parameters[1] = self.theta;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -841,7 +825,6 @@ impl Parametric for Gamma {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -903,7 +886,6 @@ impl Parametric for Gamma {
 
     fn parameter_restriction(&self, _parameters: &mut [f64]) {}
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
                 Using Maximum Likelyhood estimation:

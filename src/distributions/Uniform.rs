@@ -83,18 +83,15 @@ impl Uniform {
 }
 
 impl Distribution for Uniform {
-    #[must_use]
     fn pdf(&self, _x: f64) -> f64 {
         // it is **oviously** assumed that the pdf is evaluated inside the domain. 
         return 1.0 / (self.b - self.a); 
     }
 
-    #[must_use]
     fn get_domain(&self) -> &ContinuousDomain {
         return &self.domain; 
     }
     
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
 
         assert!(!x.is_nan(), "Tried to evaluate the cdf function with a NaN value. \n");
@@ -110,14 +107,12 @@ impl Distribution for Uniform {
         return (x - self.a) / (self.b - self.a);
     }
     
-    #[must_use]
     fn sample(&self) -> f64 {
         let mut rng: rand::prelude::ThreadRng = rand::rng(); 
         let ret: f64 = self.a + rng.random::<f64>() * (self.b - self.a);
         return ret;
     }
     
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
     
@@ -134,12 +129,10 @@ impl Distribution for Uniform {
         return self.a + x * (self.b - self.a);
     }
     
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let mut rand_quantiles: Vec<f64> = std::vec![0.0; n];
@@ -149,7 +142,6 @@ impl Distribution for Uniform {
         return rand_quantiles.iter().map(|q| self.a + q * d).collect::<Vec<f64>>();
     }
     
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         return points
             .iter()
@@ -157,44 +149,36 @@ impl Distribution for Uniform {
             .collect::<Vec<f64>>();
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(0.5 * (self.a + self.b));
     }
     
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some((1.0 / 12.0) * (self.b - self.a));
     }
     
     /// In this case it just returns the mean, but aly value in `[a, b]` is by definition
     /// the mode, since they are all equally likely. s
-    #[must_use]
     fn mode(&self) -> f64 {
         return self.expected_value().unwrap();
     }
     
-    #[must_use]
     fn median(&self) -> f64 {
         return self.expected_value().unwrap();
     }
     
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(0.0);
     }
     
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return Some(3.0 - 6.0 / 5.0);
     }
     
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(-6.0 / 5.0);
     }
     
-    #[must_use]
     fn moments(&self, order: u8, mode: crate::euclid::Moments) -> f64 {
         /*
     
@@ -282,19 +266,16 @@ impl Distribution for Uniform {
         return moment;
     }
     
-    #[must_use]
     fn entropy(&self) -> f64 {
         return (self.b - self.a).ln();
     }
     
-    #[must_use]
     fn rejection_sample(&self, n: usize, _pdf_max: f64) -> Vec<f64> {
         // In this case it is equivalent to just normal sampling. 
         // It is already very effitient. 
         return self.sample_multiple(n);
     }
     
-    #[must_use]
     fn rejection_sample_range(&self, n: usize, _pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         let new_uniform: Uniform = match Uniform::new(range.0, range.1) {
             Ok(v) => v,
@@ -322,14 +303,12 @@ impl Parametric for Uniform {
     /// 
     /// > \[a, b\]
     /// 
-    #[must_use]
     fn general_pdf(&self, _x: f64, parameters: &[f64]) -> f64 {
         // it is **oviously** assumed that the pdf is evaluated inside the domain. 
         // pdf(x) = 1/(b-a)
         return 1.0 / (parameters[1] - parameters[0]); 
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2; 
     }
@@ -339,7 +318,6 @@ impl Parametric for Uniform {
         parameters[1] = self.b; 
     }
     
-    #[must_use]
     fn derivative_pdf_parameters(&self, _x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -380,7 +358,6 @@ impl Parametric for Uniform {
         return ret; 
     }
     
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, _x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -417,7 +394,6 @@ impl Parametric for Uniform {
         return ret; 
     }
     
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
             The uniform is a special case since the d/dab pdf does not have a maximum. 

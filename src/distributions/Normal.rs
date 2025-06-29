@@ -350,17 +350,14 @@ impl Normal {
 }
 
 impl Distribution for StdNormal {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         return euclid::INV_SQRT_2_PI * (-x * x * 0.5).exp();
     }
 
-    #[must_use]
     fn get_domain(&self) -> &ContinuousDomain {
         return &NORMAL_DOMAIN;
     }
 
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         /*
         We will use the aproximation by:
@@ -448,13 +445,11 @@ impl Distribution for StdNormal {
         };
     }
 
-    #[must_use]
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
     }
 
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
@@ -515,12 +510,10 @@ impl Distribution for StdNormal {
         }
     }
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         /*
            For sampling, we do not need as much precision as for
@@ -629,7 +622,6 @@ impl Distribution for StdNormal {
         return rand_quantiles;
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         return points
             .iter()
@@ -637,42 +629,34 @@ impl Distribution for StdNormal {
             .collect::<Vec<f64>>();
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(0.0);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(1.0);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         return 0.0;
     }
 
-    #[must_use]
     fn median(&self) -> f64 {
         return 0.0;
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(0.0);
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return self.excess_kurtosis().map(|x| x + 3.0);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(0.0);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: crate::euclid::Moments) -> f64 {
         /*
 
@@ -766,12 +750,10 @@ impl Distribution for StdNormal {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         return 0.5 * (2.0 * PI * E).ln();
     }
 
-    #[must_use]
     fn rejection_sample(&self, n: usize, _pdf_max: f64) -> Vec<f64> {
         let pdf_max: f64 = 1.0 / (2.0 * PI).sqrt();
         // ^We know the correct value analytically, so there is no need for the user to put anything
@@ -797,7 +779,6 @@ impl Distribution for StdNormal {
         return ret;
     }
 
-    #[must_use]
     fn rejection_sample_range(&self, n: usize, mut pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         {
             let absolute_pdf_max: f64 = 1.0 / (2.0 * PI).sqrt();
@@ -830,7 +811,6 @@ impl Distribution for StdNormal {
 }
 
 impl Distribution for Normal {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         /*
         let inv_std: f64 = 1.0 / self.standard_deviation;
@@ -841,12 +821,10 @@ impl Distribution for Normal {
         return euclid::INV_SQRT_2_PI * inv_std * (-c * c * 0.5 * inv_std * inv_std).exp();
     }
 
-    #[must_use]
     fn get_domain(&self) -> &ContinuousDomain {
         return &NORMAL_DOMAIN;
     }
 
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -858,13 +836,11 @@ impl Distribution for Normal {
         return aux_2[0];
     }
 
-    #[must_use]
     fn sample(&self) -> f64 {
         let aux: Vec<f64> = self.sample_multiple(1);
         return aux[0];
     }
 
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         // just call [Distribution::quantile_multiple]
 
@@ -878,7 +854,6 @@ impl Distribution for Normal {
         return quantile_vec[0];
     }
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         let neg_mean: f64 = -self.mean;
         let inv_std_dev: f64 = 1.0 / self.standard_deviation;
@@ -890,7 +865,6 @@ impl Distribution for Normal {
         );
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let ret: Vec<f64> = STD_NORMAL
             .sample_multiple(n)
@@ -901,7 +875,6 @@ impl Distribution for Normal {
         return ret;
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         if points.is_empty() {
             return Vec::new();
@@ -925,42 +898,34 @@ impl Distribution for Normal {
         );
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.mean);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.standard_deviation);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         return self.mean;
     }
 
-    #[must_use]
     fn median(&self) -> f64 {
         return self.mean;
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(0.0);
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return Some(3.0);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(0.0);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: crate::euclid::Moments) -> f64 {
         /*
 
@@ -1058,13 +1023,11 @@ impl Distribution for Normal {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         let s_squared: f64 = self.standard_deviation * self.standard_deviation;
         return 0.5 * (2.0 * PI * E * s_squared).ln();
     }
 
-    #[must_use]
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
         return STD_NORMAL
             .rejection_sample(n, pdf_max)
@@ -1073,7 +1036,6 @@ impl Distribution for Normal {
             .collect::<Vec<f64>>();
     }
 
-    #[must_use]
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         // Todo: this should be probably be put in terms of the [rejection_sample_range]
         // implemetation os StdNormal (like we did with [rejection_sample])
@@ -1120,7 +1082,6 @@ impl Parametric for Normal {
     /// and `std` (standard deviation). The order of the `parameters` is:
     ///
     /// > \[mean, std\]
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         let input: f64 = x - parameters[0];
         let inv_std_dev: f64 = 1.0 / parameters[1];
@@ -1133,7 +1094,6 @@ impl Parametric for Normal {
     }
 
     /// Returns the number of parameters of the model: `2`
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -1143,7 +1103,6 @@ impl Parametric for Normal {
         parameters[1] = self.standard_deviation;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -1293,7 +1252,6 @@ impl Parametric for Normal {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -1386,7 +1344,6 @@ impl Parametric for Normal {
         // std cannot be 0 or negative
     }
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         // Reserve a vector with exacly 2 elements
         let mut ret: Vec<f64> = Vec::new();

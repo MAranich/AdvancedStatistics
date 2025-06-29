@@ -93,17 +93,14 @@ impl Exponential {
 }
 
 impl Distribution for Exponential {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         return self.lambda * (-self.lambda * x).exp();
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &EXPONENTIAL_DOMAIN;
     }
 
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -117,14 +114,12 @@ impl Distribution for Exponential {
         return 1.0 - (-self.lambda * x).exp();
     }
 
-    #[must_use]
     fn sample(&self) -> f64 {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let r: f64 = rng.random();
         return -r.ln() / self.lambda;
     }
 
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -142,12 +137,10 @@ impl Distribution for Exponential {
         return -(1.0 - x).ln() / self.lambda;
     }
 
-    #[must_use]
     fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
         points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
     }
 
-    #[must_use]
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         (0..n)
@@ -156,7 +149,6 @@ impl Distribution for Exponential {
             .collect::<Vec<f64>>()
     }
 
-    #[must_use]
     fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
         let list: Vec<f64> = points
             .iter()
@@ -165,37 +157,30 @@ impl Distribution for Exponential {
         return list;
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(1.0 / self.lambda);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(1.0 / (self.lambda * self.lambda));
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         0.0
     }
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         return Some(2.0);
     }
 
-    #[must_use]
     fn kurtosis(&self) -> Option<f64> {
         return Some(9.0);
     }
 
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return self.kurtosis().map(|x: f64| x - 3.0);
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         return 1.0 - self.lambda.ln();
     }
@@ -214,14 +199,12 @@ impl Parametric for Exponential {
     /// ### Parameters for [Exponential]:
     ///
     /// The exponential distribution has only 1 parameter, `lambda`.
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
         let lambda: f64 = parameters[0];
         return lambda * (-lambda * x).exp();
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         1
     }
@@ -230,7 +213,6 @@ impl Parametric for Exponential {
         parameters[0] = self.lambda;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // pdf:
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
@@ -271,7 +253,6 @@ impl Parametric for Exponential {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // pdf:
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
@@ -329,7 +310,6 @@ impl Parametric for Exponential {
         parameters[0] = parameters[0].max(ep * ep * ep);
     }
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
 
