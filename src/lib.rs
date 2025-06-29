@@ -22,6 +22,7 @@
     // It is Ok that some floats are truncated
     clippy::excessive_precision, 
     rustdoc::redundant_explicit_links, 
+    clippy::doc_overindented_list_items, 
 )]
 // ^
 

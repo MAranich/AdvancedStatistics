@@ -710,12 +710,12 @@ impl Samples {
     ///
     /// Identical to [Samples::count]
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         return self.data.len();
     }
 
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         return self.data.len() == 0;
     }
 
@@ -724,7 +724,7 @@ impl Samples {
     /// Identical to [Samples::len]
     #[must_use]
     // #[confusable = len]
-    pub fn count(&self) -> usize {
+    pub const fn count(&self) -> usize {
         //#[rustc_confusables("len", "size", "count", "shape", "n")]
         return self.data.len();
     }

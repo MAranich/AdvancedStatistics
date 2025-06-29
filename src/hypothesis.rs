@@ -72,8 +72,8 @@
 //!  - The value for alpha that makes the statistic lay on the boundary of the
 //!     confidence interval.
 //!      - That means that if we use the significance level approach and we select
-//!         `alpha < p` we will fail to reject `H0` and `p < alpha` we will
-//!         reject `H0`.
+//!        `alpha < p` we will fail to reject `H0` and `p < alpha` we will
+//!        reject `H0`.
 //!
 //! If we obtain a very extreme P value, we can forget about the significance
 //! level (wich usually is an arvitrary value choice) and jump to the ç
@@ -610,54 +610,65 @@ pub fn paired_t_test(
         .call();
 }
 
-mod simulation_study {
+pub mod simulation_study {
     //! This mudule is dedicated to performing simulation studies for the different tests.
     //!
 
     use crate::hypothesis::{Hypothesis, t_test};
     use crate::{distribution_trait::Distribution, errors::SimulationError};
     use crate::{errors::TestError, samples::Samples};
+
     /// The default number of repetitions for simulation studies.
     pub const DEFAULT_NUM_REPETITIONS: usize = 128;
 
+    /// The default significance level.
+    ///
+    /// The value of 0.05 = 1/20 is a very common singificance level but it has
+    /// no special value (other than being a *relatively* small probability).
+    /// This value was siggested by the statistician Ronald Fisher, and the
+    /// convention stuck.
+    ///
+    /// However in some fields, a lower significance level may be requiered.
+    pub const DEFAULT_SIGNIFICANCE_LEVEL: f64 = 0.05;
+
     pub enum SimulationResult {
-        SignificanceLevel(f64),
         Power(f64),
         SampleSize(usize),
         Feasibility(bool),
         Error(SimulationError),
     }
 
-    /// Performs a simulation strudy for the [one sample t-test](hypothesis::t_test).
+    /// Performs a simulation strudy for the [one sample t-test](t_test).
     ///
-    /// It will comupte the optional variable wich is not set.
+    /// It will comupte the power or the sample size depending on wich variable is not set.
+    /// Will return an error if neither of them is set.
     ///
     /// ## Inputs
     ///
     ///  - `null_distribution`: The distribution of the samples under the null hypothesys.
     ///  - `alternative_distribution`: The distribution of the samples under the alternative hypothesys.
-    ///  - `hypothesys`: `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed will be used
+    ///  - `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed [Hypothesis] will be used
     ///      - (Optional)
     ///      - The default is a 2 tailed test.
     ///  - `significance_level`: The [significance level](https://en.wikipedia.org/wiki/Statistical_significance) of the test.
     ///      - (Optional)
-    ///      - If it is **not** set, then the function will compute it.
+    ///      - The default is [DEFAULT_SIGNIFICANCE_LEVEL]: 0.05
     ///  - `power`: The [statistical power](https://en.wikipedia.org/wiki/Power_(statistics)) of the test.
     ///      - (Optional)
     ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::Power].
     ///  - `sample_size`: the number of samples used in the test.
     ///      - (Optional)
     ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::SampleSize].
     ///  - `number_of_repetitions`: the number of times this experiment will be repeated.
     ///      - (Optional)
     ///      - Deafult is [DEFAULT_NUM_REPETITIONS].
     ///
-    /// In the case where all 3 of `significance_level`, `power` and `sample_size` are set,
+    /// In the case where both `power` and `sample_size` are set,
     /// then it will compute if these results are achievable. The result will be on
-    /// `SimulationResult::Feasibility`. If it is true, it means that the statistical test
+    /// [SimulationResult::Feasibility]. If it is true, it means that the statistical test
     /// has the desired propreties or better.
-    ///
-    ///
     ///
     #[bon::builder]
     pub fn simulation_t_test(
@@ -674,14 +685,17 @@ mod simulation_study {
             .max(1);
 
         let alpha: f64 = {
-            let a: f64 = significance_level.unwrap_or(0.05);
-            if a.is_nan() || !(0.0 < a && a < 1.0) {
+            let a: f64 = significance_level.unwrap_or(DEFAULT_SIGNIFICANCE_LEVEL);
+            if !(a.is_finite() && 0.0 < a && a < 1.0) {
                 return SimulationResult::Error(SimulationError::InvalidSignificanceLevel);
             }
             a
         };
 
         let powr: f64 = if let Some(p) = power {
+            if !(p.is_finite() && 0.0 < p && p < 1.0) {
+                return SimulationResult::Error(SimulationError::InvalidPower);
+            }
             p
         } else {
             let n_samples: usize = if let Some(n) = sample_size {
@@ -933,6 +947,6 @@ mod simulation_study {
             _ => unreachable!(),
         };
 
-        return SimulationResult::Feasibility(!(computed_power < power));
+        return SimulationResult::Feasibility(power <= computed_power);
     }
 }
