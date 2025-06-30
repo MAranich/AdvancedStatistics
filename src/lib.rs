@@ -28,14 +28,18 @@
 
 //! # Advanced Statistics
 //!
+//! ***
+//! **IMPORTANT**: this library is still under development an on it's early phases. 
+//! It is succeptible to significally change until the version `1.0`. 
+//! ***
 //!
 //! This library is a statistics library that provides:
 //!
 //! - [x] Interface to create distributions
-//! - [ ] Common distributions (ready to be used in any calculation)
+//! - [x] Common distributions (ready to be used in any calculation)
 //! - [x] Data computation
 //! - [ ] Multiple tests (hypothesys testing)
-//! - [ ] Computing P values and confidence intervals
+//! - [x] Computing P values and confidence intervals
 //! - [x] Parameter estimation
 //! - [x] Outlier detection
 //! - [ ] Resampling methods

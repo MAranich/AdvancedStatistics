@@ -613,8 +613,38 @@ pub fn paired_t_test(
 pub mod simulation_study {
     //! This mudule is dedicated to performing simulation studies for the different tests.
     //!
+    //! The aim of a simulation is to discover the statistical properties of a given
+    //! experiment. This could be used for example an appropiate sample size.
+    //! In general we want a sample size as large as possible, because it gives us
+    //! better results. However, if we want to design and perform an experiment
+    //! but each sample is very costly, then we will want to choose the smallest
+    //! sample size that can give us good results.
+    //!
+    //! One approach we could take is fix some desired properties we want our test to
+    //! have and solve for the sample size. For example: for a given effect size,
+    //! a significance level of 0.05 and a power of 80%.
+    //!
+    //! This module provides the necessary tools to perform this simulations for you.
+    //! What the methods are doing internally is a [Monte Carlo method](https://en.wikipedia.org/wiki/Monte_Carlo_method).
+    //! We generate the data for our experiment, perform statistics, store results and repeat
+    //! all of this a **lot** of times.
+    //!
+    //! We know that in some cases, there exist closed form formulas for these calculations,
+    //! but the Monte Carlo method is simpler and way more flexible. With it you can try many
+    //! things without significatly changing the code:
+    //!
+    //!  - Try changing the sampling distribution.
+    //!  - Use another test. 
+    //!  - Violate the assumptions of the test.
+    //!
+    //! All of these would requiere a (possibly very hard) mathematical derivation 
+    //! for each possible case, but we can get similar results by just simulating 
+    //! everything. If you want more presicion, you can increase 
+    //! `number_of_repetitions` to a larger value.
+    //!
+    //!
 
-    use crate::hypothesis::{Hypothesis, t_test};
+    use crate::hypothesis::{Hypothesis, t_test, two_sample_t_test};
     use crate::{distribution_trait::Distribution, errors::SimulationError};
     use crate::{errors::TestError, samples::Samples};
 
@@ -624,17 +654,23 @@ pub mod simulation_study {
     /// The default significance level.
     ///
     /// The value of 0.05 = 1/20 is a very common singificance level but it has
-    /// no special value (other than being a *relatively* small probability).
-    /// This value was siggested by the statistician Ronald Fisher, and the
-    /// convention stuck.
+    /// no special value by iteself (other than being a *relatively* small probability).
+    /// This value was originally suggested by the statistician Ronald Fisher, 
+    /// and the convention stuck.
     ///
     /// However in some fields, a lower significance level may be requiered.
     pub const DEFAULT_SIGNIFICANCE_LEVEL: f64 = 0.05;
 
+    /// An enum containing all the variants of the results of a simulation. 
     pub enum SimulationResult {
+        /// The estimated power of the test. 
         Power(f64),
+        /// The minimum sample size to achieve the given power. 
         SampleSize(usize),
+        /// Is true if the test can achieve the neccessary power with the given 
+        /// parameters. 
         Feasibility(bool),
+        /// Some error has occurred. 
         Error(SimulationError),
     }
 
@@ -698,6 +734,7 @@ pub mod simulation_study {
             }
             p
         } else {
+            //power is not set. Attempting to solve for power
             let n_samples: usize = if let Some(n) = sample_size {
                 n
             } else {
@@ -725,6 +762,7 @@ pub mod simulation_study {
         let n_samples: usize = if let Some(n) = sample_size {
             n
         } else {
+            // sample size not set, attempting to solve for sample_size
             return sample_size_t_test()
                 .null_distribution(null_distribution)
                 .alternative_distribution(alternative_distribution)
@@ -735,6 +773,7 @@ pub mod simulation_study {
                 .call();
         };
 
+        // all fields are set, attempting to determine feasibility of test
         return feasibility_t_test()
             .null_distribution(null_distribution)
             .alternative_distribution(alternative_distribution)
@@ -792,8 +831,8 @@ pub mod simulation_study {
             }
         }
 
-        let power: f64 = (correct as f64) / (number_of_repetitions as f64);
-        return SimulationResult::Power(power);
+        let estimated_power: f64 = (correct as f64) / (number_of_repetitions as f64);
+        return SimulationResult::Power(estimated_power);
     }
 
     #[bon::builder]
@@ -842,7 +881,7 @@ pub mod simulation_study {
         while computed_power < power {
             current_sample_size = current_sample_size << 1;
             if current_sample_size == 0 {
-                // we have no more bits, teh requiered sample size may be too large. return error
+                // we have no more bits, the requiered sample size may be too large. return error
                 return SimulationResult::Error(SimulationError::MassiveSampleSize);
             }
 
@@ -936,6 +975,337 @@ pub mod simulation_study {
             .hypothesys(hypothesys)
             .significance_level(significance_level)
             .sample_size(sample_size)
+            .number_of_repetitions(number_of_repetitions)
+            .call();
+
+        let computed_power: f64 = match power_test {
+            SimulationResult::Power(pow) => pow,
+            SimulationResult::Error(simulation_error) => {
+                return SimulationResult::Error(simulation_error);
+            }
+            _ => unreachable!(),
+        };
+
+        return SimulationResult::Feasibility(power <= computed_power);
+    }
+
+    /// Performs a simulation strudy for the [two sample t-test](two_sample_t_test).
+    ///
+    /// It will comupte the power or the sample size depending on wich variable is not set.
+    /// Will return an error if neither of them is set.
+    ///
+    /// ## Inputs
+    ///
+    ///  - `null_distribution`: The distribution of the samples of group A. It will also
+    ///     be the distribution of the samples of group B if the null hypothesis is true.
+    ///  - `alternative_distribution`: The distribution of the samples of group B
+    ///     under the alternative hypothesys.
+    ///  - `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed [Hypothesis] will be used
+    ///      - (Optional)
+    ///      - The default is a 2 tailed test.
+    ///  - `significance_level`: The [significance level](https://en.wikipedia.org/wiki/Statistical_significance) of the test.
+    ///      - (Optional)
+    ///      - The default is [DEFAULT_SIGNIFICANCE_LEVEL]: 0.05
+    ///  - `power`: The [statistical power](https://en.wikipedia.org/wiki/Power_(statistics)) of the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::Power].
+    ///  - `sample_size`: the number of samples used in the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::SampleSize].
+    ///  - `sample_size_alt`: the number of samples of the group B.
+    ///      - (Optional)
+    ///      - The default is the same value as `sample_size`.
+    ///      - If you want to fix the sample size of group A and find the sample size
+    ///         for group B, swap `null_distribution` and `alternative_distribution`.
+    ///  - `use_welch`: flag to make it always use welch's t-test instead of the default one.
+    ///      - (Optional)
+    ///      - The default is `false`.  
+    ///  - `number_of_repetitions`: the number of times this experiment will be repeated.
+    ///      - (Optional)
+    ///      - Deafult is [DEFAULT_NUM_REPETITIONS].
+    ///
+    /// In the case where both `power` and `sample_size` are set,
+    /// then it will compute if these results are achievable. The result will be on
+    /// [SimulationResult::Feasibility]. If it is true, it means that the statistical test
+    /// has the desired propreties or better.
+    ///
+    #[bon::builder]
+    pub fn simulation_two_sample_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        #[builder(default)] hypothesys: Hypothesis,
+        significance_level: Option<f64>,
+        power: Option<f64>,
+        sample_size: Option<usize>,
+        sample_size_alt: Option<usize>,
+        #[builder(default)] use_welch: bool,
+        number_of_repetitions: Option<usize>,
+    ) -> SimulationResult {
+        let n_repetitions: usize = number_of_repetitions
+            .unwrap_or(DEFAULT_NUM_REPETITIONS)
+            .max(1);
+
+        let alpha: f64 = {
+            let a: f64 = significance_level.unwrap_or(DEFAULT_SIGNIFICANCE_LEVEL);
+            if !(a.is_finite() && 0.0 < a && a < 1.0) {
+                return SimulationResult::Error(SimulationError::InvalidSignificanceLevel);
+            }
+            a
+        };
+
+        let powr: f64 = if let Some(p) = power {
+            if !(p.is_finite() && 0.0 < p && p < 1.0) {
+                return SimulationResult::Error(SimulationError::InvalidPower);
+            }
+            p
+        } else {
+            // power is not set. Attempting to solve for power
+            let n_samples: usize = if let Some(n) = sample_size {
+                n
+            } else {
+                return SimulationResult::Error(SimulationError::MissingArguments);
+            };
+
+            let n_samples_alt: usize = sample_size_alt.unwrap_or(n_samples);
+
+            return power_two_sample_t_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .hypothesys(hypothesys)
+                .significance_level(alpha)
+                .sample_size(n_samples)
+                .sample_size_alt(n_samples_alt)
+                .use_welch(use_welch)
+                .number_of_repetitions(n_repetitions)
+                .call();
+        };
+
+        let n_samples: usize = if let Some(n) = sample_size {
+            n
+        } else {
+            // sample size not set, attempting to solve for sample_size
+            return sample_size_two_sample_t_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .hypothesys(hypothesys)
+                .significance_level(alpha)
+                .power(powr)
+                .maybe_sample_size_alt(sample_size_alt)
+                .use_welch(use_welch)
+                .number_of_repetitions(n_repetitions)
+                .call();
+        };
+
+        // all fields are set, attempting to determine feasibility of test
+
+        let n_samples_alt: usize = sample_size_alt.unwrap_or(n_samples);
+
+        return feasibility_two_sample_t_test()
+            .null_distribution(null_distribution)
+            .alternative_distribution(alternative_distribution)
+            .hypothesys(hypothesys)
+            .significance_level(alpha)
+            .power(powr)
+            .sample_size(n_samples)
+            .sample_size_alt(n_samples_alt)
+            .use_welch(use_welch)
+            .number_of_repetitions(n_repetitions)
+            .call();
+    }
+
+    #[bon::builder]
+    fn power_two_sample_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        hypothesys: Hypothesis,
+        significance_level: f64,
+        sample_size: usize,
+        sample_size_alt: usize,
+        use_welch: bool,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        /*
+           power: https://en.wikipedia.org/wiki/Power_(statistics)
+           ***
+           Samples:
+
+           The generating process *could* be improved by pregenerating all the data before.
+           But it can be problematic if there is too much data to generate.
+
+           IMPRECISION: the numbers returned by this function may not be completely accurate.
+
+        */
+
+        let mut correct: usize = 0;
+        for _ in 0..number_of_repetitions {
+            // 1. generate data
+            let data_a: Vec<f64> = null_distribution.sample_multiple(sample_size);
+            let data_b: Vec<f64> = alternative_distribution.sample_multiple(sample_size_alt);
+            // SAFETY: we have generated all the data from the distribution, hence the data is valid.
+            let mut samples_a: Samples = unsafe { Samples::new_move_uncheched(data_a) };
+            // SAFETY: Same as before. 
+            let mut samples_b: Samples = unsafe { Samples::new_move_uncheched(data_b) };
+
+            // 2. Perform statistics
+            let test_result: Result<super::TestResult, TestError> = two_sample_t_test()
+                .data_a(&mut samples_a)
+                .data_b(&mut samples_b)
+                .hypothesys(hypothesys)
+                .significance(significance_level)
+                .use_welch(use_welch)
+                .call();
+
+            // 3. Store results
+            match test_result {
+                Ok(result) => {
+                    if result.p() <= significance_level {
+                        correct += 1;
+                    }
+                }
+                Err(e) => return SimulationResult::Error(SimulationError::TestError(e)),
+            }
+        }
+
+        let estimated_power: f64 = (correct as f64) / (number_of_repetitions as f64);
+        return SimulationResult::Power(estimated_power);
+    }
+
+    #[bon::builder]
+    fn sample_size_two_sample_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        hypothesys: Hypothesis,
+        significance_level: f64,
+        power: f64,
+        sample_size_alt: Option<usize>,
+        use_welch: bool,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        /*
+
+           To compute the sample size we will perform 2 searches: an exponencial search
+           and a binary search. With the exponential search we will find and upper and
+           a lower bound fro the sample size and with the binary search we will find the
+           exact result.
+
+            WARNING: this function has a random component. There is no guarantee that
+            2 successive executions with the same arguments lead to the same output.
+
+            This is because this code assumes that the power of a test with higher sample size is
+            always greater than the same test with a lower sample size. This is theoretically
+            true, but a low number_of_repetitions could make the `power_t_test` return a
+            lower value than it should. This could lead to *small* inacuracies. Fortunately,
+            the law of large numbers assures us that the power will converge to the correct
+            value as number_of_repetitions tends to bigger values.
+
+           IMPRECISION: the numbers returned by this function may not be completely accurate.
+
+           The minimum sample size is 2.
+
+        */
+
+        // Step 1: use exponetial search to find upper an lower bounds for the sample_size
+        let mut current_sample_size: usize = 2;
+        let mut computed_power: f64 = 0.0;
+        while computed_power < power {
+            current_sample_size = current_sample_size << 1;
+            if current_sample_size == 0 {
+                // we have no more bits, the requiered sample size may be too large. return error
+                return SimulationResult::Error(SimulationError::MassiveSampleSize);
+            }
+
+            let power_test: SimulationResult = power_two_sample_t_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .hypothesys(hypothesys)
+                .significance_level(significance_level)
+                .sample_size(current_sample_size)
+                .sample_size_alt(sample_size_alt.unwrap_or(current_sample_size))
+                .use_welch(use_welch)
+                .number_of_repetitions(number_of_repetitions)
+                .call();
+
+            computed_power = match power_test {
+                SimulationResult::Power(pow) => pow,
+                SimulationResult::Error(simulation_error) => {
+                    return SimulationResult::Error(simulation_error);
+                }
+                _ => unreachable!(),
+            };
+        }
+
+        // Step 2: use binary search to narrow down the result to the exact value.
+        let (mut lower, mut upper): (usize, usize) =
+            (current_sample_size >> 1, current_sample_size);
+
+        while lower + 1 != upper {
+            // (a+b)/2 = (a - b) / 2 + b
+            let mid: usize = ((upper - lower) >> 1) + lower;
+
+            let power_test: SimulationResult = power_two_sample_t_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .hypothesys(hypothesys)
+                .significance_level(significance_level)
+                .sample_size(mid)
+                .sample_size_alt(sample_size_alt.unwrap_or(mid))
+                .use_welch(use_welch)
+                .number_of_repetitions(number_of_repetitions)
+                .call();
+
+            let mid_power: f64 = match power_test {
+                SimulationResult::Power(pow) => pow,
+                SimulationResult::Error(simulation_error) => {
+                    return SimulationResult::Error(simulation_error);
+                }
+                _ => unreachable!(),
+            };
+
+            if mid_power < power {
+                // set lower bound
+                lower = mid;
+            } else {
+                upper = mid;
+            }
+
+            assert!(lower < upper);
+        }
+
+        return SimulationResult::SampleSize(upper);
+    }
+
+    #[bon::builder]
+    fn feasibility_two_sample_t_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        hypothesys: Hypothesis,
+        significance_level: f64,
+        power: f64,
+        sample_size: usize,
+        sample_size_alt: Option<usize>,
+        use_welch: bool,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        /*
+
+           To know if this study is feasible, we neet to check if the power is achieved.
+           The statistical test already constrol for the type 1 error (significance level).
+           Therefore we just need to check if we managed to achieve the necessary power.
+
+           IMPRECISION: the method has random components. The result may be imprecise.
+
+        */
+
+        let power_test: SimulationResult = power_two_sample_t_test()
+            .null_distribution(null_distribution)
+            .alternative_distribution(alternative_distribution)
+            .hypothesys(hypothesys)
+            .significance_level(significance_level)
+            .sample_size(sample_size)
+            .sample_size_alt(sample_size_alt.unwrap_or(sample_size))
+            .use_welch(use_welch)
             .number_of_repetitions(number_of_repetitions)
             .call();
 
