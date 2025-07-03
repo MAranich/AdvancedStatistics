@@ -72,6 +72,11 @@ pub enum SimulationError {
     )]
     MissingArguments,
 
+    #[error(
+        "One or more of the provided arguments were invalid. Check the documentation for more details. "
+    )]
+    InvalidArgument,
+
     #[error("The variable `number_of_repetitions` was set to 0. ")]
     ZeroRepetitions,
 

@@ -644,7 +644,8 @@ pub mod simulation_study {
     //!
     //!
 
-    use crate::hypothesis::{Hypothesis, t_test, two_sample_t_test};
+    use crate::distributions::Normal::Normal;
+    use crate::hypothesis::{Hypothesis, t_test, two_sample_t_test, z_test};
     use crate::{distribution_trait::Distribution, errors::SimulationError};
     use crate::{errors::TestError, samples::Samples};
 
@@ -958,6 +959,8 @@ pub mod simulation_study {
            Therefore we just need to check if we managed to achieve the necessary power.
 
            IMPRECISION: the method has random components. The result may be imprecise.
+
+            Always returns SimulationResult::Feasibility or an error. 
 
         */
 
@@ -1296,6 +1299,8 @@ pub mod simulation_study {
 
            IMPRECISION: the method has random components. The result may be imprecise.
 
+            Always returns SimulationResult::Feasibility or an error. 
+
         */
 
         let power_test: SimulationResult = power_two_sample_t_test()
@@ -1386,5 +1391,365 @@ pub mod simulation_study {
             .maybe_sample_size(sample_size)
             .maybe_number_of_repetitions(number_of_repetitions)
             .call();
+    }
+
+    /// Performs a simulation study for the [z-test](z_test).
+    ///
+    /// It will comupte the power or the sample size depending on wich variable is not set.
+    /// Will return an error if neither of them is set.
+    ///
+    /// The [z-test](z_test) is very similar to the [t-test](t_test) but more restrictive,
+    /// so you may consider using it if the variance is unknown.  
+    ///
+    /// ## Inputs
+    ///
+    ///  - `null_distribution`: The distribution of the samples under the null
+    ///     hypothesys.
+    ///  - `alternative_distribution`: The distribution of the samples under the
+    ///     alternative hypothesys.
+    ///  - `variance`: the **known** variance of the distribution.
+    ///      - (Optional)
+    ///      - If it is **not** set, then it is computed with [Distribution::variance].
+    ///      - If it is not known, the [t-test](t_test) is used instead ([simulation_t_test]).
+    ///      - Returns an error is the variance is non-finite or if `variance <= 0.0`.
+    ///  - `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed [Hypothesis] will be used
+    ///      - (Optional)
+    ///      - The default is a 2 tailed test.
+    ///  - `significance_level`: The [significance level](https://en.wikipedia.org/wiki/Statistical_significance) of the test.
+    ///      - (Optional)
+    ///      - The default is [DEFAULT_SIGNIFICANCE_LEVEL]: 0.05
+    ///  - `power`: The [statistical power](https://en.wikipedia.org/wiki/Power_(statistics)) of the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::Power].
+    ///  - `sample_size`: the number of samples used in the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::SampleSize].
+    ///  - `number_of_repetitions`: the number of times this experiment will be repeated.
+    ///      - (Optional)
+    ///      - Deafult is [DEFAULT_NUM_REPETITIONS].
+    ///
+    /// In the case where both `power` and `sample_size` are set,
+    /// then it will compute if these results are achievable. The result will be on
+    /// [SimulationResult::Feasibility]. If it is true, it means that the statistical test
+    /// has the desired propreties or better.
+    ///
+    #[bon::builder]
+    pub fn simulation_z_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        #[builder(default)] hypothesys: Hypothesis,
+        variance: Option<f64>,
+        significance_level: Option<f64>,
+        power: Option<f64>,
+        sample_size: Option<usize>,
+        number_of_repetitions: Option<usize>,
+    ) -> SimulationResult {
+        let n_repetitions: usize = number_of_repetitions
+            .unwrap_or(DEFAULT_NUM_REPETITIONS)
+            .max(1);
+
+        let std_dev: f64 = {
+            let var: f64 = if let Some(v) = variance {
+                v
+            } else if let Some(v) = null_distribution.variance() {
+                v
+            } else {
+                // variance not found
+                return SimulationResult::Error(SimulationError::InvalidArgument);
+            };
+            if !var.is_finite() || var <= 0.0 {
+                // variance is invalid
+                return SimulationResult::Error(SimulationError::InvalidArgument);
+            }
+            var.sqrt()
+        };
+        // the variable variance is valid.
+
+        let alpha: f64 = {
+            let a: f64 = significance_level.unwrap_or(DEFAULT_SIGNIFICANCE_LEVEL);
+            if !(a.is_finite() && 0.0 < a && a < 1.0) {
+                return SimulationResult::Error(SimulationError::InvalidSignificanceLevel);
+            }
+            a
+        };
+
+        let powr: f64 = if let Some(p) = power {
+            if !(p.is_finite() && 0.0 < p && p < 1.0) {
+                return SimulationResult::Error(SimulationError::InvalidPower);
+            }
+            p
+        } else {
+            //power is not set. Attempting to solve for power
+            let n_samples: usize = if let Some(n) = sample_size {
+                n
+            } else {
+                return SimulationResult::Error(SimulationError::MissingArguments);
+            };
+
+            let null_mean: f64 = if let Some(mean) = null_distribution.expected_value() {
+                mean
+            } else {
+                return SimulationResult::Error(SimulationError::DistributionError(
+                    crate::errors::AdvStatError::InvalidNumber,
+                ));
+            };
+
+            return power_z_test()
+                .null_mean(null_mean)
+                .alternative_distribution(alternative_distribution)
+                .std_dev(std_dev)
+                .hypothesys(hypothesys)
+                .significance_level(alpha)
+                .sample_size(n_samples)
+                .number_of_repetitions(n_repetitions)
+                .call();
+        };
+
+        let n_samples: usize = if let Some(n) = sample_size {
+            n
+        } else {
+            // sample size not set, attempting to solve for sample_size
+            return sample_size_z_test()
+                .null_distribution(null_distribution)
+                .alternative_distribution(alternative_distribution)
+                .std_dev(std_dev)
+                .hypothesys(hypothesys)
+                .significance_level(alpha)
+                .power(powr)
+                .number_of_repetitions(n_repetitions)
+                .call();
+        };
+
+        // all fields are set, attempting to determine feasibility of test
+        return feasibility_z_test()
+            .null_distribution(null_distribution)
+            .alternative_distribution(alternative_distribution)
+            .std_dev(std_dev)
+            .hypothesys(hypothesys)
+            .significance_level(alpha)
+            .power(powr)
+            .sample_size(n_samples)
+            .number_of_repetitions(n_repetitions)
+            .call();
+    }
+
+    #[bon::builder]
+    fn power_z_test(
+        null_mean: f64,
+        alternative_distribution: &dyn Distribution,
+        std_dev: f64,
+        hypothesys: Hypothesis,
+        significance_level: f64,
+        sample_size: usize,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        /*
+           power: https://en.wikipedia.org/wiki/Power_(statistics)
+           ***
+           Samples:
+
+           The generating process *could* be improved by pregenerating all the data before.
+           But it can be problematic if there is too much data to generate.
+
+           IMPRECISION: the numbers returned by this function may not be completely accurate.
+
+        */
+
+        let null_params: Normal = match Normal::new(null_mean, std_dev) {
+            Ok(v) => v,
+            Err(e) => return SimulationResult::Error(SimulationError::DistributionError(e)),
+        };
+
+        let mut correct: usize = 0;
+        for _ in 0..number_of_repetitions {
+            // 1. generate data
+            let data: Vec<f64> = alternative_distribution.sample_multiple(sample_size);
+            // SAFETY: we have generated all the data from the distribution, hence the data is valid.
+            let mut samples: Samples = unsafe { Samples::new_move_uncheched(data) };
+
+            // 2. Perform statistics
+            let test_result: Result<super::TestResult, TestError> = z_test()
+                .data(&mut samples)
+                .hypothesys(hypothesys)
+                .null(null_params.clone())
+                .significance(significance_level)
+                .call();
+
+            // 3. Store results
+            match test_result {
+                Ok(result) => {
+                    if result.p() <= significance_level {
+                        correct += 1;
+                    }
+                }
+                Err(e) => return SimulationResult::Error(SimulationError::TestError(e)),
+            }
+        }
+
+        let estimated_power: f64 = (correct as f64) / (number_of_repetitions as f64);
+        return SimulationResult::Power(estimated_power);
+    }
+
+    #[bon::builder]
+    fn sample_size_z_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        std_dev: f64,
+        hypothesys: Hypothesis,
+        significance_level: f64,
+        power: f64,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        /*
+
+           To compute the sample size we will perform 2 searches: an exponencial search
+           and a binary search. With the exponential search we will find and upper and
+           a lower bound fro the sample size and with the binary search we will find the
+           exact result.
+
+            WARNING: this function has a random component. There is no guarantee that
+            2 successive executions with the same arguments lead to the same output.
+
+            This is because this code assumes that the power of a test with higher sample size is
+            always greater than the same test with a lower sample size. This is theoretically
+            true, but a low number_of_repetitions could make the `power_t_test` return a
+            lower value than it should. This could lead to *small* inacuracies. Fortunately,
+            the law of large numbers assures us that the power will converge to the correct
+            value as number_of_repetitions tends to bigger values.
+
+           IMPRECISION: the numbers returned by this function may not be completely accurate.
+
+           The minimum sample size is 2.
+
+        */
+
+        let null_mean: f64 = if let Some(mean) = null_distribution.expected_value() {
+            mean
+        } else {
+            return SimulationResult::Error(SimulationError::DistributionError(
+                crate::errors::AdvStatError::InvalidNumber,
+            ));
+        };
+
+        // Step 1: use exponetial search to find upper an lower bounds for the sample_size
+        let mut current_sample_size: usize = 2;
+        let mut computed_power: f64 = 0.0;
+        while computed_power < power {
+            current_sample_size = current_sample_size << 1;
+            if current_sample_size == 0 {
+                // we have no more bits, the requiered sample size may be too large. return error
+                return SimulationResult::Error(SimulationError::MassiveSampleSize);
+            }
+
+            let power_test: SimulationResult = power_z_test()
+                .null_mean(null_mean)
+                .alternative_distribution(alternative_distribution)
+                .std_dev(std_dev)
+                .hypothesys(hypothesys)
+                .significance_level(significance_level)
+                .sample_size(current_sample_size)
+                .number_of_repetitions(number_of_repetitions)
+                .call();
+
+            computed_power = match power_test {
+                SimulationResult::Power(pow) => pow,
+                SimulationResult::Error(simulation_error) => {
+                    return SimulationResult::Error(simulation_error);
+                }
+                _ => unreachable!(),
+            };
+        }
+
+        // Step 2: use binary search to narrow down the result to the exact value.
+        let (mut lower, mut upper): (usize, usize) =
+            (current_sample_size >> 1, current_sample_size);
+
+        while lower + 1 != upper {
+            // (a+b)/2 = (a - b) / 2 + b
+            let mid: usize = ((upper - lower) >> 1) + lower;
+
+            let power_test: SimulationResult = power_z_test()
+                .null_mean(null_mean)
+                .alternative_distribution(alternative_distribution)
+                .std_dev(std_dev)
+                .hypothesys(hypothesys)
+                .significance_level(significance_level)
+                .sample_size(current_sample_size)
+                .number_of_repetitions(number_of_repetitions)
+                .call();
+
+            let mid_power: f64 = match power_test {
+                SimulationResult::Power(pow) => pow,
+                SimulationResult::Error(simulation_error) => {
+                    return SimulationResult::Error(simulation_error);
+                }
+                _ => unreachable!(),
+            };
+
+            if mid_power < power {
+                // set lower bound
+                lower = mid;
+            } else {
+                upper = mid;
+            }
+
+            assert!(lower < upper);
+        }
+
+        return SimulationResult::SampleSize(upper);
+    }
+
+    #[bon::builder]
+    fn feasibility_z_test(
+        null_distribution: &dyn Distribution,
+        alternative_distribution: &dyn Distribution,
+        std_dev: f64,
+        hypothesys: Hypothesis,
+        significance_level: f64,
+        power: f64,
+        sample_size: usize,
+        number_of_repetitions: usize,
+    ) -> SimulationResult {
+        /*
+
+           To know if this study is feasible, we neet to check if the power is achieved.
+           The statistical test already constrol for the type 1 error (significance level).
+           Therefore we just need to check if we managed to achieve the necessary power.
+
+           IMPRECISION: the method has random components. The result may be imprecise.
+
+            Always returns SimulationResult::Feasibility or an error. 
+
+        */
+
+        let null_mean: f64 = if let Some(mean) = null_distribution.expected_value() {
+            mean
+        } else {
+            return SimulationResult::Error(SimulationError::DistributionError(
+                crate::errors::AdvStatError::InvalidNumber,
+            ));
+        };
+
+        let power_test: SimulationResult = power_z_test()
+            .null_mean(null_mean)
+            .alternative_distribution(alternative_distribution)
+            .std_dev(std_dev)
+            .hypothesys(hypothesys)
+            .significance_level(significance_level)
+            .sample_size(sample_size)
+            .number_of_repetitions(number_of_repetitions)
+            .call();
+
+        let computed_power: f64 = match power_test {
+            SimulationResult::Power(pow) => pow,
+            SimulationResult::Error(simulation_error) => {
+                return SimulationResult::Error(simulation_error);
+            }
+            _ => unreachable!(),
+        };
+
+        return SimulationResult::Feasibility(power <= computed_power);
     }
 }
