@@ -634,12 +634,12 @@ pub mod simulation_study {
     //! things without significatly changing the code:
     //!
     //!  - Try changing the sampling distribution.
-    //!  - Use another test. 
+    //!  - Use another test.
     //!  - Violate the assumptions of the test.
     //!
-    //! All of these would requiere a (possibly very hard) mathematical derivation 
-    //! for each possible case, but we can get similar results by just simulating 
-    //! everything. If you want more presicion, you can increase 
+    //! All of these would requiere a (possibly very hard) mathematical derivation
+    //! for each possible case, but we can get similar results by just simulating
+    //! everything. If you want more presicion, you can increase
     //! `number_of_repetitions` to a larger value.
     //!
     //!
@@ -655,26 +655,26 @@ pub mod simulation_study {
     ///
     /// The value of 0.05 = 1/20 is a very common singificance level but it has
     /// no special value by iteself (other than being a *relatively* small probability).
-    /// This value was originally suggested by the statistician Ronald Fisher, 
+    /// This value was originally suggested by the statistician Ronald Fisher,
     /// and the convention stuck.
     ///
     /// However in some fields, a lower significance level may be requiered.
     pub const DEFAULT_SIGNIFICANCE_LEVEL: f64 = 0.05;
 
-    /// An enum containing all the variants of the results of a simulation. 
+    /// An enum containing all the variants of the results of a simulation.
     pub enum SimulationResult {
-        /// The estimated power of the test. 
+        /// The estimated power of the test.
         Power(f64),
-        /// The minimum sample size to achieve the given power. 
+        /// The minimum sample size to achieve the given power.
         SampleSize(usize),
-        /// Is true if the test can achieve the neccessary power with the given 
-        /// parameters. 
+        /// Is true if the test can achieve the neccessary power with the given
+        /// parameters.
         Feasibility(bool),
-        /// Some error has occurred. 
+        /// Some error has occurred.
         Error(SimulationError),
     }
 
-    /// Performs a simulation strudy for the [one sample t-test](t_test).
+    /// Performs a simulation study for the [one sample t-test](t_test).
     ///
     /// It will comupte the power or the sample size depending on wich variable is not set.
     /// Will return an error if neither of them is set.
@@ -989,7 +989,7 @@ pub mod simulation_study {
         return SimulationResult::Feasibility(power <= computed_power);
     }
 
-    /// Performs a simulation strudy for the [two sample t-test](two_sample_t_test).
+    /// Performs a simulation study for the [two sample t-test](two_sample_t_test).
     ///
     /// It will comupte the power or the sample size depending on wich variable is not set.
     /// Will return an error if neither of them is set.
@@ -1145,7 +1145,7 @@ pub mod simulation_study {
             let data_b: Vec<f64> = alternative_distribution.sample_multiple(sample_size_alt);
             // SAFETY: we have generated all the data from the distribution, hence the data is valid.
             let mut samples_a: Samples = unsafe { Samples::new_move_uncheched(data_a) };
-            // SAFETY: Same as before. 
+            // SAFETY: Same as before.
             let mut samples_b: Samples = unsafe { Samples::new_move_uncheched(data_b) };
 
             // 2. Perform statistics
@@ -1318,5 +1318,73 @@ pub mod simulation_study {
         };
 
         return SimulationResult::Feasibility(power <= computed_power);
+    }
+
+    /// Performs a simulation study for the [paired t-test](paired_t_test).
+    ///
+    /// It will comupte the power or the sample size depending on wich variable is not set.
+    /// Will return an error if neither of them is set.
+    ///
+    /// Note: the computations for this method are essentially the same ones as for
+    /// [simulation_t_test] but for the difference distribution. This method exists
+    /// for completness.
+    ///
+    /// ## Inputs
+    ///
+    ///  - `null_difference_distribution`: The distribution of the samples under the
+    ///     null hypothesys.
+    ///  - `alt_difference_distribution`: The distribution of the samples under the
+    ///     alternative hypothesys.
+    ///  - `hypothesys`: determines if a 2-tailed/left-tailed/right-tailed [Hypothesis] will be used
+    ///      - (Optional)
+    ///      - The default is a 2 tailed test.
+    ///  - `significance_level`: The [significance level](https://en.wikipedia.org/wiki/Statistical_significance) of the test.
+    ///      - (Optional)
+    ///      - The default is [DEFAULT_SIGNIFICANCE_LEVEL]: 0.05
+    ///  - `power`: The [statistical power](https://en.wikipedia.org/wiki/Power_(statistics)) of the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::Power].
+    ///  - `sample_size`: the number of samples used in the test.
+    ///      - (Optional)
+    ///      - If it is **not** set, then the function will compute it.
+    ///      - If successfull, the result will be a [SimulationResult::SampleSize].
+    ///  - `number_of_repetitions`: the number of times this experiment will be repeated.
+    ///      - (Optional)
+    ///      - Deafult is [DEFAULT_NUM_REPETITIONS].
+    ///
+    /// In the case where both `power` and `sample_size` are set,
+    /// then it will compute if these results are achievable. The result will be on
+    /// [SimulationResult::Feasibility]. If it is true, it means that the statistical test
+    /// has the desired propreties or better.
+    ///
+    /// ***
+    ///
+    /// In the paired test we need to compare 2 gropus (A and B). To generate samples
+    /// from grup A, we use the `sampling_distribution`. To generate the *matching*
+    /// sample from group B, we add the corresponding difference, wich is a sample
+    /// from the difference distribution. The difference distribution is
+    /// `null_difference_distribution` under the null hypothesys or
+    /// `alt_difference_distribution` under the alternative distribution.
+    ///
+    #[bon::builder]
+    pub fn simulation_paired_t_test(
+        null_difference_distribution: &dyn Distribution,
+        alt_difference_distribution: &dyn Distribution,
+        #[builder(default)] hypothesys: Hypothesis,
+        significance_level: Option<f64>,
+        power: Option<f64>,
+        sample_size: Option<usize>,
+        number_of_repetitions: Option<usize>,
+    ) -> SimulationResult {
+        return simulation_t_test()
+            .null_distribution(null_difference_distribution)
+            .alternative_distribution(alt_difference_distribution)
+            .hypothesys(hypothesys)
+            .maybe_significance_level(significance_level)
+            .maybe_power(power)
+            .maybe_sample_size(sample_size)
+            .maybe_number_of_repetitions(number_of_repetitions)
+            .call();
     }
 }
