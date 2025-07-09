@@ -274,6 +274,37 @@ impl Samples {
     ///
     /// If the variance was already computed, it just returns the value
     /// stored in [SampleProperties] and the operation is constant time.
+    /// 
+    /// ## Additional considerations
+    /// 
+    /// This method computes the [**unbiased** sample varinace](https://en.wikipedia.org/wiki/Variance#Unbiased_sample_variance). 
+    /// This means that if you are computing the population varinace, to get an 
+    /// unbiased estimator, you need to multuply the result by `(data.len() - 1)/data.len()`. 
+    /// This changes the denominator back to `1/n`
+    /// 
+    /// ***
+    /// 
+    /// Another consideration is that if you are trying to esimate the **standard deviation**, 
+    /// taking the square root of the result (like in: `data.variance().sqrt()`) will 
+    /// also yield a biased estimator. For more information [see here](https://en.wikipedia.org/wiki/Unbiased_estimation_of_standard_deviation). 
+    /// 
+    /// As the number of samples grows to infinity, the correction term converges to `1.0`. 
+    /// 
+    /// A quick way to account for this is to multiply the result by 
+    /// `(data.len() - 1)/(data.len() - 1.5 - 0.25 * data.excess_kurtosis())` 
+    /// and then take the square root. 
+    /// This changes the denominator to `1/(n - 1.5 - 1/4 excess_kurtosis)`, 
+    /// wich gives way more accurate results. 
+    /// 
+    /// Another relevant fact is that using the biased estimator `data.variance().sqrt()`, 
+    /// produces an estimator wich is always lower than the real value. 
+    /// 
+    /// All of this does not mean that the variance estimator we provide is wrong or biases, 
+    /// this is just the way math works. This is caused because the square root function is 
+    /// not linear. 
+    /// 
+    /// 
+    /// 
     pub fn variance(&mut self) -> Option<f64> {
         // If it is already computed, jut return it.
         if self.properties.variance.is_some() {
