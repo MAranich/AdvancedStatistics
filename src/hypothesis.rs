@@ -675,6 +675,10 @@ pub mod simulation_study {
         Error(SimulationError),
     }
 
+    //**********************************************************************
+    //          T - Test
+    //**********************************************************************
+
     /// Performs a simulation study for the [one sample t-test](t_test).
     ///
     /// It will comupte the power or the sample size depending on wich variable is not set.
@@ -960,7 +964,7 @@ pub mod simulation_study {
 
            IMPRECISION: the method has random components. The result may be imprecise.
 
-            Always returns SimulationResult::Feasibility or an error. 
+            Always returns SimulationResult::Feasibility or an error.
 
         */
 
@@ -991,6 +995,10 @@ pub mod simulation_study {
 
         return SimulationResult::Feasibility(power <= computed_power);
     }
+
+    //**********************************************************************
+    //          2 sample T - Test
+    //**********************************************************************
 
     /// Performs a simulation study for the [two sample t-test](two_sample_t_test).
     ///
@@ -1299,7 +1307,7 @@ pub mod simulation_study {
 
            IMPRECISION: the method has random components. The result may be imprecise.
 
-            Always returns SimulationResult::Feasibility or an error. 
+            Always returns SimulationResult::Feasibility or an error.
 
         */
 
@@ -1324,6 +1332,10 @@ pub mod simulation_study {
 
         return SimulationResult::Feasibility(power <= computed_power);
     }
+
+    //**********************************************************************
+    //          Paired T - Test
+    //**********************************************************************
 
     /// Performs a simulation study for the [paired t-test](paired_t_test).
     ///
@@ -1392,6 +1404,10 @@ pub mod simulation_study {
             .maybe_number_of_repetitions(number_of_repetitions)
             .call();
     }
+
+    //**********************************************************************
+    //          Z - Test
+    //**********************************************************************
 
     /// Performs a simulation study for the [z-test](z_test).
     ///
@@ -1720,7 +1736,7 @@ pub mod simulation_study {
 
            IMPRECISION: the method has random components. The result may be imprecise.
 
-            Always returns SimulationResult::Feasibility or an error. 
+            Always returns SimulationResult::Feasibility or an error.
 
         */
 
