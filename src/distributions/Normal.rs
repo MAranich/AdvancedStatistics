@@ -26,6 +26,11 @@ use crate::{
     euclid,
 };
 
+/// An instance of the Standard normal distribution ([StdNormal]). It has a mean of `0.0`
+/// and a standard deviation of `1.0`. 
+/// 
+/// Since for the standard normal distribution there are no parameters to change, all 
+/// instances are identical and contain no data. 
 pub const STD_NORMAL: StdNormal = StdNormal::new();
 
 // coefitients for the (aprox) computation of the inverse cdf of the std normal

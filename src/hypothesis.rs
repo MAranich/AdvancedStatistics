@@ -834,6 +834,7 @@ pub mod simulation_study {
                 }
                 Err(e) => return SimulationResult::Error(SimulationError::TestError(e)),
             }
+            // 4. Repeat (a *lot*)
         }
 
         let estimated_power: f64 = (correct as f64) / (number_of_repetitions as f64);
