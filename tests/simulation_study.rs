@@ -102,10 +102,10 @@ fn simulation_simple_t_test_1() {
 #[test]
 fn simulation_simple_t_test_2() {
     /*
-       Here we will make sure that the t-test has the adequate power.
+        Here we will make sure that the t-test has the adequate power.
 
-       Using the following R code we obtain:
-       ```R
+        Using the following R code we obtain:
+        ```R
         library(pwr)
 
 
@@ -118,11 +118,11 @@ fn simulation_simple_t_test_2() {
 
         pwr.t.test(n = n, d = cohens_d, sig.level = 0.05, type = "one.sample")
 
-       ```
+        ```
 
-       We obtain:
+        We obtain:
 
-       ```
+        ```
         One-sample t test power calculation
 
                     n = 16
@@ -130,14 +130,14 @@ fn simulation_simple_t_test_2() {
             sig.level = 0.05
                 power = 0.08695976
           alternative = two.sided
-       ```
+        ```
 
-       ***
+        ***
 
 
     */
 
-    let theoretical_power: f64 = 0.08695976;
+    let theoretical_power: f64 = 0.08695976; 
     let tolerance: f64 = 0.05;
 
     // ********************

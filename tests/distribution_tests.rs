@@ -381,3 +381,61 @@ mod normal_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod t_distr_tests {
+
+    use super::*;
+    use AdvancedStatistics::{distribution_trait::Distribution, distributions::StudentT::*};
+    use AdvancedStatistics::distributions::Normal::STD_NORMAL; 
+
+    #[test]
+    fn pdf_values() {
+        const TOLERANCE: f64 = 0.0001;
+        {
+            let df: f64 = 2.0;
+
+            let distr: StudentT = StudentT::new(df).expect("Parameters should be correct. ");
+
+            let points: [f64; 4] = [-1.0, 0.0, 1.0, 2.0];
+            let pdf_points: [f64; 4] = [0.1924500897, 0.3535533906, 0.1924500897, 0.06804138174];
+
+            for (p, pdf_p) in points.iter().zip(pdf_points.iter()) {
+                let predicted_pdf: f64 = distr.pdf(*p);
+
+                assert_approx_eq!(pdf_p, predicted_pdf, TOLERANCE); 
+            }
+        }
+
+        {
+            let df: f64 = 5.0;
+
+            let distr: StudentT = StudentT::new(df).expect("Parameters should be correct. ");
+
+            let points: [f64; 4] = [-1.0, 0.0, 1.0, 2.0];
+            let pdf_points: [f64; 4] = [0.2196797974, 0.3796066898, 0.2196797974, 0.06509031033];
+
+            for (p, pdf_p) in points.iter().zip(pdf_points.iter()) {
+                let predicted_pdf: f64 = distr.pdf(*p);
+
+                assert_approx_eq!(pdf_p, predicted_pdf, TOLERANCE); 
+            }
+        }
+
+        {
+            // approximation when df tends to infinity
+            let df: f64 = 2047.0;
+
+            let distr: StudentT = StudentT::new(df).expect("Parameters should be correct. ");
+            let points: [f64; 4] = [-1.0, 0.0, 1.0, 2.0];
+
+            for p in points {
+                let predicted_pdf: f64 = distr.pdf(p);
+                let normal_pdf: f64 = STD_NORMAL.pdf(p); 
+
+                assert_approx_eq!(normal_pdf, predicted_pdf, TOLERANCE); 
+            }
+        }
+
+    }
+}
