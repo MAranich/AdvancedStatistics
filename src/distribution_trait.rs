@@ -2238,6 +2238,9 @@ pub trait Parametric {
     }
 }
 
+/// The sampling distribution represents distributions that can only be sampled from.
+///
+/// Any [Distribution] or [DiscreteDistribution] have this trait auto-implemented.
 pub trait SamplingDistribution {
     /// Samples the distribution at random.
     ///
@@ -2254,22 +2257,31 @@ pub trait SamplingDistribution {
     /// effitient for multiple sampling.
     fn sample(&self) -> f64;
 
-    /// Samples the distribution at random and fills the buffer with the samples. 
-    /// 
-    /// Depending on the implementation, it may be considerably more effitient than 
-    /// calling [SamplingDistribution::sample] in a loop. 
-    /// 
-    /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation. 
+    // If a better `sample_fill` is implemented, use:
+    /*
+    fn sample(&self) -> f64 {
+        let mut ret: [f64; 1] = [0.0];
+        self.sample_fill(&mut ret);
+        return ret[0];
+    }
+    */
+
+    /// Samples the distribution at random and fills the buffer with the samples.
+    ///
+    /// Depending on the implementation, it may be considerably more effitient than
+    /// calling [SamplingDistribution::sample] in a loop.
+    ///
+    /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation.
     fn sample_fill(&self, buffer: &mut [f64]) {
         for elem in buffer {
             *elem = self.sample();
         }
     }
 
-    /// Samples the distribution at random and returns a new [Vec] with the samples. 
-    /// 
-    /// Depending on the implementation, it may be considerably more effitient than 
-    /// calling [SamplingDistribution::sample] in a loop. 
+    /// Samples the distribution at random and returns a new [Vec] with the samples.
+    ///
+    /// Depending on the implementation, it may be considerably more effitient than
+    /// calling [SamplingDistribution::sample] in a loop.
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut ret: Vec<f64> = vec![0.0; n];
 
