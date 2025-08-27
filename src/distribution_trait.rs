@@ -11,14 +11,14 @@ use crate::euclid::{
 use crate::hypothesis::Hypothesis;
 use crate::samples::Samples;
 
-/// The trait for any continuous distribution. It provides methods to obtain 
-/// the most uscefull values. 
+/// The trait for any continuous distribution. It provides methods to obtain
+/// the most uscefull values.
 ///
-/// ## Requiered methods: 
-/// 
-///  - [Distribution::pdf]: specifies the distribution of the distribution. 
-///  - [Distribution::get_domain]: Returns a reference to the pdf [ContinuousDomain]. 
-/// 
+/// ## Requiered methods:
+///
+///  - [Distribution::pdf]: specifies the distribution of the distribution.
+///  - [Distribution::get_domain]: Returns a reference to the pdf [ContinuousDomain].
+///
 pub trait Distribution {
     //Requiered method:
 
@@ -27,8 +27,8 @@ pub trait Distribution {
     /// should not be evaluated outside the domain (because it should return 0.0 anyway).
     ///
     /// The [Distribution::pdf] must be a simple function. If you want a piecewise function,
-    /// look first at [mixed distribution](crate::mixed_distribution). 
-    /// 
+    /// look first at [mixed distribution](crate::mixed_distribution).
+    ///
     /// The PDF is assumed to be a valid probability distribution. It is must fullfill:
     ///  - `0.0 <= pdf(x)`
     ///  - It is normalized. (It has an area under the curbe of `1.0`)
@@ -2235,5 +2235,46 @@ pub trait Parametric {
         }
 
         return parameters;
+    }
+}
+
+pub trait SamplingDistribution {
+    /// Samples the distribution at random.
+    ///
+    /// ## If using it from [Distribution]
+    ///
+    /// The deafult method is for sampling from [Distribution] is
+    /// [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling),
+    /// unless the deadult method is overriden. Inverse transform sampling simply
+    /// generates a random uniform number and evaluates the inverse cdf function
+    /// (the [Distribution::quantile] function) and returns the result.
+    ///
+    /// Note that the deafult implemetation requieres numerical integration and
+    /// **may be expensive**. The method [Distribution::sample_fill] is more
+    /// effitient for multiple sampling.
+    fn sample(&self) -> f64;
+
+    /// Samples the distribution at random and fills the buffer with the samples. 
+    /// 
+    /// Depending on the implementation, it may be considerably more effitient than 
+    /// calling [SamplingDistribution::sample] in a loop. 
+    /// 
+    /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation. 
+    fn sample_fill(&self, buffer: &mut [f64]) {
+        for elem in buffer {
+            *elem = self.sample();
+        }
+    }
+
+    /// Samples the distribution at random and returns a new [Vec] with the samples. 
+    /// 
+    /// Depending on the implementation, it may be considerably more effitient than 
+    /// calling [SamplingDistribution::sample] in a loop. 
+    fn sample_multiple(&self, n: usize) -> Vec<f64> {
+        let mut ret: Vec<f64> = vec![0.0; n];
+
+        self.sample_fill(&mut ret);
+
+        return ret;
     }
 }
