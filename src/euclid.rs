@@ -485,9 +485,8 @@ pub mod integration {
 
     /// Helper function that computes the cdf of a distribution in the case it's
     /// domain starts at a finite value ( [a, b] or [a, +inf] ).
-    pub fn cdf_fill_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-    where
-        T: Distribution + ?Sized,
+    pub fn cdf_fill_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
+    where FnPdf: Fn(f64) -> f64
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::Finite | IntegrationType::ConstToInfinite;
@@ -519,8 +518,8 @@ pub mod integration {
 
         // estimate the bound likelyhood with the next 2 values
         let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = distr.pdf(bounds.0 + half_step_length);
-            let end: f64 = distr.pdf(bounds.0 + step_length);
+            let middle: f64 = pdf(bounds.0 + half_step_length);
+            let end: f64 = pdf(bounds.0 + step_length);
             2.0 * middle - end
         };
 
@@ -539,8 +538,8 @@ pub mod integration {
                 current_cdf_point = points[current_index];
             }
 
-            let middle: f64 = distr.pdf(current_position + half_step_length);
-            let end: f64 = distr.pdf(current_position + step_length);
+            let middle: f64 = pdf(current_position + half_step_length);
+            let end: f64 = pdf(current_position + step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -558,9 +557,8 @@ pub mod integration {
 
     /// Helper function that computes the cdf of a distribution in the case it's
     /// domain starts at an infinite value ( [-inf, b] ).
-    pub fn cdf_fill_infinite_to_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-    where
-        T: Distribution + ?Sized,
+    pub fn cdf_fill_infinite_to_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
+    where FnPdf: Fn(f64) -> f64
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::InfiniteToConst;
@@ -593,8 +591,8 @@ pub mod integration {
 
         // estimate the bound likelyhood with the next 2 values
         let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = distr.pdf(bounds.1 - half_step_length);
-            let end: f64 = distr.pdf(bounds.1 - step_length);
+            let middle: f64 = pdf(bounds.1 - half_step_length);
+            let end: f64 = pdf(bounds.1 - step_length);
             2.0 * middle - end
         };
 
@@ -613,8 +611,8 @@ pub mod integration {
                 current_cdf_point = points[current_index];
             }
 
-            let middle: f64 = distr.pdf(current_position - half_step_length);
-            let end: f64 = distr.pdf(current_position - step_length);
+            let middle: f64 = pdf(current_position - half_step_length);
+            let end: f64 = pdf(current_position - step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -633,9 +631,8 @@ pub mod integration {
 
     /// Helper function that computes the cdf of a distribution in the case it's
     /// domain contains the whole real numbers ( [-inf, inf] )
-    pub fn cdf_fill_full_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-    where
-        T: Distribution + ?Sized,
+    pub fn cdf_fill_full_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
+    where FnPdf: Fn(f64) -> f64
     {
         assert!(!points.is_empty());
         assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
@@ -702,7 +699,7 @@ pub mod integration {
                 let t: f64 = current_position + half_step_length;
                 let u: f64 = 1.0 / (1.0 - t * t);
                 let v: f64 = 1.0 + t * t;
-                distr.pdf(t * u) * v * u * u
+                pdf(t * u) * v * u * u
             };
             let end: f64 = {
                 let t: f64 = current_position + step_length;
@@ -712,7 +709,7 @@ pub mod integration {
                 } else {
                     let u: f64 = 1.0 / e;
                     let v: f64 = 1.0 + t * t;
-                    distr.pdf(t * u) * v * u * u
+                    pdf(t * u) * v * u * u
                 }
             };
 
@@ -732,9 +729,8 @@ pub mod integration {
 
     /// Helper function that computes the quantile function of a distribution in the
     /// case it's domain starts at a finite value ( [a, b] or [a, +inf] ).
-    pub fn quantile_fill_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-    where
-        T: Distribution + ?Sized,
+    pub fn quantile_fill_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
+    where FnPdf: Fn(f64) -> f64
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::Finite | IntegrationType::ConstToInfinite;
@@ -778,8 +774,8 @@ pub mod integration {
 
         // estimate the bound value with the next 2 values
         let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = distr.pdf(bounds.0 + half_step_length);
-            let end: f64 = distr.pdf(bounds.0 + step_length);
+            let middle: f64 = pdf(bounds.0 + half_step_length);
+            let end: f64 = pdf(bounds.0 + step_length);
             2.0 * middle - end
         };
 
@@ -794,7 +790,7 @@ pub mod integration {
                 while current_quantile < accumulator {
                     let mut quantile: f64 = current_position;
 
-                    let pdf_q: f64 = distr.pdf(quantile);
+                    let pdf_q: f64 = pdf(quantile);
                     // result of pdf is always finite
                     #[allow(clippy::neg_cmp_op_on_partial_ord)]
                     if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
@@ -819,8 +815,8 @@ pub mod integration {
                 }
             }
 
-            let middle: f64 = distr.pdf(current_position + half_step_length);
-            let end: f64 = distr.pdf(current_position + step_length);
+            let middle: f64 = pdf(current_position + half_step_length);
+            let end: f64 = pdf(current_position + step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -838,9 +834,8 @@ pub mod integration {
 
     /// Helper function that computes the quantile of a distribution in the case it's
     /// domain starts at an infinite value ( [-inf, b] ).
-    pub fn quantile_fill_infinite_to_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-    where
-        T: Distribution + ?Sized,
+    pub fn quantile_fill_infinite_to_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
+    where FnPdf: Fn(f64) -> f64
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::InfiniteToConst;
@@ -882,8 +877,8 @@ pub mod integration {
 
         // estimate the bound value with the next 2 values
         let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = distr.pdf(bounds.1 - half_step_length);
-            let end: f64 = distr.pdf(bounds.1 - step_length);
+            let middle: f64 = pdf(bounds.1 - half_step_length);
+            let end: f64 = pdf(bounds.1 - step_length);
             2.0 * middle - end
         };
 
@@ -897,7 +892,7 @@ pub mod integration {
             while 1.0 - accumulator < current_quantile {
                 let mut quantile: f64 = current_position;
 
-                let pdf_q: f64 = distr.pdf(quantile);
+                let pdf_q: f64 = pdf(quantile);
 
                 // result of pdf is always finite
                 #[allow(clippy::neg_cmp_op_on_partial_ord)]
@@ -917,8 +912,8 @@ pub mod integration {
                 current_quantile = points[current_index];
             }
 
-            let middle: f64 = distr.pdf(current_position - half_step_length);
-            let end: f64 = distr.pdf(current_position - step_length);
+            let middle: f64 = pdf(current_position - half_step_length);
+            let end: f64 = pdf(current_position - step_length);
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
 
@@ -938,9 +933,8 @@ pub mod integration {
 
     /// Helper function that computes the quantile of a distribution in the case it's
     /// domain contains the whole real numbers ( [-inf, inf] )
-    pub fn quantile_fill_full_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-    where
-        T: Distribution + ?Sized,
+    pub fn quantile_fill_full_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
+    where FnPdf: Fn(f64) -> f64
     {
         assert!(!points.is_empty());
         assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
@@ -996,7 +990,7 @@ pub mod integration {
             while current_quantile < accumulator {
                 let mut quantile: f64 = current_position;
 
-                let pdf_q: f64 = distr.pdf(quantile);
+                let pdf_q: f64 = pdf(quantile);
                 // result of pdf is always finite
                 #[allow(clippy::neg_cmp_op_on_partial_ord)]
                 if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
@@ -1018,13 +1012,13 @@ pub mod integration {
             let middle: f64 = {
                 let t: f64 = current_position + half_step_length;
                 let u: f64 = 1.0 / (1.0 - t * t);
-                distr.pdf(t * u) * (1.0 + t * t) * u * u
+                pdf(t * u) * (1.0 + t * t) * u * u
             };
 
             let end: f64 = {
                 let t: f64 = current_position + step_length;
                 let u: f64 = 1.0 / (1.0 - t * t);
-                distr.pdf(t * u) * (1.0 + t * t) * u * u
+                pdf(t * u) * (1.0 + t * t) * u * u
             };
 
             accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
