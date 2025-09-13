@@ -1,7 +1,7 @@
 //! This file contains the deafult values and other value choices used trough the library.
 //!
 
-pub mod integration {
+pub mod integration_conf {
     //! The library uses numerical integration in a few instances.
     //! In order to do this we have decided to use the [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
     //! to untegrate. But even considering this, for a given integral we still need

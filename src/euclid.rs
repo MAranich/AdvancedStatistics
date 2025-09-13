@@ -48,7 +48,7 @@ pub mod integration {
     use crate::{
         configuration::{
             QUANTILE_USE_NEWTONS_ITER,
-            integration::{
+            integration_conf::{
                 DEFAULT_INTEGRATION_MAXIMUM_STEPS, DEFAULT_INTEGRATION_MAXIMUM_STEPS_F64,
                 DEFAULT_INTEGRATION_PRECISION, MULTIPLIER_STEPS_FINITE_INTEGRATION,
                 SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,

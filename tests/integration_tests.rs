@@ -27,7 +27,7 @@ fn integration_tests_finite() {
     //^not a real distribution
 
     unsafe {
-        AdvancedStatistics::configuration::integration::MULTIPLIER_STEPS_FINITE_INTEGRATION = 16.0; 
+        AdvancedStatistics::configuration::integration_conf::MULTIPLIER_STEPS_FINITE_INTEGRATION = 16.0; 
     }
 
     let c: f64 = euclid::numerical_integration(|x: f64| d.pdf(x), d.get_domain());
@@ -75,7 +75,7 @@ fn integration_tests_inf_to_const() {
     };
 
     unsafe {
-        AdvancedStatistics::configuration::integration::MULTIPLIER_STEPS_FINITE_INTEGRATION = 1.0; 
+        AdvancedStatistics::configuration::integration_conf::MULTIPLIER_STEPS_FINITE_INTEGRATION = 1.0; 
     }
 
     let c: f64 = euclid::numerical_integration(|x| d.pdf(x), d.get_domain());
