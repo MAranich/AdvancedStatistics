@@ -2,12 +2,10 @@
 
 use rand::Rng;
 
-use crate::configuration::{self, QUANTILE_USE_NEWTONS_ITER};
+use crate::configuration::{self};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
-use crate::euclid::{
-    self, DEFAULT_EMPTY_DOMAIN_BOUNDS, IntegrationType, Moments,
-    choose_integration_precision_and_steps,
-};
+use crate::euclid::integration::*; 
+use crate::euclid::{self, DEFAULT_EMPTY_DOMAIN_BOUNDS, Moments};
 use crate::hypothesis::Hypothesis;
 use crate::samples::Samples;
 
@@ -594,7 +592,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(x)
                 };
 
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
+                numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
             IntegrationType::InfiniteToConst => {
                 // integral {-inf -> a} f(x) dx = integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
@@ -610,7 +608,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(fn_input) * inv_x * inv_x
                 };
 
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
+                numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
             IntegrationType::ConstToInfinite => {
                 // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
@@ -630,7 +628,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(fn_input) * u * u
                 };
 
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
+                numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
             IntegrationType::FullInfinite => {
                 // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
@@ -649,7 +647,7 @@ pub trait Distribution {
                     std_inp.powi(order_exp) * self.pdf(fn_input) * (1.0 + x * x) * v * v
                 };
 
-                euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
+                numerical_integration_finite(integration_fn, bounds, num_steps as u64)
             }
         };
 
@@ -669,7 +667,7 @@ pub trait Distribution {
             p * (p + f64::MIN_POSITIVE).ln()
         };
 
-        let entropy: f64 = euclid::numerical_integration(log_fn, self.get_domain());
+        let entropy: f64 = numerical_integration(log_fn, self.get_domain());
 
         return -entropy;
     }
@@ -1021,7 +1019,7 @@ pub trait DiscreteDistribution {
         if let IntegrationType::FullInfinite = integration_type {
             // SAFETY: should always be safe to only read
             let max_area: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
-            bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
+            bounds = discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
         }
 
         let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
@@ -1229,7 +1227,7 @@ pub trait DiscreteDistribution {
             // SAFETY: should always be safe to only read
             let max_area: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
 
-            bounds = euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
+            bounds = discrete_region_with_area(|x: f64| self.pmf(x), domain, max_area);
             // Now treat the IntegrationType::FullInfinite the same as IntegrationType::Finite
         }
 
@@ -1386,7 +1384,7 @@ pub trait DiscreteDistribution {
             // SAFETY: should always be safe to only read
             let area_treshold: f64 = unsafe { euclid::PROBABILITY_THRESHOLD_DISCRETE_INTEGRATION };
             let range: (f64, f64) =
-                euclid::discrete_region_with_area(|x: f64| self.pmf(x), domain, area_treshold);
+                discrete_region_with_area(|x: f64| self.pmf(x), domain, area_treshold);
 
             for point in domain_iter {
                 if !(range.0 <= point && point <= range.0) {
@@ -1486,11 +1484,8 @@ pub trait DiscreteDistribution {
 
         //let moment: f64 = euclid::discrete_integration(integration_fn, domain, max_steps_opt);
 
-        let moment: (f64, f64) = euclid::discrete_integration_with_acumulation(
-            integration_fn,
-            |x: f64| self.pmf(x),
-            domain,
-        );
+        let moment: (f64, f64) =
+            discrete_integration_with_acumulation(integration_fn, |x: f64| self.pmf(x), domain);
 
         return moment.0;
     }
@@ -1518,7 +1513,7 @@ pub trait DiscreteDistribution {
 
         //let entropy: f64 = euclid::discrete_integration(log_fn, self.get_domain(), max_steps_opt);
         let entropy: (f64, f64) =
-            euclid::discrete_integration_with_acumulation(log_fn, |x: f64| self.pmf(x), domain);
+            discrete_integration_with_acumulation(log_fn, |x: f64| self.pmf(x), domain);
 
         return -entropy.0;
     }
@@ -1948,563 +1943,5 @@ pub trait SamplingDistribution {
         self.sample_fill(&mut ret);
 
         return ret;
-    }
-}
-
-/// Helper function that computes the cdf of a distribution in the case it's
-/// domain starts at a finite value ( [a, b] or [a, +inf] ).
-fn cdf_fill_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-where
-    T: Distribution + ?Sized,
-{
-    assert!(!points.is_empty());
-    // we know we are in the case where integration_type == IntegrationType::Finite | IntegrationType::ConstToInfinite;
-    assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
-    assert!(bounds.0.is_finite()); // bounds.1 *may* be infinite
-    assert!(bounds.0 < bounds.1);
-
-    let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-    sorted_indicies.sort_unstable_by(|&i, &j| {
-        let a: f64 = points[i];
-        let b: f64 = points[j];
-        a.partial_cmp(&b).unwrap()
-    });
-
-    let (step_length, max_iters): (f64, usize) =
-        { choose_integration_precision_and_steps(bounds, false) };
-    let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
-
-    let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-    let mut current_index: usize = idx_iter.next().unwrap();
-    // ^unwrap is safe
-
-    let mut current_cdf_point: f64 = points[current_index];
-
-    let mut num_step: f64 = 0.0;
-    let mut accumulator: f64 = 0.0;
-
-    // estimate the bound likelyhood with the next 2 values
-    let mut last_pdf_evaluation: f64 = {
-        let middle: f64 = distr.pdf(bounds.0 + half_step_length);
-        let end: f64 = distr.pdf(bounds.0 + step_length);
-        2.0 * middle - end
-    };
-
-    for _ in 0..max_iters {
-        let current_position: f64;
-
-        current_position = bounds.0 + step_length * num_step;
-        while current_cdf_point <= current_position {
-            points[current_index] = accumulator;
-
-            // update `current_cdf_point` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return,
-            }
-            current_cdf_point = points[current_index];
-        }
-
-        let middle: f64 = distr.pdf(current_position + half_step_length);
-        let end: f64 = distr.pdf(current_position + step_length);
-
-        accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-    }
-
-    points[current_index] = accumulator;
-
-    for idx in idx_iter {
-        // use all remaining indicies
-        points[idx] = accumulator;
-    }
-}
-
-/// Helper function that computes the cdf of a distribution in the case it's
-/// domain starts at an infinite value ( [-inf, b] ).
-fn cdf_fill_infinite_to_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-where
-    T: Distribution + ?Sized,
-{
-    assert!(!points.is_empty());
-    // we know we are in the case where integration_type == IntegrationType::InfiniteToConst;
-    assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
-    assert!(bounds.1.is_finite());
-    assert!(bounds.0 < bounds.1);
-
-    let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-    sorted_indicies.sort_unstable_by(|&i, &j| {
-        let a: f64 = points[i];
-        let b: f64 = points[j];
-        // swapped comp.
-        b.partial_cmp(&a).unwrap()
-    });
-
-    let (step_length, max_iters): (f64, usize) =
-        choose_integration_precision_and_steps(bounds, false);
-    let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
-
-    let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-    let mut current_index: usize = idx_iter.next().unwrap();
-    // ^unwrap is safe
-
-    let mut current_cdf_point: f64 = points[current_index];
-
-    let mut num_step: f64 = 0.0;
-    let mut accumulator: f64 = 0.0;
-
-    // estimate the bound likelyhood with the next 2 values
-    let mut last_pdf_evaluation: f64 = {
-        let middle: f64 = distr.pdf(bounds.1 - half_step_length);
-        let end: f64 = distr.pdf(bounds.1 - step_length);
-        2.0 * middle - end
-    };
-
-    for _ in 0..max_iters {
-        let current_position: f64;
-
-        current_position = bounds.1 - step_length * num_step;
-        while current_position < current_cdf_point {
-            points[current_index] = 1.0 - accumulator;
-
-            // update `current_cdf_point` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return,
-            }
-            current_cdf_point = points[current_index];
-        }
-
-        let middle: f64 = distr.pdf(current_position - half_step_length);
-        let end: f64 = distr.pdf(current_position - step_length);
-
-        accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-    }
-
-    points[current_index] = 1.0 - accumulator;
-
-    for idx in idx_iter {
-        // use all remaining indicies
-        // this really should never happen
-        points[idx] = 1.0 - accumulator;
-    }
-}
-
-/// Helper function that computes the cdf of a distribution in the case it's
-/// domain contains the whole real numbers ( [-inf, inf] )
-fn cdf_fill_full_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-where
-    T: Distribution + ?Sized,
-{
-    assert!(!points.is_empty());
-    assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
-    assert!(bounds.0 < bounds.1);
-
-    let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-    sorted_indicies.sort_unstable_by(|&i, &j| {
-        let a: f64 = points[i];
-        let b: f64 = points[j];
-        a.partial_cmp(&b).unwrap()
-    });
-
-    let (step_length, max_iters): (f64, usize) =
-        choose_integration_precision_and_steps(bounds, true);
-    let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
-
-    let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-    let mut current_index: usize = idx_iter.next().unwrap();
-    // ^unwrap is safe
-
-    let mut current_cdf_point: f64 = points[current_index];
-
-    let mut num_step: f64 = 0.0;
-    let mut accumulator: f64 = 0.0;
-
-    // estimate the bound likelyhood with the next 2 values
-    let mut last_pdf_evaluation: f64 = 0.0;
-
-    for _ in 0..max_iters {
-        let current_position: f64;
-
-        // integral {-inf -> inf} f(x) dx = integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-
-        /*
-            Note that the real `current_position` (before the change of variables)
-            is `t/(1-t^2)` where t = `current_position`. Therefore the check
-            `current_cdf_point <= current_position` becomes:
-            let t = current_position;
-            current_cdf_point <= t/(1 - t * t)     =>
-            current_cdf_point * (1 - t * t) <= t   =>
-            current_cdf_point * u <= t
-        */
-
-        current_position = bounds.0 + step_length * num_step;
-        let u: f64 = 1.0 - current_position * current_position;
-
-        while current_cdf_point * u < current_position {
-            points[current_index] = accumulator;
-
-            // update `current_cdf_point` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return,
-            }
-            current_cdf_point = points[current_index];
-        }
-
-        // integral {-inf -> inf} f(x) dx =
-        //integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-
-        let middle: f64 = {
-            let t: f64 = current_position + half_step_length;
-            let u: f64 = 1.0 / (1.0 - t * t);
-            let v: f64 = 1.0 + t * t;
-            distr.pdf(t * u) * v * u * u
-        };
-        let end: f64 = {
-            let t: f64 = current_position + step_length;
-            let e: f64 = 1.0 - t * t;
-            if !e.is_normal() {
-                0.0
-            } else {
-                let u: f64 = 1.0 / e;
-                let v: f64 = 1.0 + t * t;
-                distr.pdf(t * u) * v * u * u
-            }
-        };
-
-        accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-    }
-
-    points[current_index] = accumulator;
-
-    for idx in idx_iter {
-        // use all remaining indicies
-        points[idx] = accumulator;
-    }
-}
-
-/// Helper function that computes the quantile function of a distribution in the
-/// case it's domain starts at a finite value ( [a, b] or [a, +inf] ).
-fn quantile_fill_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-where
-    T: Distribution + ?Sized,
-{
-    assert!(!points.is_empty());
-    // we know we are in the case where integration_type == IntegrationType::Finite | IntegrationType::ConstToInfinite;
-    assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
-    assert!(bounds.0.is_finite()); // bounds.1 *may* be infinite
-    assert!(bounds.0 < bounds.1);
-
-    let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-    sorted_indicies.sort_unstable_by(|&i, &j| {
-        let a: f64 = points[i];
-        let b: f64 = points[j];
-        a.partial_cmp(&b).unwrap()
-    });
-
-    let (step_length, max_iters): (f64, usize) =
-        choose_integration_precision_and_steps(bounds, false);
-
-    let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
-
-    let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-    let mut current_index: usize = idx_iter.next().unwrap();
-    // ^unwrap is safe
-
-    let mut current_quantile: f64 = points[current_index];
-
-    while current_quantile <= 0.0 {
-        points[current_index] = bounds.0;
-
-        // update `current_quantile` to the next value or exit if we are done
-        match idx_iter.next() {
-            Some(v) => current_index = v,
-            None => return,
-        }
-        current_quantile = points[current_index];
-    }
-
-    let mut num_step: f64 = 0.0;
-    let mut accumulator: f64 = 0.0;
-
-    // estimate the bound value with the next 2 values
-    let mut last_pdf_evaluation: f64 = {
-        let middle: f64 = distr.pdf(bounds.0 + half_step_length);
-        let end: f64 = distr.pdf(bounds.0 + step_length);
-        2.0 * middle - end
-    };
-
-    // SAFETY: This variable should not be mutated during computations
-    let use_newtons_method: bool = unsafe { QUANTILE_USE_NEWTONS_ITER };
-
-    'integration_loop: for _ in 0..max_iters {
-        let current_position: f64;
-
-        {
-            current_position = bounds.0 + step_length * num_step;
-            while current_quantile < accumulator {
-                let mut quantile: f64 = current_position;
-
-                let pdf_q: f64 = distr.pdf(quantile);
-                // result of pdf is always finite
-                #[allow(clippy::neg_cmp_op_on_partial_ord)]
-                if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
-                    // if pdf_q is essentially 0, skip this.
-                    // newton's iteration
-                    quantile = quantile - (accumulator - current_quantile) / pdf_q;
-                }
-
-                points[current_index] = quantile;
-
-                // update `current_quantile` to the next value or exit if we are done
-                match idx_iter.next() {
-                    Some(v) => current_index = v,
-                    None => return,
-                }
-                current_quantile = points[current_index];
-            }
-
-            if bounds.1 <= current_position {
-                points[current_index] = current_position;
-                break 'integration_loop;
-            }
-        }
-
-        let middle: f64 = distr.pdf(current_position + half_step_length);
-        let end: f64 = distr.pdf(current_position + step_length);
-
-        accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-    }
-
-    points[current_index] = bounds.1;
-
-    for idx in idx_iter {
-        // use all remaining indicies
-        points[idx] = bounds.1;
-    }
-}
-
-/// Helper function that computes the quantile of a distribution in the case it's
-/// domain starts at an infinite value ( [-inf, b] ).
-fn quantile_fill_infinite_to_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-where
-    T: Distribution + ?Sized,
-{
-    assert!(!points.is_empty());
-    // we know we are in the case where integration_type == IntegrationType::InfiniteToConst;
-    assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
-    assert!(bounds.1.is_finite());
-    assert!(bounds.0 < bounds.1);
-
-    let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-    sorted_indicies.sort_unstable_by(|&i, &j| {
-        let a: f64 = points[i];
-        let b: f64 = points[j];
-        b.partial_cmp(&a).unwrap()
-    });
-    let (step_length, max_iters): (f64, usize) =
-        choose_integration_precision_and_steps(bounds, false);
-    let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
-
-    let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-    let mut current_index: usize = idx_iter.next().unwrap();
-    // ^unwrap is safe
-
-    let mut current_quantile: f64 = points[current_index];
-
-    while current_quantile <= 0.0 {
-        points[current_index] = bounds.0;
-
-        // update `current_quantile` to the next value or exit if we are done
-        match idx_iter.next() {
-            Some(v) => current_index = v,
-            None => return,
-        }
-        current_quantile = points[current_index];
-    }
-
-    let mut num_step: f64 = 0.0;
-    let mut accumulator: f64 = 0.0;
-
-    // estimate the bound value with the next 2 values
-    let mut last_pdf_evaluation: f64 = {
-        let middle: f64 = distr.pdf(bounds.1 - half_step_length);
-        let end: f64 = distr.pdf(bounds.1 - step_length);
-        2.0 * middle - end
-    };
-
-    // SAFETY: should always be safe to only read
-    let use_newtons_method: bool = unsafe { QUANTILE_USE_NEWTONS_ITER };
-
-    for _ in 0..max_iters {
-        let current_position: f64;
-
-        current_position = bounds.1 - step_length * num_step;
-        while 1.0 - accumulator < current_quantile {
-            let mut quantile: f64 = current_position;
-
-            let pdf_q: f64 = distr.pdf(quantile);
-
-            // result of pdf is always finite
-            #[allow(clippy::neg_cmp_op_on_partial_ord)]
-            if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
-                // if pdf_q is essentially 0, skip this.
-                // newton's iteration
-                quantile += -((1.0 - accumulator) - current_quantile) / pdf_q;
-            }
-
-            points[current_index] = quantile;
-
-            // update `current_cdf_point` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return,
-            }
-            current_quantile = points[current_index];
-        }
-
-        let middle: f64 = distr.pdf(current_position - half_step_length);
-        let end: f64 = distr.pdf(current_position - step_length);
-
-        accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-    }
-
-    // this really should never happen
-    points[current_index] = bounds.0;
-
-    for idx in idx_iter {
-        // use all remaining indicies
-        // this really should never happen
-        points[idx] = bounds.0;
-    }
-}
-
-/// Helper function that computes the quantile of a distribution in the case it's
-/// domain contains the whole real numbers ( [-inf, inf] )
-fn quantile_fill_full_finite<T>(distr: &T, bounds: (f64, f64), points: &mut [f64])
-where
-    T: Distribution + ?Sized,
-{
-    assert!(!points.is_empty());
-    assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
-    assert!(bounds.0 < bounds.1);
-
-    let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-    sorted_indicies.sort_unstable_by(|&i, &j| {
-        let a: f64 = points[i];
-        let b: f64 = points[j];
-        a.partial_cmp(&b).unwrap()
-    });
-
-    let (step_length, max_iters): (f64, usize) =
-        choose_integration_precision_and_steps(bounds, true);
-
-    let half_step_length: f64 = 0.5 * step_length;
-    let step_len_over_6: f64 = step_length / 6.0;
-
-    let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-    let mut current_index: usize = idx_iter.next().unwrap();
-    // ^unwrap is safe
-
-    let mut current_quantile: f64 = points[current_index];
-
-    while current_quantile <= 0.0 {
-        points[current_index] = bounds.0;
-
-        // update `current_quantile` to the next value or exit if we are done
-        match idx_iter.next() {
-            Some(v) => current_index = v,
-            None => return,
-        }
-        current_quantile = points[current_index];
-    }
-
-    let mut num_step: f64 = 0.0;
-    let mut accumulator: f64 = 0.0;
-
-    // estimate the bound value with the next 2 values
-    let mut last_pdf_evaluation: f64 = 0.0;
-
-    // SAFETY: should always be safe to only read
-    let use_newtons_method: bool = unsafe { QUANTILE_USE_NEWTONS_ITER };
-
-    for _ in 0..max_iters {
-        let current_position: f64;
-
-        // integral {-inf -> inf} f(x) dx =
-        //  integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-
-        current_position = bounds.0 + step_length * num_step;
-        while current_quantile < accumulator {
-            let mut quantile: f64 = current_position;
-
-            let pdf_q: f64 = distr.pdf(quantile);
-            // result of pdf is always finite
-            #[allow(clippy::neg_cmp_op_on_partial_ord)]
-            if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
-                // if pdf_q is essentially 0, skip this.
-                // newton's iteration
-                quantile = quantile - (accumulator - current_quantile) / pdf_q;
-            }
-
-            points[current_index] = quantile;
-
-            // update `current_quantile` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return,
-            }
-            current_quantile = points[current_index];
-        }
-
-        let middle: f64 = {
-            let t: f64 = current_position + half_step_length;
-            let u: f64 = 1.0 / (1.0 - t * t);
-            distr.pdf(t * u) * (1.0 + t * t) * u * u
-        };
-
-        let end: f64 = {
-            let t: f64 = current_position + step_length;
-            let u: f64 = 1.0 / (1.0 - t * t);
-            distr.pdf(t * u) * (1.0 + t * t) * u * u
-        };
-
-        accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-        last_pdf_evaluation = end;
-        num_step += 1.0;
-    }
-
-    points[current_index] = bounds.1;
-
-    for idx in idx_iter {
-        // use all remaining indicies
-        points[idx] = bounds.1;
     }
 }
