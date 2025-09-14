@@ -222,7 +222,7 @@ impl DiscreteDistribution for Bernoulli {
         let max_steps_opt: Option<usize> = Some(max_steps.try_into().unwrap_or(usize::MAX));
 
         let moment: f64 =
-            crate::euclid::discrete_integration(integration_fn, domain, max_steps_opt);
+            crate::euclid::integration::discrete_integration(integration_fn, domain, max_steps_opt);
 
         return moment;
     }

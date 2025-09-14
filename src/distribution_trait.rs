@@ -186,8 +186,8 @@ pub trait Distribution {
             IntegrationType::Finite | IntegrationType::ConstToInfinite => {
                 cdf_fill_finite(|x: f64| self.pdf(x), bounds, points)
             }
-            IntegrationType::InfiniteToConst => cdf_fill_infinite_to_finite(self, bounds, points),
-            IntegrationType::FullInfinite => cdf_fill_full_finite(self, bounds, points),
+            IntegrationType::InfiniteToConst => cdf_fill_infinite_to_finite(|x: f64| self.pdf(x), bounds, points),
+            IntegrationType::FullInfinite => cdf_fill_full_finite(|x: f64| self.pdf(x), bounds, points),
         }
     }
 
@@ -312,12 +312,12 @@ pub trait Distribution {
 
         match integration_type {
             IntegrationType::Finite | IntegrationType::ConstToInfinite => {
-                quantile_fill_finite(self, bounds, points)
+                quantile_fill_finite(|x: f64| self.pdf(x), bounds, points)
             }
             IntegrationType::InfiniteToConst => {
-                quantile_fill_infinite_to_finite(self, bounds, points)
+                quantile_fill_infinite_to_finite(|x: f64| self.pdf(x), bounds, points)
             }
-            IntegrationType::FullInfinite => quantile_fill_full_finite(self, bounds, points),
+            IntegrationType::FullInfinite => quantile_fill_full_finite(|x: f64| self.pdf(x), bounds, points),
         }
     }
 

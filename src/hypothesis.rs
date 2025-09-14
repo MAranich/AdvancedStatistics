@@ -426,7 +426,7 @@ pub fn two_sample_t_test(
 
         let s_pool: f64 = ((var_a + var_b) * 0.5).sqrt();
 
-        let t: f64 = mean_diff / (s_pool * (2.0 / n).sqrt());
+        let t: f64 = mean_diff / (s_pool * (2.0_f64 / n).sqrt());
 
         let degrees_of_freedom: f64 = 2.0 * (n - 1.0);
 
@@ -461,7 +461,8 @@ pub fn two_sample_t_test(
         let degrees_of_freedom: f64 = n_a + n_b - 2.0;
 
         let s_pool: f64 = (((n_a - 1.0) * var_a + (n_b - 1.0) * var_b) / degrees_of_freedom).sqrt();
-        let t: f64 = mean_diff / (s_pool * (1.0 / n_a + 1.0 / n_b).sqrt());
+        let inv_sum: f64 = 1.0_f64 / n_a + 1.0_f64 / n_b; 
+        let t: f64 = mean_diff / (s_pool * inv_sum.sqrt());
 
         // SAFETY: as the assert indicates, the degrees of freedom are always greater or equal to 2
         #[allow(clippy::multiple_unsafe_ops_per_block)]
