@@ -116,7 +116,6 @@ impl Beta {
 }
 
 impl Distribution for Beta {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         // let a = alpha, let b = beta for conciseness sake.
         // pdf(x | a, b) = Gamma(a+b-1)/(Gamma(a-1)*Gamma(b-1)) * x^(a-1) * (1 - x)^(b-1)
@@ -127,335 +126,52 @@ impl Distribution for Beta {
         return self.normalitzation_constant * pow_alpha * pow_beta;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &BETA_DOMAIN;
     }
 
-    #[must_use]
-    fn sample(&self) -> f64 {
-        let aux: Vec<f64> = self.sample_multiple(1);
-        return aux[0];
-    }
+    // default cdf and quantile fn
 
-    #[must_use]
-    fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
-        /*
-           Plan for Beta:
-
-           > pdf(x | a, b) = norm * x^(a-1) * (1 - x)^(b-1)
-
-           cdf(x | a, b) = integral{x: -inf->inf} pdf(x | a, b) dx
-           cdf(x | a, b) = integral{x: 0->1} norm * x^(a-1) * (1 - x)^(b-1) dx
-
-           We will reuse the deafult implementation but tune it for the Beta.
-
-        */
-        /*
-            Plan: (sery similar to [Distribution::quantile_multiple])
-
-            For cdf_multiple we will first return an error if we find a NaN.
-            Otherwise we will need to sort them and integrate until we have
-            integrated to the given number (and store the value).
-            By sorting, we only need to integrate once through the pdf, reducing
-            considerably computation costs (in particular for large inputs).
-
-            However, this *cool* strategy has a problem and is that we will not
-            return the values in the order we were asked. To account for this we will
-            only sort the indices.
-
-            We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-            for integration.
-
-            Considering the bounds:
-             - If min is finite we just integrate normally.
-             - If min is infinite but max is finite, we can integrate the area from the end
-                    and then do .map(|x| 1-x )
-             - If both are infinite, we will need to do integration with a change of variable
-
-            To compute integrals over an infinite range, we will perform a special
-            [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-            (change of variable)
-
-                For -infinite to a (const):
-            integral {-inf -> a} f(x) dx =
-                        integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-                For -infinite to infinite:
-            integral {-inf -> inf} f(x) dx =
-                        integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-
-            And "just" compute the new integral (taking care of the singularities at t = 0).
-
-        */
-
-        if points.is_empty() {
-            return Vec::new();
-        }
-
-        // return error if NAN is found
-        for point in points {
-            assert!(!point.is_nan(), "Found NaN in `cdf_multiple` of Beta. \n");
-        }
-
-        let mut ret: Vec<f64> = std::vec![0.0; points.len()];
-        let bounds: (f64, f64) = (0.0, 1.0);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-        sorted_indicies.sort_unstable_by(|&i, &j| {
-            let a: f64 = points[i];
-            let b: f64 = points[j];
-            a.partial_cmp(&b).unwrap()
-        });
-
-        let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, false);
-        let half_step_length: f64 = 0.5 * step_length;
-        let step_len_over_6: f64 = step_length / 6.0;
-
-        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-        let mut current_index: usize = idx_iter.next().unwrap();
-        // ^unwrap is safe
-
-        let mut current_cdf_point: f64 = points[current_index];
-
-        let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.0;
-
-        // estimate the bound likelyhood with the next 2 values
-        let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = self.pdf(bounds.0 + half_step_length);
-            let end: f64 = self.pdf(bounds.0 + step_length);
-            2.0 * middle - end
-        };
-
-        for _ in 0..max_iters {
-            let current_position: f64 = bounds.0 + step_length * num_step;
-            while current_cdf_point <= current_position {
-                ret[current_index] = accumulator;
-
-                // update `current_cdf_point` to the next value or exit if we are done
-                match idx_iter.next() {
-                    Some(v) => current_index = v,
-                    None => return ret,
-                }
-                current_cdf_point = points[current_index];
-            }
-
-            let middle: f64 = self.pdf(current_position + half_step_length);
-            let end: f64 = self.pdf(current_position + step_length);
-
-            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-        }
-
-        ret[current_index] = accumulator;
-
-        for idx in idx_iter {
-            // use all remaining indicies
-            ret[idx] = accumulator;
-        }
-
-        return ret;
-    }
-
-    #[must_use]
-    fn sample_multiple(&self, n: usize) -> Vec<f64> {
+    fn sample_fill(&self, buffer: &mut [f64]) {
         // https://en.wikipedia.org/wiki/Beta_distribution#Random_variate_generation
 
-        let mut gamma_alpha_samples: Vec<f64> = {
-            let gamma_alpha: super::Gamma::Gamma =
-                super::Gamma::Gamma::new(self.alpha, 1.0).unwrap();
-            gamma_alpha.sample_multiple(n)
-        };
-        let gamma_beta_samples: Vec<f64> = {
-            let gamma_beta: super::Gamma::Gamma = super::Gamma::Gamma::new(self.beta, 1.0).unwrap();
-            gamma_beta.sample_multiple(n)
+        let n: usize = buffer.len();
+
+        // we will reuse the space in buffer to avoid a memory allocation
+        let gamma_alpha_distr: super::Gamma::Gamma =
+            super::Gamma::Gamma::new(self.alpha, 1.0).unwrap();
+        gamma_alpha_distr.sample_fill(buffer);
+
+        // we do not have more *free* space, allocate more space
+        let gamma_beta: Vec<f64> = {
+            let gamma_beta_distr: super::Gamma::Gamma =
+                super::Gamma::Gamma::new(self.beta, 1.0).unwrap();
+            gamma_beta_distr.sample_multiple(n)
         };
 
         // all unsafe accesses are safe because of the following assert
         // wew will reuse the vector `gamma_alpha_samples` so we don't do an extra allocation
-        assert!(gamma_alpha_samples.len() == n && gamma_beta_samples.len() == n);
         for i in 0..n {
             // SAFETY: `i` is in range
-            let a: f64 = unsafe { *gamma_alpha_samples.get_unchecked(i) };
+            let a: f64 = unsafe { *buffer.get_unchecked(i) };
             // SAFETY: `i` is in range
-            let b: f64 = unsafe { *gamma_beta_samples.get_unchecked(i) };
+            let b: f64 = unsafe { *gamma_beta.get_unchecked(i) };
             // SAFETY: `i` is in range
-            let reference: &mut f64 = unsafe { gamma_alpha_samples.get_unchecked_mut(i) };
+            let reference: &mut f64 = unsafe { buffer.get_unchecked_mut(i) };
 
             *reference = a / (a + b);
         }
-
-        return gamma_alpha_samples;
     }
 
-    #[must_use]
-    fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
-        /*
-            Plan for Beta:
-
-            > pdf(x | a, b) = norm * x^(a-1) * (1 - x)^(b-1)
-
-            We will reuse the deafult implementation but tune it for the Beta.
-
-        */
-
-        /*
-            Plan:
-
-            For this function we will first return an error if we find a NaN.
-            Otherwise we will need to sort them and integrate until the area under
-            the pdf is = to the given number. By sorting, we only need to integrate
-            once.
-
-            However, this *cool* strategy has a problem and is that we will not
-            return the values in the order we were asked. To account for this we will
-            only sort the indices.
-
-            Also, if we find any values smaller or greater than 0 or 1, the awnser will
-            always be the edges of the domain (simplifying computations, although this
-            case should not normally happen).
-
-            We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-            for integration.
-
-            Considering the bounds:
-             - If min is finite we just integrate normally.
-             - If min is infinite but max is finite, we can integrate the area from the end
-                    until `1.0 - point`
-             - If both are infinite, we will need to do integration with a change of variable
-
-            To compute integrals over an infinite range, we will perform a special
-            [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-                For -infinite to infinite:
-            integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-            And "just" compute the new integral (taking care of the singularities at t = +-1).
-
-        */
-
-        if points.is_empty() {
-            return Vec::new();
-        }
-
-        // return error if NAN is found
-        for point in points {
-            assert!(
-                !point.is_nan(),
-                "Found NaN in `quantile_multiple` of Beta. \n"
-            );
-        }
-
-        let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
-        let bounds: (f64, f64) = (0.0, 1.0);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-        sorted_indicies.sort_unstable_by(|&i, &j| {
-            let a: f64 = points[i];
-            let b: f64 = points[j];
-            a.partial_cmp(&b).unwrap()
-        });
-
-        let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, false);
-        let half_step_length: f64 = 0.5 * step_length;
-        let step_len_over_6: f64 = step_length / 6.0;
-
-        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-        let mut current_index: usize = idx_iter.next().unwrap();
-        // ^unwrap is safe
-
-        let mut current_quantile: f64 = points[current_index];
-
-        while current_quantile <= 0.0 {
-            ret[current_index] = bounds.0;
-
-            // update `current_quantile` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return ret,
-            }
-            current_quantile = points[current_index];
-        }
-
-        let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.0;
-
-        // estimate the bound value with the next 2 values
-        let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = self.pdf(bounds.0 + half_step_length);
-            let end: f64 = self.pdf(bounds.0 + step_length);
-            2.0 * middle - end
-        };
-
-        // SAFETY: should always be safe to only read
-        let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
-
-        'integration_loop: for _ in 0..max_iters {
-            let current_position: f64 = bounds.0 + step_length * num_step;
-
-            while current_quantile <= accumulator {
-                let mut quantile: f64 = current_position;
-
-                let pdf_q: f64 = self.pdf(quantile);
-                // result of pdf is always finite
-                #[allow(clippy::neg_cmp_op_on_partial_ord)]
-                if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
-                    // if pdf_q is essentially 0, skip this.
-                    // newton's iteration
-                    quantile = quantile - (accumulator - current_quantile) / pdf_q;
-                }
-
-                ret[current_index] = quantile;
-
-                // update `current_quantile` to the next value or exit if we are done
-                match idx_iter.next() {
-                    Some(v) => current_index = v,
-                    None => return ret,
-                }
-                current_quantile = points[current_index];
-            }
-
-            if bounds.1 <= current_position {
-                ret[current_index] = current_position;
-                break 'integration_loop;
-            }
-
-            let middle: f64 = self.pdf(current_position + half_step_length);
-            let end: f64 = self.pdf(current_position + step_length);
-
-            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-        }
-
-        ret[current_index] = bounds.1;
-
-        for idx in idx_iter {
-            // use all remaining indicies
-            ret[idx] = bounds.1;
-        }
-
-        return ret;
-    }
-
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.alpha / (self.alpha + self.beta));
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         let ab: f64 = self.alpha + self.beta;
         return Some(self.alpha * self.beta / (ab * ab * (ab + 1.0)));
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         // alpha anb beta are non-nans, unwrap is safe
         match (
@@ -474,7 +190,6 @@ impl Distribution for Beta {
 
     // default median
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
         // formula from wiki
         // Sk = 2*(b-a) * sqrt(a+b+1) / ((a+b+2) * sqrt(a*b))
@@ -490,12 +205,6 @@ impl Distribution for Beta {
         return Some(num / den);
     }
 
-    #[must_use]
-    fn kurtosis(&self) -> Option<f64> {
-        return self.excess_kurtosis().map(|x| x + 3.0);
-    }
-
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         let a_plus_b: f64 = self.alpha + self.beta;
         let a_minus_b: f64 = self.alpha - self.beta;
@@ -507,7 +216,6 @@ impl Distribution for Beta {
         return Some(6.0 * num / den);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
         /*
 
@@ -599,7 +307,6 @@ impl Distribution for Beta {
         return moment;
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         // https://en.wikipedia.org/wiki/Beta_distribution#Quantities_of_information_(entropy)
 
@@ -612,53 +319,6 @@ impl Distribution for Beta {
         let term_4: f64 = (self.alpha + self.beta - 2.0) * digamma(self.alpha + self.beta);
 
         return term_1 + term_2 + term_3 + term_4;
-    }
-
-    #[must_use]
-    fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        // Small modifications for the information that we know of beta.
-        // Should be very effitient if alpah and beta are greater or equal to 1.0
-        let mut rng: rand::prelude::ThreadRng = rand::rng();
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _ in 0..n {
-            let sample: f64 = loop {
-                let x: f64 = rng.random();
-                let y: f64 = rng.random();
-                if y * pdf_max < self.pdf(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
-    }
-
-    #[must_use]
-    fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        let mut rng: rand::prelude::ThreadRng = rand::rng();
-        let range_magnitude: f64 = range.1 - range.0;
-
-        if range_magnitude.is_sign_negative() || range.0 < 0.0 || 1.0 < range.1 {
-            // possible early return
-            return Vec::new();
-        }
-
-        let mut ret: Vec<f64> = Vec::with_capacity(n);
-        for _ in 0..n {
-            let sample: f64 = loop {
-                let mut x: f64 = rng.random();
-                x = range.0 + x * range_magnitude;
-                let y: f64 = rng.random();
-                if y * pdf_max < self.pdf(x) {
-                    break x;
-                }
-            };
-            ret.push(sample);
-        }
-
-        return ret;
     }
 }
 
