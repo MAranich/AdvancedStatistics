@@ -101,6 +101,30 @@ pub trait Distribution {
         return quantile_vec[0];
     }
 
+    /// Samples the distribution at random.
+    ///
+    /// ## If using it from [Distribution]
+    ///
+    /// The deafult method is for sampling from [Distribution] is
+    /// [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling),
+    /// unless the deadult method is overriden. Inverse transform sampling simply
+    /// generates a random uniform number and evaluates the inverse cdf function
+    /// (the [Distribution::quantile] function) and returns the result.
+    ///
+    /// Note that the deafult implemetation requieres numerical integration and
+    /// **may be expensive**. The method [Distribution::sample_fill] is more
+    /// effitient for multiple sampling.
+    fn sample(&self) -> f64;
+
+    // If a better `sample_fill` is implemented, use:
+    /*
+    fn sample(&self) -> f64 {
+        let mut ret: [f64; 1] = [0.0];
+        self.sample_fill(&mut ret);
+        return ret[0];
+    }
+    */
+
     // Multiple variants.
     // They are the same as the normal functions, but if they are overriden they may
     // provide a computational advantage.
@@ -325,6 +349,30 @@ pub trait Distribution {
         let mut ret: Vec<f64> = points.to_vec();
 
         self.quantile_fill(&mut ret);
+
+        return ret;
+    }
+
+    /// Samples the distribution at random and fills the buffer with the samples.
+    ///
+    /// Depending on the implementation, it may be considerably more effitient than
+    /// calling [SamplingDistribution::sample] in a loop.
+    ///
+    /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation.
+    fn sample_fill(&self, buffer: &mut [f64]) {
+        for elem in buffer {
+            *elem = self.sample();
+        }
+    }
+
+    /// Samples the distribution at random and returns a new [Vec] with the samples.
+    ///
+    /// Depending on the implementation, it may be considerably more effitient than
+    /// calling [SamplingDistribution::sample] in a loop.
+    fn sample_multiple(&self, n: usize) -> Vec<f64> {
+        let mut ret: Vec<f64> = vec![0.0; n];
+
+        self.sample_fill(&mut ret);
 
         return ret;
     }
@@ -1875,73 +1923,3 @@ pub trait Parametric {
     }
 }
 
-impl<T> SamplingDistribution for T
-where
-    T: Distribution,
-{
-    fn sample(&self) -> f64 {
-        let mut ret: [f64; 1] = [0.0];
-        self.sample_fill(&mut ret);
-        return ret[0];
-    }
-
-    fn sample_fill(&self, buffer: &mut [f64]) {
-        let mut rng: rand::prelude::ThreadRng = rand::rng();
-        rng.fill(buffer);
-
-        self.quantile_fill(buffer);
-    }
-}
-
-/// The sampling distribution represents distributions that can only be sampled from.
-///
-/// Any [Distribution] or [DiscreteDistribution] have this trait auto-implemented.
-pub trait SamplingDistribution {
-    /// Samples the distribution at random.
-    ///
-    /// ## If using it from [Distribution]
-    ///
-    /// The deafult method is for sampling from [Distribution] is
-    /// [Inverse transform sampling](https://en.wikipedia.org/wiki/Inverse_transform_sampling),
-    /// unless the deadult method is overriden. Inverse transform sampling simply
-    /// generates a random uniform number and evaluates the inverse cdf function
-    /// (the [Distribution::quantile] function) and returns the result.
-    ///
-    /// Note that the deafult implemetation requieres numerical integration and
-    /// **may be expensive**. The method [Distribution::sample_fill] is more
-    /// effitient for multiple sampling.
-    fn sample(&self) -> f64;
-
-    // If a better `sample_fill` is implemented, use:
-    /*
-    fn sample(&self) -> f64 {
-        let mut ret: [f64; 1] = [0.0];
-        self.sample_fill(&mut ret);
-        return ret[0];
-    }
-    */
-
-    /// Samples the distribution at random and fills the buffer with the samples.
-    ///
-    /// Depending on the implementation, it may be considerably more effitient than
-    /// calling [SamplingDistribution::sample] in a loop.
-    ///
-    /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation.
-    fn sample_fill(&self, buffer: &mut [f64]) {
-        for elem in buffer {
-            *elem = self.sample();
-        }
-    }
-
-    /// Samples the distribution at random and returns a new [Vec] with the samples.
-    ///
-    /// Depending on the implementation, it may be considerably more effitient than
-    /// calling [SamplingDistribution::sample] in a loop.
-    fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        let mut ret: Vec<f64> = vec![0.0; n];
-
-        self.sample_fill(&mut ret);
-
-        return ret;
-    }
-}
