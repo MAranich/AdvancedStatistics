@@ -4,7 +4,7 @@ use rand::Rng;
 
 use crate::configuration::{self};
 use crate::domain::{ContinuousDomain, DiscreteDomain};
-use crate::euclid::integration::*; 
+use crate::euclid::integration::*;
 use crate::euclid::{self, DEFAULT_EMPTY_DOMAIN_BOUNDS, Moments};
 use crate::hypothesis::Hypothesis;
 use crate::samples::Samples;
@@ -205,8 +205,12 @@ pub trait Distribution {
             IntegrationType::Finite | IntegrationType::ConstToInfinite => {
                 cdf_fill_finite(|x: f64| self.pdf(x), bounds, points)
             }
-            IntegrationType::InfiniteToConst => cdf_fill_infinite_to_finite(|x: f64| self.pdf(x), bounds, points),
-            IntegrationType::FullInfinite => cdf_fill_full_finite(|x: f64| self.pdf(x), bounds, points),
+            IntegrationType::InfiniteToConst => {
+                cdf_fill_infinite_to_finite(|x: f64| self.pdf(x), bounds, points)
+            }
+            IntegrationType::FullInfinite => {
+                cdf_fill_full_finite(|x: f64| self.pdf(x), bounds, points)
+            }
         }
     }
 
@@ -336,7 +340,9 @@ pub trait Distribution {
             IntegrationType::InfiniteToConst => {
                 quantile_fill_infinite_to_finite(|x: f64| self.pdf(x), bounds, points)
             }
-            IntegrationType::FullInfinite => quantile_fill_full_finite(|x: f64| self.pdf(x), bounds, points),
+            IntegrationType::FullInfinite => {
+                quantile_fill_full_finite(|x: f64| self.pdf(x), bounds, points)
+            }
         }
     }
 
@@ -356,7 +362,7 @@ pub trait Distribution {
     /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation.
     fn sample_fill(&self, buffer: &mut [f64]) {
         // Use Inverse Transform sampling
-        let mut rng: rand::prelude::ThreadRng = rand::rng(); 
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
         rng.fill(buffer);
 
         self.quantile_fill(buffer);
@@ -742,9 +748,12 @@ pub trait Distribution {
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
     #[must_use]
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
+        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
         let mut rng: rand::prelude::ThreadRng = rand::rng();
-        let domain: &ContinuousDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
+        let bounds: (f64, f64) = {
+            let domain: &ContinuousDomain = self.get_domain();
+            domain.get_bounds()
+        };
         let bound_range: f64 = bounds.1 - bounds.0;
 
         let mut ret: Vec<f64> = Vec::with_capacity(n);
@@ -763,6 +772,57 @@ pub trait Distribution {
         return ret;
     }
 
+    /// Sample the distribution with the [rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling)
+    /// method. In general, it can be more effitient that the
+    /// normal [Distribution::sample].
+    ///
+    /// Is the same as [Distribution::rejection_sample] but avoids a memory allocation.
+    ///
+    /// Important:
+    ///  - The **domain must be finite**. If it is not, consider the following:
+    ///      - Use [Distribution::rejection_sample_range].
+    ///      - Implement [Distribution::sample] yourself.
+    ///
+    ///  - `n`: represents the number of samples to be generated.
+    ///  - `pmf_max`: the maximum probability of the [Distribution::pdf].
+    ///      - Using a value smaller than the actual value will make the results
+    ///         not follow the distribution.
+    ///      - Using a value larger than the actual value will incur a extra
+    ///         computational cost.
+    ///      - Can be computed with [Distribution::mode].
+    ///
+    /// It is usually more effitient because it does **not** requiere the evaluation of the
+    /// [Distribution::quantile] function, wich involves numerical integration. In exchange,
+    /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
+    #[must_use]
+    fn rejection_sample_fill(&self, pdf_max: f64, buffer: &mut [f64]) {
+        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
+        
+        if buffer.is_empty() {
+            return; 
+        }
+        
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
+        let bounds: (f64, f64) = {
+            let domain: &ContinuousDomain = self.get_domain();
+            domain.get_bounds()
+        };
+        let bound_range: f64 = bounds.1 - bounds.0;
+        //let n: usize = buffer.len();
+
+        for r in buffer.iter_mut() {
+            let sample: f64 = loop {
+                let mut x: f64 = rng.random();
+                x = bounds.0 + x * bound_range;
+                let y: f64 = rng.random();
+                if y * pdf_max < self.pdf(x) {
+                    break x;
+                }
+            };
+            *r = sample;
+        }
+    }
+
     /// Same as [Distribution::rejection_sample] but only in the selected range. (Also
     /// same preconditions).
     ///
@@ -779,9 +839,15 @@ pub trait Distribution {
     ///  - `range`: the bounds of the region to be sampled from.
     #[must_use]
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
+        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
+        assert!(range.0.is_nan(), "Error: NaN `range.0` in the call of `rejection_sample`. "); 
+        assert!(range.1.is_nan(), "Error: NaN `range.1` in the call of `rejection_sample`. "); 
+        
         let mut rng: rand::prelude::ThreadRng = rand::rng();
-        let domain: &ContinuousDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
+        let bounds: (f64, f64) = {
+            let domain: &ContinuousDomain = self.get_domain();
+            domain.get_bounds()
+        };
         let range_magnitude: f64 = range.1 - range.0;
 
         if range_magnitude.is_sign_negative() || range.0 < bounds.0 || bounds.1 < range.1 {
@@ -803,6 +869,53 @@ pub trait Distribution {
         }
 
         return ret;
+    }
+
+    /// Same as [Distribution::rejection_sample] but only in the selected range. (Also
+    /// same preconditions).
+    ///
+    /// Is the same as [Distribution::rejection_sample_range] but avoids a memory allocation.
+    ///
+    /// This can be usefull for distributions with a stricly infinite domain but that
+    /// virtually all their mass is concentrated in a smaller region (`range`).
+    ///
+    ///  - `n`: represents the number of samples to be generated.
+    ///  - `pmf_max`: the maximum probability within the range.
+    ///      - Using a value smaller than the actual value will make the results
+    ///         not follow the distribution.
+    ///      - Using a value larger than the actual value will incur a extra
+    ///         computational cost.
+    ///      - Can be computed with [Distribution::mode].
+    ///  - `range`: the bounds of the region to be sampled from.
+    #[must_use]
+    fn rejection_sample_range_fill(&self, pdf_max: f64, range: (f64, f64), buffer: &mut [f64]) {
+        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
+        assert!(range.0.is_nan(), "Error: NaN `range.0` in the call of `rejection_sample`. "); 
+        assert!(range.1.is_nan(), "Error: NaN `range.1` in the call of `rejection_sample`. "); 
+        
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
+        let bounds: (f64, f64) = {
+            let domain: &ContinuousDomain = self.get_domain();
+            domain.get_bounds()
+        };
+        let range_magnitude: f64 = range.1 - range.0;
+
+        if range_magnitude.is_sign_negative() || range.0 < bounds.0 || bounds.1 < range.1 {
+            // possible early return
+            return;
+        }
+
+        for r in buffer.iter_mut() {
+            let sample: f64 = loop {
+                let mut x: f64 = rng.random();
+                x = range.0 + x * range_magnitude;
+                let y: f64 = rng.random();
+                if y * pdf_max < self.pdf(x) {
+                    break x;
+                }
+            };
+            *r = sample;
+        }
     }
 
     /// A [confidence interval](https://en.wikipedia.org/wiki/Confidence_interval)
@@ -1919,4 +2032,3 @@ pub trait Parametric {
         return parameters;
     }
 }
-
