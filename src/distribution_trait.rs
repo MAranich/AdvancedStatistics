@@ -114,16 +114,11 @@ pub trait Distribution {
     /// Note that the deafult implemetation requieres numerical integration and
     /// **may be expensive**. The method [Distribution::sample_fill] is more
     /// effitient for multiple sampling.
-    fn sample(&self) -> f64;
-
-    // If a better `sample_fill` is implemented, use:
-    /*
     fn sample(&self) -> f64 {
         let mut ret: [f64; 1] = [0.0];
         self.sample_fill(&mut ret);
         return ret[0];
     }
-    */
 
     // Multiple variants.
     // They are the same as the normal functions, but if they are overriden they may
@@ -360,9 +355,11 @@ pub trait Distribution {
     ///
     /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation.
     fn sample_fill(&self, buffer: &mut [f64]) {
-        for elem in buffer {
-            *elem = self.sample();
-        }
+        // Use Inverse Transform sampling
+        let mut rng: rand::prelude::ThreadRng = rand::rng(); 
+        rng.fill(buffer);
+
+        self.quantile_fill(buffer);
     }
 
     /// Samples the distribution at random and returns a new [Vec] with the samples.
