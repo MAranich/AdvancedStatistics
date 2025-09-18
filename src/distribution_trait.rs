@@ -357,9 +357,9 @@ pub trait Distribution {
     /// Samples the distribution at random and fills the buffer with the samples.
     ///
     /// Depending on the implementation, it may be considerably more effitient than
-    /// calling [SamplingDistribution::sample] in a loop.
+    /// calling [Distribution::sample] in a loop.
     ///
-    /// Compared to [SamplingDistribution::sample_multiple], it avoids making a memory allocation.
+    /// Compared to [Distribution::sample_multiple], it avoids making a memory allocation. 
     fn sample_fill(&self, buffer: &mut [f64]) {
         // Use Inverse Transform sampling
         let mut rng: rand::prelude::ThreadRng = rand::rng();
@@ -371,7 +371,8 @@ pub trait Distribution {
     /// Samples the distribution at random and returns a new [Vec] with the samples.
     ///
     /// Depending on the implementation, it may be considerably more effitient than
-    /// calling [SamplingDistribution::sample] in a loop.
+    /// calling [Distribution::sample] in a loop. To avoid a memory allocation, use 
+    /// [Distribution::sample_fill]. 
     fn sample_multiple(&self, n: usize) -> Vec<f64> {
         let mut ret: Vec<f64> = vec![0.0; n];
 
@@ -567,51 +568,6 @@ pub trait Distribution {
     ///  - [Moments::Standarized]
     #[must_use]
     fn moments(&self, order: u8, mode: Moments) -> f64 {
-        /*
-
-               Plan:
-
-            Just to the integral. The integral that gives us the moments of order `k` is:
-
-            ```
-            integral {a -> b} ( (x - mu) / std )^k * f(x) dx
-            ```
-             - `k` is the order of the moment
-             - `f(x)` is the pdf of the distribution.
-             - `a` and `b` are the values that bound the domain of `f(x)`
-                    (they can be `a = -inf` and `b = -inf`).
-             - `mu` is the mean of the distribution (or `0` if we selected the `Raw` moment)
-             - `std` is the standard deviation of the distribution
-                    (or `1` if we did not select the `Standarized` moment)
-
-
-           Distiguish between cases depending on the domain.
-
-           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-           for integration.
-
-           To compute integrals over an infinite range, we will perform a special
-           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-            let g(x) = ( (x - mu) / std )^k * f(x)
-                For -infinite to const:
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} g(a - (1 - t)/t)  /  t^2  dt
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} ( (a - (1 - t)/t - mu) / std )^k * f(a - (1 - t)/t)  /  t^2  dt
-
-                For const to infinite:
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} g(a + t/(t - 1))  /  (1 - t)^2  dt
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} ( (a + t/(t - 1) - mu) / std )^k * f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                For -infinite to infinite:
-            let inp = t/(1 - t^2)
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} g(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} ( (t/(1 - t^2) - mu) / std )^k * f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-
-        */
-
-        let domain: &ContinuousDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
 
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
         let (mean, variance): (f64, f64) = match mode {
@@ -662,6 +618,50 @@ pub trait Distribution {
             "Variance is NOT finite (+-inf or a NaN). "
         );
         assert!(0.0 < variance, "Variance is a negative number. ");
+
+        /*
+
+               Plan:
+
+            Just to the integral. The integral that gives us the moments of order `k` is:
+
+            ```
+            integral {a -> b} ( (x - mu) / std )^k * f(x) dx
+            ```
+             - `k` is the order of the moment
+             - `f(x)` is the pdf of the distribution.
+             - `a` and `b` are the values that bound the domain of `f(x)`
+                    (they can be `a = -inf` and `b = -inf`).
+             - `mu` is the mean of the distribution (or `0` if we selected the `Raw` moment)
+             - `std` is the standard deviation of the distribution
+                    (or `1` if we did not select the `Standarized` moment)
+
+
+           Distiguish between cases depending on the domain.
+
+           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
+           for integration.
+
+           To compute integrals over an infinite range, we will perform a special
+           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
+
+            let g(x) = ( (x - mu) / std )^k * f(x)
+                For -infinite to const:
+            integral {-inf -> a} g(x) dx = integral {0 -> 1} g(a - (1 - t)/t)  /  t^2  dt
+            integral {-inf -> a} g(x) dx = integral {0 -> 1} ( (a - (1 - t)/t - mu) / std )^k * f(a - (1 - t)/t)  /  t^2  dt
+
+                For const to infinite:
+            integral {a -> inf} g(x) dx  = integral {0 -> 1} g(a + t/(t - 1))  /  (1 - t)^2  dt
+            integral {a -> inf} g(x) dx  = integral {0 -> 1} ( (a + t/(t - 1) - mu) / std )^k * f(a + t/(t - 1))  /  (1 - t)^2  dt
+
+                For -infinite to infinite:
+            let inp = t/(1 - t^2)
+            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} g(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
+            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} ( (t/(1 - t^2) - mu) / std )^k * f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
+
+
+        */
+
 
         let bounds: (f64, f64) = {
             let domain: &ContinuousDomain = self.get_domain();
@@ -881,6 +881,9 @@ pub trait Distribution {
     ///         computational cost.
     ///      - Can be computed with [Distribution::mode].
     ///  - `range`: the bounds of the region to be sampled from.
+    /// 
+    /// If the sampling range is the domain of the pdf, use 
+    /// [Distribution::rejection_sample] direcly. 
     #[must_use]
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
         assert!(
@@ -924,7 +927,7 @@ pub trait Distribution {
         return ret;
     }
 
-    /// Same as [Distribution::rejection_sample] but only in the selected range. (Also
+    /// Same as [Distribution::rejection_sample_fill] but only in the selected range. (Also
     /// same preconditions).
     ///
     /// Is the same as [Distribution::rejection_sample_range] but avoids a memory allocation.
@@ -940,6 +943,9 @@ pub trait Distribution {
     ///         computational cost.
     ///      - Can be computed with [Distribution::mode].
     ///  - `range`: the bounds of the region to be sampled from.
+    /// 
+    /// If the sampling range is the domain of the pdf, use 
+    /// [Distribution::rejection_sample_fill] direcly. 
     #[must_use]
     fn rejection_sample_range_fill(&self, pdf_max: f64, range: (f64, f64), buffer: &mut [f64]) {
         assert!(
