@@ -13,8 +13,6 @@
 //!
 //!
 
-use rand::Rng;
-
 use crate::{
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
@@ -193,15 +191,20 @@ impl Distribution for Beta {
     fn skewness(&self) -> Option<f64> {
         // formula from wiki
         // Sk = 2*(b-a) * sqrt(a+b+1) / ((a+b+2) * sqrt(a*b))
-        // = 2*(b-a) * sqrt(a+b+1) * sqrt(a*b) / ((a+b+2) * sqrt(a*b) * sqrt(a*b))
-        // = 2*(b-a) * sqrt(a+b+1) * sqrt(a*b) / ((a+b+2) * a*b)
-        // = 2*(b-a) * sqrt((a+b+1) * a*b) / ((a+b+2) * a*b)
+        // Sk = 2*(b-a) / (a+b+2) * sqrt(a+b+1) / sqrt(a*b)
+        // Sk = 2*(b-a) / (a+b+2) * sqrt((a+b+1) / a*b)
+        // Sk = 2*(b-a) * sqrt((a+b+1) / a*b)  /  (a+b+2)
         // This formula is better because we do 1 sqrt less
 
-        // = (a+b+1) * a*b
-        let inner_sqrt: f64 = (self.alpha + self.beta + 1.0) * self.alpha * self.beta;
-        let num: f64 = 2.0 * (self.beta - self.alpha) * inner_sqrt.sqrt();
-        let den: f64 = (self.alpha + self.beta + 2.0) * self.alpha * self.beta;
+        // relabeling for convinience (will get optimized away)
+        let a: f64 = self.alpha; 
+        let b: f64 = self.beta; 
+
+        let u: f64 = a + b + 1.0; 
+
+        let inner_sqrt: f64 = u / (a * b); 
+        let num: f64 = 2.0 * (b - a) * inner_sqrt.sqrt();
+        let den: f64 = u + 1.0;
         return Some(num / den);
     }
 
@@ -217,48 +220,6 @@ impl Distribution for Beta {
     }
 
     fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
-        /*
-
-               Plan:
-
-            Just to the integral. The integral that gives us the moments of order `k` is:
-
-            ```
-            integral {a -> b} ( (x - mu) / std )^k * f(x) dx
-            ```
-             - `k` is the order of the moment
-             - `f(x)` is the pdf of the distribution.
-             - `a` and `b` are the values that bound the domain of `f(x)`
-                    (they can be `a = -inf` and `b = -inf`).
-             - `mu` is the mean of the distribution (or `0` if we selected the `Raw` moment)
-             - `std` is the standard deviation of the distribution
-                    (or `1` if we did not select the `Standarized` moment)
-
-
-           Distiguish between cases depending on the domain.
-
-           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-           for integration.
-
-           To compute integrals over an infinite range, we will perform a special
-           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-            let g(x) = ( (x - mu) / std )^k * f(x)
-                For -infinite to const:
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} g(a - (1 - t)/t)  /  t^2  dt
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} ( (a - (1 - t)/t - mu) / std )^k * f(a - (1 - t)/t)  /  t^2  dt
-
-                For const to infinite:
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} g(a + t/(t - 1))  /  (1 - t)^2  dt
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} ( (a + t/(t - 1) - mu) / std )^k * f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                For -infinite to infinite:
-            let inp = t/(1 - t^2)
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} g(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} ( (t/(1 - t^2) - mu) / std )^k * f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-
-        */
 
         if let euclid::Moments::Raw = mode {
             let ab: f64 = self.alpha + self.beta;
@@ -270,10 +231,8 @@ impl Distribution for Beta {
             return acc;
         }
 
-        let bounds: (f64, f64) = (0.0, 1.0);
-
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
-        let (mean, std_dev): (f64, f64) = match mode {
+        let (mean, variance): (f64, f64) = match mode {
             euclid::Moments::Raw => unreachable!(),
             euclid::Moments::Central => (
                 self.expected_value()
@@ -287,24 +246,7 @@ impl Distribution for Beta {
             ),
         };
 
-        // Todo: give better error handling to the above. ^
-        // println!("(mean, std_dev): {:?}", (mean, std_dev));
-
-        let order_exp: i32 = i32::from(order);
-        let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let (_, num_steps): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, false);
-
-        let moment: f64 = {
-            let integration_fn = |x: f64| {
-                let std_inp: f64 = (x + minus_mean) * inv_std_dev;
-                std_inp.powi(order_exp) * self.pdf(x)
-            };
-
-            euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-        };
-
-        return moment;
+        return self.default_moments(order, mean, variance); 
     }
 
     fn entropy(&self) -> f64 {
@@ -334,7 +276,6 @@ impl Parametric for Beta {
     /// > \[alpha, beta\]
     ///
     /// Alpha and beta must be both stricly positive.
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // let a = alpha, let b = beta for conciseness sake.
         // pdf(x | a, b) = Gamma(a+b-1)/(Gamma(a-1)*Gamma(b-1)) * x^(a-1) * (1 - x)^(b-1)
@@ -349,7 +290,6 @@ impl Parametric for Beta {
         return norm * pow_alpha * pow_beta;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -359,7 +299,6 @@ impl Parametric for Beta {
         parameters[1] = self.beta;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -521,7 +460,6 @@ impl Parametric for Beta {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -593,7 +531,6 @@ impl Parametric for Beta {
         parameters[1] = parameters[1].max(ep * ep * ep);
     }
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
 

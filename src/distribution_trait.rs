@@ -614,7 +614,7 @@ pub trait Distribution {
         let bounds: (f64, f64) = domain.get_bounds();
 
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
-        let (mean, std_dev): (f64, f64) = match mode {
+        let (mean, variance): (f64, f64) = match mode {
             Moments::Raw => (0.0, 1.0),
             Moments::Central => (
                 self.expected_value()
@@ -629,10 +629,48 @@ pub trait Distribution {
         };
 
         // Todo: give better error handling to the above. ^
-        // println!("(mean, std_dev): {:?}", (mean, std_dev));
+        // println!("(mean, variance): {:?}", (mean, variance));
 
+        return self.default_moments(order, mean, variance);
+    }
+
+    /// Auxiliar method for the computation of moments. 
+    /// 
+    /// We do not reccomend the direct use of this method. Use [Distribution::moments] instead. 
+    /// 
+    /// ## Uses
+    /// 
+    /// If you are implementing [Distribution::moments] for a given distribution and you 
+    /// want to fall back to the default implementation if needed, use this method. 
+    /// 
+    ///  - To make a [Moments::Raw], set mean = 0 and variance = 1
+    ///  - To make a [Moments::Central], set mean to the true mean of the distribution and variance = 1
+    ///  - To make a [Moments::Standarized], set the mean and variance to the true values of the distribution
+    /// 
+    /// ## Safety
+    /// 
+    /// Neither `mean` nor `variance` can be NaNs nor inifinity. Furtherore, `variance` 
+    /// must be stricly positive. 
+    /// 
+    fn default_moments(&self, order: u8, mean: f64, variance: f64) -> f64 {
+        assert!(
+            mean.is_finite(),
+            "The mean is NOT finite (+-inf or a NaN). "
+        );
+        assert!(
+            variance.is_finite(),
+            "Variance is NOT finite (+-inf or a NaN). "
+        );
+        assert!(0.0 < variance, "Variance is a negative number. ");
+
+        let bounds: (f64, f64) = {
+            let domain: &ContinuousDomain = self.get_domain();
+            domain.get_bounds()
+        };
+
+        let std_dev: f64 = variance.sqrt();
         let order_exp: i32 = i32::from(order);
-        let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
+        let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev);
         let integration_type: IntegrationType = IntegrationType::from_bounds(bounds);
         let (_, num_steps): (f64, usize) = choose_integration_precision_and_steps(bounds, true);
 
@@ -748,7 +786,10 @@ pub trait Distribution {
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
     #[must_use]
     fn rejection_sample(&self, n: usize, pdf_max: f64) -> Vec<f64> {
-        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
+        assert!(
+            pdf_max.is_finite(),
+            "Error: Non finite `pdf_max` in the call of `rejection_sample`. "
+        );
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let bounds: (f64, f64) = {
             let domain: &ContinuousDomain = self.get_domain();
@@ -796,12 +837,15 @@ pub trait Distribution {
     /// it is needed to know `pdf_max`, the maximum value that the pdf achives.
     #[must_use]
     fn rejection_sample_fill(&self, pdf_max: f64, buffer: &mut [f64]) {
-        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
-        
+        assert!(
+            pdf_max.is_finite(),
+            "Error: Non finite `pdf_max` in the call of `rejection_sample`. "
+        );
+
         if buffer.is_empty() {
-            return; 
+            return;
         }
-        
+
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let bounds: (f64, f64) = {
             let domain: &ContinuousDomain = self.get_domain();
@@ -839,10 +883,19 @@ pub trait Distribution {
     ///  - `range`: the bounds of the region to be sampled from.
     #[must_use]
     fn rejection_sample_range(&self, n: usize, pdf_max: f64, range: (f64, f64)) -> Vec<f64> {
-        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
-        assert!(range.0.is_nan(), "Error: NaN `range.0` in the call of `rejection_sample`. "); 
-        assert!(range.1.is_nan(), "Error: NaN `range.1` in the call of `rejection_sample`. "); 
-        
+        assert!(
+            pdf_max.is_finite(),
+            "Error: Non finite `pdf_max` in the call of `rejection_sample`. "
+        );
+        assert!(
+            range.0.is_nan(),
+            "Error: NaN `range.0` in the call of `rejection_sample`. "
+        );
+        assert!(
+            range.1.is_nan(),
+            "Error: NaN `range.1` in the call of `rejection_sample`. "
+        );
+
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let bounds: (f64, f64) = {
             let domain: &ContinuousDomain = self.get_domain();
@@ -889,10 +942,19 @@ pub trait Distribution {
     ///  - `range`: the bounds of the region to be sampled from.
     #[must_use]
     fn rejection_sample_range_fill(&self, pdf_max: f64, range: (f64, f64), buffer: &mut [f64]) {
-        assert!(pdf_max.is_finite(), "Error: Non finite `pdf_max` in the call of `rejection_sample`. "); 
-        assert!(range.0.is_nan(), "Error: NaN `range.0` in the call of `rejection_sample`. "); 
-        assert!(range.1.is_nan(), "Error: NaN `range.1` in the call of `rejection_sample`. "); 
-        
+        assert!(
+            pdf_max.is_finite(),
+            "Error: Non finite `pdf_max` in the call of `rejection_sample`. "
+        );
+        assert!(
+            range.0.is_nan(),
+            "Error: NaN `range.0` in the call of `rejection_sample`. "
+        );
+        assert!(
+            range.1.is_nan(),
+            "Error: NaN `range.1` in the call of `rejection_sample`. "
+        );
+
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let bounds: (f64, f64) = {
             let domain: &ContinuousDomain = self.get_domain();

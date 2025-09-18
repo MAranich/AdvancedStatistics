@@ -54,7 +54,6 @@ pub mod integration {
                 SMALL_INTEGRATION_NUM_STEPS, SMALL_INTEGRATION_PRECISION,
             },
         },
-        distribution_trait::Distribution,
         domain::{ContinuousDomain, DiscreteDomain},
     };
 
