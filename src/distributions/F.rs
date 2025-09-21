@@ -146,219 +146,55 @@ impl F {
 }
 
 impl Distribution for F {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         // norm(d1, d2) = (d1/d2)^(d1/2) / B(d1/2, d2/2)
         // norm(d1, d2) = (d1/d2)^(d1/2) * gamma(d1/2 + d2/2) / (gamma(d1/2) * gamma(d2/2))
         // pdf(x | d1, d2) = norm(d1, d2) * x^(d1/2 - 1) * (1 + d1/d2 * x)^-(d1+d2)/2
-        let term_1: f64 = x.powf(self.d1 * 0.5 - 1.0);
-        let term_2: f64 = (1.0 + self.d1 / self.d2 * x).powf(-(self.d1 + self.d2) * 0.5);
-        return term_1 * term_2 * self.normalitzation_constant;
+
+        let term_1: f64 = x.powf(self.d1.mul_add(0.5, -1.0));
+        let term_2: f64 = (1.0 + self.d1 / self.d2 * x).powf((self.d1 + self.d2) * -0.5);
+        return self.normalitzation_constant * term_1 * term_2;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &F_DOMAIN;
     }
 
-    // cdf, sample and quantile are default
+    // cdf and quantile are default
 
-    #[must_use]
-    fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
-        if points.is_empty() {
-            return Vec::new();
+    fn sample_fill(&self, buffer: &mut [f64]) {
+        // By definition we can obtain samples from a chi squared distribution over
+        // their degrees of freedom and computing the ratio between the 2
+        // https://en.wikipedia.org/wiki/F-distribution
+
+        let n: usize = buffer.len();
+
+        // we will store the numerator samples in the buffer but we will need to allocate more space
+        // for the ones in the denominator.
+        {
+            // SAFETY: if self is valid, then self.d1 is positive and the call is safe
+            let chi_num: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d1) };
+
+            chi_num.sample_fill(buffer);
         }
 
-        // return error if NAN is found
-        for point in points {
-            assert!(!point.is_nan(), "Found NaN in `F::cdf_multiple`. \n");
-        }
+        let chi_den_samples: Vec<f64> = {
+            // SAFETY: if self is valid, then self.d2 is positive and the call is safe
+            let chi_den: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d2) };
 
-        let mut ret: Vec<f64> = std::vec![0.0; points.len()];
-        let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-        sorted_indicies.sort_unstable_by(|&i, &j| {
-            let a: f64 = points[i];
-            let b: f64 = points[j];
-            a.partial_cmp(&b).unwrap()
-        });
-
-        let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, true);
-        let half_step_length: f64 = 0.5 * step_length;
-        let step_len_over_6: f64 = step_length / 6.0;
-
-        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-        let mut current_index: usize = idx_iter.next().unwrap();
-        // ^unwrap is safe
-
-        let mut current_cdf_point: f64 = points[current_index];
-
-        let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.0;
-
-        // estimate the bound likelyhood with the next 2 values
-        let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = self.pdf(bounds.0 + half_step_length);
-            let end: f64 = self.pdf(bounds.0 + step_length);
-            2.0 * middle - end
+            chi_den.sample_multiple(n)
         };
-
-        for _ in 0..max_iters {
-            let current_position: f64 = bounds.0 + step_length * num_step;
-
-            while current_cdf_point <= current_position {
-                ret[current_index] = accumulator;
-
-                // update `current_cdf_point` to the next value or exit if we are done
-                match idx_iter.next() {
-                    Some(v) => current_index = v,
-                    None => return ret,
-                }
-                current_cdf_point = points[current_index];
-            }
-
-            let middle: f64 = self.pdf(current_position + half_step_length);
-            let end: f64 = self.pdf(current_position + step_length);
-
-            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-        }
-
-        ret[current_index] = accumulator;
-
-        for idx in idx_iter {
-            // use all remaining indicies
-            ret[idx] = accumulator;
-        }
-
-        return ret;
-    }
-
-    #[must_use]
-    fn sample_multiple(&self, n: usize) -> Vec<f64> {
-        // SAFETY: if self is valid, then self.d1 is positive and the call is safe
-        let chi_num: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d1) };
-        // SAFETY: if self is valid, then self.d2 is positive and the call is safe
-        let chi_den: ChiSquared = unsafe { ChiSquared::new_unchecked(self.d2) };
-
-        let chi_num_samples: Vec<f64> = chi_num.sample_multiple(n);
-        let chi_den_samples: Vec<f64> = chi_den.sample_multiple(n);
 
         let inv_d1: f64 = 1.0 / self.d1;
         let inv_d2: f64 = 1.0 / self.d2;
 
-        return chi_num_samples
-            .iter()
-            .zip(chi_den_samples.iter())
-            .map(|(&n, &d)| (n * inv_d1) / (d * inv_d2))
-            .collect::<Vec<f64>>();
+        for (r, chi) in buffer.iter_mut().zip(chi_den_samples.iter()) {
+            let num: f64 = (*r) * inv_d1;
+            let den = (*chi) * inv_d2;
+            *r = num / den;
+        }
     }
 
-    #[must_use]
-    fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
-        if points.is_empty() {
-            return Vec::new();
-        }
-
-        // return error if NAN is found
-        for point in points {
-            assert!(!point.is_nan(), "Found NaN in `F::quantile_multiple`. \n");
-        }
-
-        let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
-        let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-        sorted_indicies.sort_unstable_by(|&i, &j| {
-            let a: f64 = points[i];
-            let b: f64 = points[j];
-            a.partial_cmp(&b).unwrap()
-        });
-
-        let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, true);
-        let half_step_length: f64 = 0.5 * step_length;
-        let step_len_over_6: f64 = step_length / 6.0;
-
-        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-        let mut current_index: usize = idx_iter.next().unwrap();
-        // ^unwrap is safe
-
-        let mut current_quantile: f64 = points[current_index];
-
-        while current_quantile <= 0.0 {
-            ret[current_index] = bounds.0;
-
-            // update `current_quantile` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return ret,
-            }
-            current_quantile = points[current_index];
-        }
-
-        let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.0;
-
-        // estimate the bound value with the next 2 values
-        let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = self.pdf(bounds.0 + half_step_length);
-            let end: f64 = self.pdf(bounds.0 + step_length);
-            2.0 * middle - end
-        };
-
-        // SAFETY: should always be safe to only read
-        let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
-
-        for _ in 0..max_iters {
-            let current_position: f64 = bounds.0 + step_length * num_step;
-
-            while current_quantile <= accumulator {
-                let mut quantile: f64 = current_position;
-
-                let pdf_q: f64 = self.pdf(quantile);
-                // result of pdf is always finite
-                #[allow(clippy::neg_cmp_op_on_partial_ord)]
-                if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
-                    // if pdf_q is essentially 0, skip this.
-                    // newton's iteration
-                    quantile = quantile - (accumulator - current_quantile) / pdf_q;
-                }
-
-                ret[current_index] = quantile;
-
-                // update `current_quantile` to the next value or exit if we are done
-                match idx_iter.next() {
-                    Some(v) => current_index = v,
-                    None => return ret,
-                }
-                current_quantile = points[current_index];
-            }
-
-            let middle: f64 = self.pdf(current_position + half_step_length);
-            let end: f64 = self.pdf(current_position + step_length);
-
-            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-        }
-
-        ret[current_index] = bounds.1;
-
-        for idx in idx_iter {
-            // use all remaining indicies
-            ret[idx] = bounds.1;
-        }
-
-        return ret;
-    }
-
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         if self.d2 <= 2.0 {
             return None;
@@ -366,19 +202,21 @@ impl Distribution for F {
         return Some(self.d2 / (self.d2 - 2.0));
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
-        if self.d2 <= 4.0 {
+        // relabeling (will get optimized away)
+        let n: f64 = self.d1;
+        let d: f64 = self.d2;
+
+        if d <= 4.0 {
             return None;
         }
 
-        let a: f64 = self.d2 - 2.0;
-        let num: f64 = 2.0 * self.d2 * self.d2 * (a + self.d1);
-        let den: f64 = self.d1 * a * a * (self.d2 - 4.0);
+        let a: f64 = d - 2.0;
+        let num: f64 = 2.0 * d * d * (a + n);
+        let den: f64 = n * a * a * (d - 4.0);
         return Some(num / den);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         if self.d2 <= 2.0 {
             return f64::NAN;
@@ -389,40 +227,86 @@ impl Distribution for F {
 
     // default median
 
-    #[must_use]
     fn skewness(&self) -> Option<f64> {
+        // The original expression from https://en.wikipedia.org/wiki/F-distribution
+        // maybe could get simplified (joining the 2 sqrt into 1) but we don't know if
+        // will provide better results
+
+        // relabeling (will get optimized away)
+        let n: f64 = self.d1;
+        let d: f64 = self.d2;
+
         if self.d2 <= 6.0 {
             return None;
         }
 
-        let num: f64 = (2.0 * self.d1 + self.d2 - 2.0) * (8.0 * (self.d2 - 4.0)).sqrt();
-        let den: f64 = (self.d2 - 6.0) * (self.d1 * (self.d1 + self.d2 - 2.0)).sqrt();
+        let num: f64 = (2.0 * n + d - 2.0) * (8.0 * (d - 4.0)).sqrt();
+        let den: f64 = (d - 6.0) * (n * (n + d - 2.0)).sqrt();
 
         return Some(num / den);
     }
 
-    #[must_use]
-    fn kurtosis(&self) -> Option<f64> {
-        return self.excess_kurtosis().map(|x| x + 3.0);
-    }
-
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
-        if self.d2 <= 8.0 {
+        // relabeling (will get optimized away)
+        let n: f64 = self.d1;
+        let d: f64 = self.d2;
+
+        if d <= 8.0 {
             return None;
         }
 
-        let a: f64 = self.d2 - 2.0;
-        let num: f64 = 12.0 * self.d1 * (5.0 * self.d2 - 22.0) * (self.d1 + self.d2 - 2.0)
-            + (self.d2 - 4.0) * a * a;
+        let a: f64 = d - 2.0;
+        let num: f64 = 12.0 * n * (5.0 * d - 22.0) * (n + a) + (d - 4.0) * a * a;
 
-        let den: f64 = self.d1 * (self.d2 - 6.0) * (self.d2 - 8.0) * (self.d1 + self.d2 - 2.0);
+        let den: f64 = n * (d - 6.0) * (d - 8.0) * (n + a);
 
         return Some(num / den);
     }
 
     // moments: TODO: there is a formula for the moments of the F distribution https://en.wikipedia.org/wiki/F-distribution#Properties
-    #[must_use]
+
+    fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
+        // relabeling (will get optimized away)
+        let n: f64 = self.d1;
+        let d: f64 = self.d2;
+
+        if d <= 2.0 * f64::from(order) {
+            return f64::NAN;
+        }
+
+        if let euclid::Moments::Raw = mode {
+            // in this case we have a closed form formula: https://en.wikipedia.org/wiki/F-distribution#Properties
+
+            let k: f64 = f64::from(order);
+
+            // computing the gamma terms (logarithmically)
+            let gamma_1: f64 = euclid::ln_gamma(n * 0.5 + k);
+            let gamma_2: f64 = euclid::ln_gamma(d * 0.5 - k);
+            let gamma_3: f64 = euclid::ln_gamma(n * 0.5);
+            let gamma_4: f64 = euclid::ln_gamma(d * 0.5);
+
+            let log_result: f64 = k * (d - n) + (gamma_1 - gamma_3) + (gamma_2 - gamma_4);
+
+            return log_result.exp();
+        }
+
+        let (mean, variance): (f64, f64) = match mode {
+            euclid::Moments::Raw => unreachable!("Case handled before. "),
+            euclid::Moments::Central => (
+                self.expected_value()
+                    .expect("Tried to compute a central moment but the expected value is undefined. "),
+                1.0,
+            ),
+            euclid::Moments::Standarized => (
+                self.expected_value()
+                    .expect("Tried to compute a central/standarized moment but the Expected value is undefined. "),
+                self.variance().expect("Tried to compute a standarized moment but the variance is undefined. "),
+            ),
+        };
+
+        return self.default_moments(order, mean, variance);
+    }
+
     fn entropy(&self) -> f64 {
         let d1: f64 = self.d1 * 0.5;
         let d2: f64 = self.d2 * 0.5;
@@ -453,7 +337,6 @@ impl Parametric for F {
     /// > \[degrees_freedom_numerator, degrees_freedom_denomiator\]
     ///
     /// Both must be stricly positive (usually also integers).
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // norm(d1, d2) = (d1/d2)^(d1/2) / B(d1/2, d2/2)
         // norm(d1, d2) = (d1/d2)^(d1/2) * gamma(d1/2 + d2/2) / (gamma(d1/2) * gamma(d2/2))
@@ -471,7 +354,6 @@ impl Parametric for F {
         return term_1 * term_2 * norm;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
@@ -487,7 +369,6 @@ impl Parametric for F {
 
     // deafult derivative_pdf_parameters
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -602,7 +483,6 @@ impl Parametric for F {
         return ret;
     }
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
                 Using Maximum Likelyhood estimation:
