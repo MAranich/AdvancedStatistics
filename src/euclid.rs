@@ -4,6 +4,12 @@ use core::f64;
 use rand::Rng;
 use std::num::NonZero;
 
+/// Constant value for `e`, the [mathematical constant](https://en.wikipedia.org/wiki/E_(mathematical_constant))
+pub const E: f64 = 2.71828182845904523536028747135266249775724709369995957496696762772407663035; 
+
+/// Constant value for `1/e`, where `e` refers to the [mathematical constant](https://en.wikipedia.org/wiki/E_(mathematical_constant))
+pub const INV_E: f64 = 0.36787944117144232159552377016146086744581113103176783450783680169746149574; 
+
 /// Constant value for `sqrt(2*pi)`
 pub const SQRT_2_PI: f64 = 2.50662827463100050241576528481104525300698674060993831662992357634229365460784197494659583837805726611600997266520387964486632361812673618095786;
 
@@ -485,7 +491,8 @@ pub mod integration {
     /// Helper function that computes the cdf of a distribution in the case it's
     /// domain starts at a finite value ( [a, b] or [a, +inf] ).
     pub fn cdf_fill_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
-    where FnPdf: Fn(f64) -> f64
+    where
+        FnPdf: Fn(f64) -> f64,
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::Finite | IntegrationType::ConstToInfinite;
@@ -557,7 +564,8 @@ pub mod integration {
     /// Helper function that computes the cdf of a distribution in the case it's
     /// domain starts at an infinite value ( [-inf, b] ).
     pub fn cdf_fill_infinite_to_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
-    where FnPdf: Fn(f64) -> f64
+    where
+        FnPdf: Fn(f64) -> f64,
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::InfiniteToConst;
@@ -631,7 +639,8 @@ pub mod integration {
     /// Helper function that computes the cdf of a distribution in the case it's
     /// domain contains the whole real numbers ( [-inf, inf] )
     pub fn cdf_fill_full_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
-    where FnPdf: Fn(f64) -> f64
+    where
+        FnPdf: Fn(f64) -> f64,
     {
         assert!(!points.is_empty());
         assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
@@ -729,7 +738,8 @@ pub mod integration {
     /// Helper function that computes the quantile function of a distribution in the
     /// case it's domain starts at a finite value ( [a, b] or [a, +inf] ).
     pub fn quantile_fill_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
-    where FnPdf: Fn(f64) -> f64
+    where
+        FnPdf: Fn(f64) -> f64,
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::Finite | IntegrationType::ConstToInfinite;
@@ -833,8 +843,12 @@ pub mod integration {
 
     /// Helper function that computes the quantile of a distribution in the case it's
     /// domain starts at an infinite value ( [-inf, b] ).
-    pub fn quantile_fill_infinite_to_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
-    where FnPdf: Fn(f64) -> f64
+    pub fn quantile_fill_infinite_to_finite<FnPdf>(
+        pdf: FnPdf,
+        bounds: (f64, f64),
+        points: &mut [f64],
+    ) where
+        FnPdf: Fn(f64) -> f64,
     {
         assert!(!points.is_empty());
         // we know we are in the case where integration_type == IntegrationType::InfiniteToConst;
@@ -933,7 +947,8 @@ pub mod integration {
     /// Helper function that computes the quantile of a distribution in the case it's
     /// domain contains the whole real numbers ( [-inf, inf] )
     pub fn quantile_fill_full_finite<FnPdf>(pdf: FnPdf, bounds: (f64, f64), points: &mut [f64])
-    where FnPdf: Fn(f64) -> f64
+    where
+        FnPdf: Fn(f64) -> f64,
     {
         assert!(!points.is_empty());
         assert!(!bounds.0.is_nan() && !bounds.1.is_nan());
@@ -1129,6 +1144,60 @@ pub mod combinatorics {
         }
 
         return Ok(ret);
+    }
+
+    /// Returns the [factorial](https://es.wikipedia.org/wiki/Factorial) of an integer.
+    ///
+    /// It currenly uses a basic O(n) implementation. Note that the factorial of *large*
+    /// inputs will cause overflow, the [None] variant will be returned.
+    pub fn factorial(x: u8) -> Result<u64, f64> {
+        /*
+            a u8 for an unput is more than enough because 255! ~= 3,350850684932 * 10^504
+            this number is not representable by any standard type size (maybe except f128).
+
+            With a u64 as output, the maximum input with a correcut output is 20.
+            If it was u128, then the max (with a correcut output) input would be 34.
+            Hence, the u8 as input is more than enough.
+            (According to wolframalpha)
+
+            We would need a datatype with arround 1676 bits to fully fit the result of 255!.
+        */
+
+        // TODO: fix documentation
+
+        let a: u64 = u64::from(x);
+
+        if a < 2 {
+            return Ok(a);
+        }
+
+        let mut acc: u64 = 1;
+        let mut overflown: bool = false;
+
+        for i in 2..=a {
+            acc = match acc.checked_mul(i) {
+                Some(b) => b,
+                None => {
+                    overflown = true;
+                    break;
+                }
+            }
+        }
+
+        if !overflown {
+            return Ok(acc);
+        }
+
+        let mut acc: f64 = 1.0;
+
+        let mut i: f64 = 2.0; 
+        for _ in 2..=a {
+            acc = acc * i; 
+            i += 1.0; 
+        }
+
+        return Err(acc); 
+ 
     }
 }
 

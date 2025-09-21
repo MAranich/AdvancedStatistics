@@ -33,6 +33,22 @@ pub fn print_vec(data: &[f64]) {
     println!("{:.4}] ", data.last().unwrap());
 }
 
+#[test]
+fn test_factorial() {
+    let inputs: [u8; 9] = [0, 1, 2, 3, 4, 5, 10, 20, 21]; 
+    let outputs: [u64; 9] = [1, 1, 2, 6, 24, 125, 3628800, 2432902008176640000, 51090942171709440000]; 
+
+    for (i, (x, y)) in inputs.iter().zip(outputs.iter()).enumerate() {
+        let real_out = euclid::combinatorics::factorial(*x); 
+        match real_out {
+            Ok(v) => assert!(v == *y, "Inequality at iteration {i}: fact({x}) = {y} != {v}\n"),
+            Err(f) => panic!("Error at iter {i}, returned the error variant for fact({x}) = {y} != {f}\n"),
+        }
+    }
+
+}
+
+
 struct MyExp {
     lambda: f64,
     domain: ContinuousDomain,

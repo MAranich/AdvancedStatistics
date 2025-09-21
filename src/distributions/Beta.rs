@@ -231,7 +231,6 @@ impl Distribution for Beta {
             return acc;
         }
 
-        // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
         let (mean, variance): (f64, f64) = match mode {
             euclid::Moments::Raw => unreachable!(),
             euclid::Moments::Central => (

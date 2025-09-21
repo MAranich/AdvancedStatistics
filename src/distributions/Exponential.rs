@@ -17,6 +17,7 @@ use crate::{
     distribution_trait::{Distribution, Parametric},
     domain::ContinuousDomain,
     errors::AdvStatError,
+    euclid,
 };
 
 pub const EXPONENTIAL_DOMAIN: ContinuousDomain = ContinuousDomain::From(0.0);
@@ -93,17 +94,14 @@ impl Exponential {
 }
 
 impl Distribution for Exponential {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
         return self.lambda * (-self.lambda * x).exp();
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &EXPONENTIAL_DOMAIN;
     }
 
-    #[must_use]
     fn cdf(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -117,14 +115,12 @@ impl Distribution for Exponential {
         return 1.0 - (-self.lambda * x).exp();
     }
 
-    #[must_use]
     fn sample(&self) -> f64 {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
         let r: f64 = rng.random();
         return -r.ln() / self.lambda;
     }
 
-    #[must_use]
     fn quantile(&self, x: f64) -> f64 {
         assert!(
             !x.is_nan(),
@@ -142,60 +138,112 @@ impl Distribution for Exponential {
         return -(1.0 - x).ln() / self.lambda;
     }
 
-    #[must_use]
-    fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
-        points.iter().map(|x| self.cdf(*x)).collect::<Vec<f64>>()
+    fn cdf_fill(&self, points: &mut [f64]) {
+        for x in points {
+            assert!(
+                !x.is_nan(),
+                "Tried to evaluate the Exponential::cdf_fill function with a NaN value. \n"
+            );
+
+            *x = if *x <= 0.0 {
+                0.0
+            } else {
+                1.0 - (-self.lambda * (*x)).exp()
+            };
+        }
     }
 
-    #[must_use]
-    fn sample_multiple(&self, n: usize) -> Vec<f64> {
+    fn sample_fill(&self, buffer: &mut [f64]) {
         let mut rng: rand::prelude::ThreadRng = rand::rng();
-        (0..n)
-            .map(|_| rng.random())
-            .map(|r: f64| -r.ln() / self.lambda)
-            .collect::<Vec<f64>>()
+        rng.fill(buffer);
+
+        let minus_inv_lambda: f64 = -1.0 / self.lambda;
+        for r in buffer.iter_mut() {
+            *r = minus_inv_lambda * r.ln();
+        }
     }
 
-    #[must_use]
-    fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
-        let list: Vec<f64> = points
-            .iter()
-            .map(|x| self.quantile(*x))
-            .collect::<Vec<f64>>();
-        return list;
+    fn quantile_fill(&self, points: &mut [f64]) {
+        let minus_inv_lambda: f64 = -1.0 / self.lambda;
+        for x in points.iter_mut() {
+            assert!(
+                !x.is_nan(),
+                "Tried to evaluate the Exponential::quantile_fill function with a NaN value. \n"
+            );
+
+            if *x <= 0.0 {
+                *x = 0.0;
+            } else if 1.0 <= *x {
+                *x = f64::INFINITY;
+            } else {
+                *x = minus_inv_lambda * x.ln();
+            }
+        }
     }
 
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(1.0 / self.lambda);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(1.0 / (self.lambda * self.lambda));
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         0.0
     }
 
-    #[must_use]
+    fn median(&self) -> f64 {
+        2.0_f64.ln() / self.lambda
+    }
+
     fn skewness(&self) -> Option<f64> {
         return Some(2.0);
     }
 
-    #[must_use]
-    fn kurtosis(&self) -> Option<f64> {
-        return Some(9.0);
-    }
-
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
-        return self.kurtosis().map(|x: f64| x - 3.0);
+        return Some(6.0);
     }
 
-    #[must_use]
+    fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
+        if let euclid::Moments::Standarized = mode {
+            // use default implementation
+            // SAFETY: the `expected_value` fn will always return the some variant for exponential
+            let mean: f64 = unsafe { self.expected_value().unwrap_unchecked() };
+            // SAFETY: the `variance` fn will always return the some variant for exponential
+            let variance: f64 = unsafe { self.variance().unwrap_unchecked() };
+
+            return self.default_moments(order, mean, variance);
+        }
+
+        // For central and raw moments we have formulas: https://en.wikipedia.org/wiki/Exponential_distribution#Mean,_variance,_moments,_and_median
+
+        let factorial: f64 = match euclid::combinatorics::factorial(order) {
+            Ok(v_int) => v_int as f64,
+            Err(v) => v,
+        };
+
+        let power: f64 = self.lambda.powi(i32::from(order));
+
+        let main_term: f64 = factorial / power;
+
+        if let euclid::Moments::Raw = mode {
+            return main_term;
+        }
+
+        // euclid::Moments::Central case
+
+        if order == 0 {
+            //special case for 0 because the formula does not work for 0
+            // the central moment of order 0 is always 0
+            return 0.0;
+        }
+
+        // formula obtained from the formula for the central moments and https://en.wikipedia.org/wiki/Derangement#
+
+        return (main_term * euclid::INV_E).round();
+    }
+
     fn entropy(&self) -> f64 {
         return 1.0 - self.lambda.ln();
     }
@@ -214,14 +262,12 @@ impl Parametric for Exponential {
     /// ### Parameters for [Exponential]:
     ///
     /// The exponential distribution has only 1 parameter, `lambda`.
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
         let lambda: f64 = parameters[0];
         return lambda * (-lambda * x).exp();
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         1
     }
@@ -230,7 +276,6 @@ impl Parametric for Exponential {
         parameters[0] = self.lambda;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // pdf:
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
@@ -271,7 +316,6 @@ impl Parametric for Exponential {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // pdf:
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
@@ -329,7 +373,6 @@ impl Parametric for Exponential {
         parameters[0] = parameters[0].max(ep * ep * ep);
     }
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         // pdf( x | lambda ) = lambda * exp(-lambda * x)
 

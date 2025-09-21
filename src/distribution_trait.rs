@@ -593,6 +593,7 @@ pub trait Distribution {
     /// Auxiliar method for the computation of moments. 
     /// 
     /// We do not reccomend the direct use of this method. Use [Distribution::moments] instead. 
+    /// We also do not recommend manually implementing this method. 
     /// 
     /// ## Uses
     /// 
