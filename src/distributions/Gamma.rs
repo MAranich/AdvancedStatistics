@@ -31,6 +31,25 @@ use crate::{
 
 use super::ChiSquared::ChiSquared;
 
+// Values obtained from:
+// Berg, Christian & Pedersen, Henrik L. (March 2006).
+// ["The Chen–Rubin conjecture in a continuous setting"](https://www.intlpress.com/site/pub/files/_fulltext/journals/maa/2006/0013/0001/MAA-2006-0013-0001-a004.pdf)
+//(PDF). Methods and Applications
+// of Analysis. 13 (1): 63–88. doi:10.4310/MAA.2006.v13.n1.a4. S2CID 6704865. [Archived](https://web.archive.org/web/20210116114105/https://www.intlpress.com/site/pub/files/_fulltext/journals/maa/2006/0013/0001/MAA-2006-0013-0001-a004.pdf)
+// (PDF) from the original on 16 January 2021. Retrieved 1 April 2020.
+const GAMMA_MEDIAN_LAURENT_APPROX: [f64; 10] = [
+    -1.0 / 3.0,
+    f64::from_bits(4581350660937346637),
+    f64::from_bits(4574964251307030381),
+    f64::from_bits(4559158671624784028),
+    f64::from_bits(13786726787819272789),
+    f64::from_bits(13780326936167835008),
+    f64::from_bits(4559263177061591461),
+    f64::from_bits(4556933621898462772),
+    f64::from_bits(13783575470603033594),
+    f64::from_bits(13783519043403274501),
+];
+
 pub const GAMMA_DOMAIN: ContinuousDomain = ContinuousDomain::From(0.0);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -174,434 +193,220 @@ impl Gamma {
 }
 
 impl Distribution for Gamma {
-    #[must_use]
     fn pdf(&self, x: f64) -> f64 {
+        /*
+           $$
+           f(x; \alpha, \theta) = \frac{1}{\theta^{\alpha} \cdot \Gamma(\alpha)} \cdot x^{\alpha - 1} \cdot e^{ \frac{-x}{\theta} }
+           $$
+           $$
+           \frac{1}{\Gamma(\alpha)} \cdot x^{\alpha - 1} \cdot e^{-x }
+           $$
+        */
+
         let shape: f64 = x.powf(self.alpha - 1.0) * (-x / self.theta).exp();
         return self.normalitzation_constant * shape;
     }
 
-    #[must_use]
     fn get_domain(&self) -> &crate::domain::ContinuousDomain {
         return &GAMMA_DOMAIN;
     }
 
-    #[must_use]
-    fn cdf_multiple(&self, points: &[f64]) -> Vec<f64> {
-        /*
-            Plan: (sery similar to [Distribution::quantile_multiple])
-
-            For cdf_multiple we will first return an error if we find a NaN.
-            Otherwise we will need to sort them and integrate until we have
-            integrated to the given number (and store the value).
-            By sorting, we only need to integrate once through the pdf, reducing
-            considerably computation costs (in particular for large inputs).
-
-            However, this *cool* strategy has a problem and is that we will not
-            return the values in the order we were asked. To account for this we will
-            only sort the indices.
-
-            We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-            for integration.
-
-            Considering the bounds:
-             - If min is finite we just integrate normally.
-             - If min is infinite but max is finite, we can integrate the area from the end
-                    and then do .map(|x| 1-x )
-             - If both are infinite, we will need to do integration with a change of variable
-
-            To compute integrals over an infinite range, we will perform a special
-            [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-            (change of variable)
-
-                For -infinite to a (const):
-            integral {-inf -> a} f(x) dx =
-                        integral {0 -> 1} f(a - (1 - t)/t)  /  t^2  dt
-
-                For -infinite to infinite:
-            integral {-inf -> inf} f(x) dx =
-                        integral {-1 -> 1} f( t / (1-t^2) ) * (1 + t^2) / (1 - t^2)^2  dt
-
-            And "just" compute the new integral (taking care of the singularities at t = 0).
-
-        */
-
-        if points.is_empty() {
-            return Vec::new();
-        }
-
-        // return error if NAN is found
-        for point in points {
-            assert!(!point.is_nan(), "Found NaN in `cdf_multiple` of Gamma. \n");
-        }
-
-        let mut ret: Vec<f64> = std::vec![0.0; points.len()];
-        let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-        sorted_indicies.sort_unstable_by(|&i, &j| {
-            let a: f64 = points[i];
-            let b: f64 = points[j];
-            a.partial_cmp(&b).unwrap()
-        });
-
-        let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, false);
-        let half_step_length: f64 = 0.5 * step_length;
-        let step_len_over_6: f64 = step_length / 6.0;
-
-        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-        let mut current_index: usize = idx_iter.next().unwrap();
-        // ^unwrap is safe
-
-        let mut current_cdf_point: f64 = points[current_index];
-
-        let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.0;
-
-        // estimate the bound likelyhood with the next 2 values
-        let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = self.pdf(bounds.0 + half_step_length);
-            let end: f64 = self.pdf(bounds.0 + step_length);
-            2.0 * middle - end
-        };
-
-        for _ in 0..max_iters {
-            let current_position: f64 = bounds.0 + step_length * num_step;
-
-            while current_cdf_point < current_position {
-                ret[current_index] = accumulator;
-
-                // update `current_cdf_point` to the next value or exit if we are done
-                match idx_iter.next() {
-                    Some(v) => current_index = v,
-                    None => return ret,
-                }
-                current_cdf_point = points[current_index];
-            }
-
-            let middle: f64 = self.pdf(current_position + half_step_length);
-            let end: f64 = self.pdf(current_position + step_length);
-
-            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-        }
-
-        ret[current_index] = accumulator;
-
-        for idx in idx_iter {
-            // use all remaining indicies
-            ret[idx] = accumulator;
-        }
-
-        return ret;
-    }
-
-    #[must_use]
-    fn sample_multiple(&self, n: usize) -> Vec<f64> {
+    fn sample_fill(&self, buffer: &mut [f64]) {
         // https://en.wikipedia.org/wiki/Gamma_distribution#Random_variate_generation
         // https://github.com/numpy/numpy/blob/main/numpy/random/src/distributions/distributions.c#L220
 
-        let mut exp: crate::distributions::Exponential::ExponentialGenerator =
-            super::Exponential::Exponential::new(1.0).unwrap().iter();
+        // let n: usize = buffer.len();
+        let exp_distr: crate::distributions::Exponential::Exponential =
+            super::Exponential::Exponential::new(1.0).unwrap();
 
         if self.alpha == 1.0 {
-            return exp.take(n).collect::<Vec<f64>>();
+            exp_distr.sample_fill(buffer);
+            return;
+        } else if self.alpha == 0.0 {
+            buffer.fill(0.0);
+            return;
         }
 
         assert!(self.alpha != 0.0 && self.alpha != 1.0);
 
         let mut rng: rand::prelude::ThreadRng = rand::rng();
-        let mut ret: Vec<f64> = Vec::new();
-        ret.reserve_exact(n);
 
         let inv_a: f64 = 1.0 / self.alpha;
 
-        if 1.0 < self.alpha {
-            for _ in 0..n {
+        if self.alpha < 1.0 {
+            let mut exp: crate::distributions::Exponential::ExponentialGenerator = exp_distr.iter();
+            for s in buffer.iter_mut() {
                 let r: f64 = 'generate: loop {
                     let u: f64 = rng.random::<f64>();
-                    let v: f64 = exp.next().unwrap();
+                    // SAFETY: the iterator will always return the Some variant
+                    let v: f64 = unsafe { exp.next().unwrap_unchecked() };
 
-                    /*
-                        if u <= 1.0 - self.alpha {
-                        if u - 1.0 <= - self.alpha {
-                        if self.alpha <= -u + 1.0 {
-                        if self.alpha <= 1.0 - u {
-                        if self.alpha <= u {
-                    */
-                    if u <= self.alpha {
+                    if u <= 1.0 - self.alpha {
                         let x: f64 = u.powf(inv_a);
                         if x <= v {
                             break 'generate x;
                         }
                     } else {
-                        let y: f64 = -(u * inv_a).ln();
-                        let x: f64 = (1.0 - self.alpha + self.alpha * y).powf(inv_a);
+                        let y: f64 = -((1.0 - u) * inv_a).ln();
+                        let x: f64 = (1.0 + self.alpha * (y - 1.0)).powf(inv_a);
 
                         if x <= (v + y) {
                             break 'generate x;
                         }
                     }
                 };
-                ret.push(r * self.theta);
+                *s = r * self.theta;
             }
         } else {
             let mut norm: crate::distributions::Normal::StdNormalGenerator =
                 super::Normal::StdNormal::new().iter();
             let b: f64 = self.alpha - (1.0 / 3.0);
-            let c: f64 = 1.0 / (3.0 * b.sqrt());
-            for _ in 0..n {
+            let c: f64 = 1.0 / (9.0 * b).sqrt();
+            for s in buffer.iter_mut() {
                 let r: f64 = 'generate: loop {
                     let mut x: f64;
                     let mut v: f64;
-                    's: loop {
-                        x = norm.next().unwrap();
+                    'sampl: loop {
+                        // SAFETY: the iterator will always return the Some variant
+                        x = unsafe { norm.next().unwrap_unchecked() };
                         v = 1.0 + c * x;
                         if v <= 0.0 {
-                            break 's;
+                            break 'sampl;
                         }
                     }
                     v = v * v * v;
                     let u: f64 = rng.random::<f64>();
 
                     let x_sq: f64 = x * x;
-                    if u < 1.0 - 0.0331 * x_sq * x_sq {
+                    let x_forth: f64 = x_sq * x_sq;
+                    if u < 1.0 - 0.0331 * x_forth {
                         break 'generate b * v;
                     }
 
+                    // log(0.0) ok here
                     if u.ln() < 0.5 * x_sq + b * (1.0 - v + v.ln()) {
                         break 'generate b * v;
                     }
                 };
-                ret.push(r * self.theta);
+                *s = r * self.theta;
             }
-        };
-
-        return ret;
+        }
     }
 
-    #[must_use]
-    fn quantile_multiple(&self, points: &[f64]) -> Vec<f64> {
+    /*
+        TODO: update gamma cdf, quantile and median.
+
+        //https://en.wikipedia.org/wiki/Gamma_distribution#Characterization_using_shape_%CE%B1_and_scale_%CE%B8
+
         /*
-            Plan:
 
-            For this function we will first return an error if we find a NaN.
-            Otherwise we will need to sort them and integrate until the area under
-            the pdf is = to the given number. By sorting, we only need to integrate
-            once.
-
-            However, this *cool* strategy has a problem and is that we will not
-            return the values in the order we were asked. To account for this we will
-            only sort the indices.
-
-            Also, if we find any values smaller or greater than 0 or 1, the awnser will
-            always be the edges of the domain (simplifying computations, although this
-            case should not normally happen).
-
-            We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-            for integration.
-
-            Considering the bounds:
-             - If min is finite we just integrate normally.
-             - If min is infinite but max is finite, we can integrate the area from the end
-                    until `1.0 - point`
-             - If both are infinite, we will need to do integration with a change of variable
-
-            To compute integrals over an infinite range, we will perform a special
-            [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-                For -infinite to infinite:
-            integral {-inf -> inf} f(x) dx  = integral {-1 -> 1} f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-            And "just" compute the new integral (taking care of the singularities at t = +-1).
+        Desmos fn: g\left(x\right)\ =\frac{1}{t^{a}\cdot(a-1)!}\cdot\int_{0}^{x}u^{a-1}\cdot e^{\frac{-u}{t}}du
 
         */
+    */
 
-        if points.is_empty() {
-            return Vec::new();
-        }
+    // fn cdf_fill(&self, points: &mut [f64]) { todo!();}
 
-        // return error if NAN is found
-        for point in points {
-            assert!(
-                !point.is_nan(),
-                "Found NaN in `quantile_multiple` for Gamma. \n"
-            );
-        }
-
-        let mut ret: Vec<f64> = std::vec![-0.0; points.len()];
-        let bounds: (f64, f64) = (0.0, f64::INFINITY);
-        let mut sorted_indicies: Vec<usize> = (0..points.len()).collect::<Vec<usize>>();
-
-        sorted_indicies.sort_unstable_by(|&i, &j| {
-            let a: f64 = points[i];
-            let b: f64 = points[j];
-            a.partial_cmp(&b).unwrap()
-        });
-
-        let (step_length, max_iters): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, false);
-        let half_step_length: f64 = 0.5 * step_length;
-        let step_len_over_6: f64 = step_length / 6.0;
-
-        let mut idx_iter: std::vec::IntoIter<usize> = sorted_indicies.into_iter();
-        let mut current_index: usize = idx_iter.next().unwrap();
-        // ^unwrap is safe
-
-        let mut current_quantile: f64 = points[current_index];
-
-        while current_quantile <= 0.0 {
-            ret[current_index] = bounds.0;
-
-            // update `current_quantile` to the next value or exit if we are done
-            match idx_iter.next() {
-                Some(v) => current_index = v,
-                None => return ret,
-            }
-            current_quantile = points[current_index];
-        }
-
-        let mut num_step: f64 = 0.0;
-        let mut accumulator: f64 = 0.0;
-
-        // estimate the bound value with the next 2 values
-        let mut last_pdf_evaluation: f64 = {
-            let middle: f64 = self.pdf(bounds.0 + half_step_length);
-            let end: f64 = self.pdf(bounds.0 + step_length);
-            2.0 * middle - end
-        };
-
-        // SAFETY: should always be safe to only read
-        let use_newtons_method: bool = unsafe { crate::configuration::QUANTILE_USE_NEWTONS_ITER };
-
-        'integration_loop: for _ in 0..max_iters {
-            let current_position: f64 = bounds.0 + step_length * num_step;
-
-            while current_quantile <= accumulator {
-                let mut quantile: f64 = current_position;
-
-                let pdf_q: f64 = self.pdf(quantile);
-                // result of pdf is always finite
-                #[allow(clippy::neg_cmp_op_on_partial_ord)]
-                if use_newtons_method && !(pdf_q.abs() < f64::EPSILON) {
-                    // if pdf_q is essentially 0, skip this.
-                    // newton's iteration
-                    quantile = quantile - (accumulator - current_quantile) / pdf_q;
-                }
-
-                ret[current_index] = quantile;
-
-                // update `current_quantile` to the next value or exit if we are done
-                match idx_iter.next() {
-                    Some(v) => current_index = v,
-                    None => return ret,
-                }
-                current_quantile = points[current_index];
-            }
-
-            if bounds.1 <= current_position {
-                ret[current_index] = current_position;
-                break 'integration_loop;
-            }
-
-            let middle: f64 = self.pdf(current_position + half_step_length);
-            let end: f64 = self.pdf(current_position + step_length);
-
-            accumulator += step_len_over_6 * (last_pdf_evaluation + 4.0 * middle + end);
-
-            last_pdf_evaluation = end;
-            num_step += 1.0;
-        }
-
-        ret[current_index] = bounds.1;
-
-        for idx in idx_iter {
-            // use all remaining indicies
-            ret[idx] = bounds.1;
-        }
-
-        return ret;
-    }
-
-    #[must_use]
     fn expected_value(&self) -> Option<f64> {
         return Some(self.alpha * self.theta);
     }
 
-    #[must_use]
     fn variance(&self) -> Option<f64> {
         return Some(self.alpha * self.theta * self.theta);
     }
 
-    #[must_use]
     fn mode(&self) -> f64 {
         return ((self.alpha - 1.0) * self.theta).max(0.0);
     }
 
-    // median has no simple closed form
+    fn median(&self) -> f64 {
+        // median has no simple closed form
 
-    #[must_use]
+        // desmos fn: \frac{1}{(x-1)!}\cdot\int_{0}^{y}t^{x-1}\cdot e^{-t}\ dt\ =\ 0.5
+        // x is the shape alpha
+
+        /*
+        const TRESHOLD_LARGE_APPROXIMATION: f64 = 16.0;
+
+        if TRESHOLD_LARGE_APPROXIMATION <= self.alpha {
+            // very good and cheap approximation for large alpha.
+            // is asymptotically accurate at high alpha.
+            // at alpha = 8.0 it has an error of arround 1% and *should* decrease as alpha increases.
+            let inner: f64 = 1.0 - 1.0 / (9.0 * self.alpha);
+            let cubed: f64 = inner * inner * inner;
+
+            let standardized_median: f64 = self.alpha * cubed;
+            return standardized_median * self.theta;
+        }
+        */
+
+        /*
+
+        let $v(a)$ denote the median function and $a$ be the shape parameter (alpha).
+
+        v(1.0) = ln(2) ~= 0.69314718056
+
+        v(1.0001) ~= 0.6932439854
+         */
+
+        // relabeling (will get optimized away)
+        let a: f64 = self.alpha;
+
+        const TRESHOLD_LARGE_APPROXIMATION: f64 = 129.0;
+        const TRESHOLD_MID_APPROXIMATION: f64 = 1.75;
+        const TRESHOLD_LOW_APPROXIMATION: f64 = 0.05;
+
+        if TRESHOLD_LARGE_APPROXIMATION <= a {
+            // After this value, we can drop some terms since they get rounded down to 0
+
+            // Desmos fn: f\left(x\right)\ =\ x\ -\ \frac{1}{3}\ +\ \frac{0.019753086419753086}{x}+\frac{0.007211444248481286}{x^{\ 2}}+\frac{0.0006526298981717363}{x^{\ 3}}\ -\frac{0.0012385769635511374}{x^{\ 4}}
+
+            let inv: f64 = 1.0 / a;
+            let laurent: f64 = GAMMA_MEDIAN_LAURENT_APPROX[4]
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[3])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[2])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[1])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[0]);
+
+            return laurent + a;
+        } else if TRESHOLD_MID_APPROXIMATION <= a {
+            // Desmos fn: f\left(x\right)\ =\ x\ -\ \frac{1}{3}\ +\ \frac{0.019753086419753086}{x}+\frac{0.007211444248481286}{x^{\ 2}}+\frac{0.0006526298981717363}{x^{\ 3}}\ -\frac{0.0012385769635511374}{x^{\ 4}}\ -\ \frac{0.0004509888376840951}{x^{\ 5}}+\frac{0.0006639604003340528}{x^{6}}+\frac{0.000449835386727579}{x^{\ 7}}-\frac{0.000765903234571818}{x^{8}}-\frac{0.0007597853853152098}{x^{\ 9}}
+
+            let inv: f64 = 1.0 / a;
+            let laurent: f64 = GAMMA_MEDIAN_LAURENT_APPROX[10]
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[9])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[8])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[7])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[6])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[5])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[4])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[3])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[2])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[1])
+                .mul_add(inv, GAMMA_MEDIAN_LAURENT_APPROX[0]);
+
+            return laurent + a;
+        } else {
+            /*
+            return euclid::EXP_NEG_MASCH * (-euclid::LN_2 / a).exp();
+            // at 0.1: pred: 0.0005483, real ~ 0.0007336
+
+             */
+        }
+
+        // fallback
+        return self.quantile(0.5);
+    }
+
     fn skewness(&self) -> Option<f64> {
         return Some(2.0 / self.alpha.sqrt());
     }
 
-    #[must_use]
-    fn kurtosis(&self) -> Option<f64> {
-        return self.excess_kurtosis().map(|x| x + 3.0);
-    }
-
-    #[must_use]
     fn excess_kurtosis(&self) -> Option<f64> {
         return Some(6.0 / self.alpha);
     }
 
-    #[must_use]
     fn moments(&self, order: u8, mode: euclid::Moments) -> f64 {
-        /*
-
-               Plan:
-
-            Just to the integral. The integral that gives us the moments of order `k` is:
-
-            ```
-            integral {a -> b} ( (x - mu) / std )^k * f(x) dx
-            ```
-             - `k` is the order of the moment
-             - `f(x)` is the pdf of the distribution.
-             - `a` and `b` are the values that bound the domain of `f(x)`
-                    (they can be `a = -inf` and `b = -inf`).
-             - `mu` is the mean of the distribution (or `0` if we selected the `Raw` moment)
-             - `std` is the standard deviation of the distribution
-                    (or `1` if we did not select the `Standarized` moment)
-
-
-           Distiguish between cases depending on the domain.
-
-           We will integrate using [Simpson's rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_1/3_rule)
-           for integration.
-
-           To compute integrals over an infinite range, we will perform a special
-           [numerial integration](https://en.wikipedia.org/wiki/Numerical_integration#Integrals_over_infinite_intervals).
-
-            let g(x) = ( (x - mu) / std )^k * f(x)
-                For -infinite to const:
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} g(a - (1 - t)/t)  /  t^2  dt
-            integral {-inf -> a} g(x) dx = integral {0 -> 1} ( (a - (1 - t)/t - mu) / std )^k * f(a - (1 - t)/t)  /  t^2  dt
-
-                For const to infinite:
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} g(a + t/(t - 1))  /  (1 - t)^2  dt
-            integral {a -> inf} g(x) dx  = integral {0 -> 1} ( (a + t/(t - 1) - mu) / std )^k * f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-                For -infinite to infinite:
-            let inp = t/(1 - t^2)
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} g(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-            integral {-inf -> inf} g(x) dx  = integral {-1 -> 1} ( (t/(1 - t^2) - mu) / std )^k * f(t/(1 - t^2))  *  (1 + t^2) / (1 - t^2)^2  dt
-
-
-        */
-
         if let euclid::Moments::Raw = mode {
             let mut acc: f64 = 1.0;
             let mut i: f64 = 1.0;
@@ -612,57 +417,26 @@ impl Distribution for Gamma {
             return self.theta.powi(i32::from(order)) * acc;
         }
 
-        let domain: &ContinuousDomain = self.get_domain();
-        let bounds: (f64, f64) = domain.get_bounds();
-
         // The values of 0.0 and 1.0 have no special meaning. They are not going to be used anyway.
-        let (mean, std_dev): (f64, f64) = match mode {
+        let (mean, variance): (f64, f64) = match mode {
             euclid::Moments::Raw => unreachable!(),
-            euclid::Moments::Central => (
-                self.expected_value()
-                    .expect("Tried to compute a central moment but the expected value is undefined. "),
-                1.0,
-            ),
-            euclid::Moments::Standarized => (
-                self.expected_value()
-                    .expect("Tried to compute a central/standarized moment but the Expected value is undefined. "),
-                self.variance().expect("Tried to compute a standarized moment but the variance is undefined. "),
-            ),
+            euclid::Moments::Central => {
+                // SAFETY: the `expected_value` fn will always return the some variant for the gamma distribution
+                let mean: f64 = unsafe { self.expected_value().unwrap_unchecked() };
+                (mean, 1.0)
+            },
+            euclid::Moments::Standarized => {
+                // SAFETY: the `expected_value` fn will always return the some variant for the gamma distribution
+                let mean: f64 = unsafe { self.expected_value().unwrap_unchecked() };
+                // SAFETY: the `variance` fn will always return the some variant for the gamma distribution
+                let variance: f64 = unsafe { self.variance().unwrap_unchecked() };
+                (mean, variance)
+            }
         };
 
-        // Todo: give better error handling to the above. ^
-        // println!("(mean, std_dev): {:?}", (mean, std_dev));
-
-        let order_exp: i32 = i32::from(order);
-        let (minus_mean, inv_std_dev) = (-mean, 1.0 / std_dev.sqrt());
-        let (_, num_steps): (f64, usize) =
-            euclid::choose_integration_precision_and_steps(bounds, true);
-
-        let moment: f64 = {
-            // integral {a -> inf} f(x) dx  = integral {0 -> 1} f(a + t/(t - 1))  /  (1 - t)^2  dt
-
-            let integration_fn = |x: f64| 'integration: {
-                // x will go from 0.0 to 1.0
-
-                let x_minus: f64 = x - 1.0;
-                if x_minus.abs() < f64::EPSILON {
-                    // too near singularity, skip
-                    break 'integration 0.0;
-                }
-
-                let u: f64 = 1.0 / x_minus;
-                let fn_input: f64 = bounds.0 + x * u;
-                let std_inp: f64 = (fn_input + minus_mean) * inv_std_dev;
-                break 'integration std_inp.powi(order_exp) * self.pdf(fn_input) * u * u;
-            };
-
-            euclid::numerical_integration_finite(integration_fn, bounds, num_steps as u64)
-        };
-
-        return moment;
+        return self.default_moments(order, mean, variance);
     }
 
-    #[must_use]
     fn entropy(&self) -> f64 {
         return self.alpha
             + self.theta.ln()
@@ -683,7 +457,6 @@ impl Parametric for Gamma {
     /// > \[alpha, theta\]
     ///
     /// Alpha and theta must be both stricly positive.
-    #[must_use]
     fn general_pdf(&self, x: f64, parameters: &[f64]) -> f64 {
         // pdf(x | a, t) = 1/(Gamma(a)*t^a) * x^(a-1) * exp(-x/t)
         let a: f64 = parameters[0];
@@ -692,17 +465,16 @@ impl Parametric for Gamma {
         return self.normalitzation_constant * shape;
     }
 
-    #[must_use]
     fn number_of_parameters() -> u16 {
         return 2;
     }
 
     fn get_parameters(&self, parameters: &mut [f64]) {
+        assert!(2 <= parameters.len(), "The buffer has not enough capacity. "); 
         parameters[0] = self.alpha;
         parameters[1] = self.theta;
     }
 
-    #[must_use]
     fn derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
         // => f(x) * d/dx ln(f(x)) = f'(x)
@@ -841,7 +613,6 @@ impl Parametric for Gamma {
         return ret;
     }
 
-    #[must_use]
     fn log_derivative_pdf_parameters(&self, x: f64, parameters: &[f64]) -> Vec<f64> {
         // d/dx ln(f(x)) = f'(x)/f(x)
 
@@ -903,99 +674,144 @@ impl Parametric for Gamma {
 
     fn parameter_restriction(&self, _parameters: &mut [f64]) {}
 
-    #[must_use]
     fn fit(&self, data: &mut crate::samples::Samples) -> Vec<f64> {
         /*
+            **Recommended wiewing with Latex visualizer / obsidian or something**
                 Using Maximum Likelyhood estimation:
-            Assuming k samples.
+            Assuming n samples.
 
-                Estimation of alpha:
+            
+            $$
+            f(x; \alpha, \theta) = \frac{1}{\theta^{\alpha} \cdot \Gamma(\alpha)} \cdot x^{\alpha - 1} \cdot e^{ \frac{-x}{\theta} }
+            $$
+            $$
+            \ln (f(x; \alpha, \theta)) = \ln\left( \frac{1}{\theta^{\alpha} \cdot \Gamma(\alpha)} \cdot x^{\alpha - 1} \cdot e^{ \frac{-x}{\theta} } \right)
+            $$
+            $$
+            = -\alpha \ln(\theta) - \ln\Gamma(\alpha) + (\alpha - 1) \ln(x) - \frac{x}{\theta}
+            $$
 
-            pdf(x | a, b) = 1/(Gamma(a)*t^a) * x^(a-1) * exp(-x/t)
-            d/da ln(pdf(x | a, b) = -Digamma(a) - ln(t) + ln(x)
-            0 = sumatory{x_i} -Digamma(a) - ln(t) + ln(x_i)
-            0 = -k*Digamma(a) - k*ln(t) + sumatory{x_i} ln(x_i)
-            k*Digamma(a) = - k*ln(t) + sumatory{x_i} ln(x_i)
-            Digamma(a) = -ln(t) + 1/k * sumatory{x_i} ln(x_i)
-            a = inv_digamma( -ln(t) + 1/k * sumatory{x_i} ln(x_i) )
 
-                Estimation of theta:
 
-            pdf(x | a, b) = 1/(Gamma(a)*t^a) * x^(a-1) * exp(-x/t)
-            d/dt ln(pdf(x | a, b) = 1/t * (x / t - a)
-            0 = sumatory{x_i} 1/t * (x_i / t - a)
-            0 = 1/t * sumatory{x_i} x_i / t - a
-            0 = 1/t * (-a * k + sumatory{x_i}[ x_i / t ])
-            0 = 1/t * (-a * k + 1/t * sumatory{x_i}[ x_i ])
-            0 * t = -a * k + 1/t * sumatory{x_i}[ x_i ]
-            // deleting solution t = 0, wich is invalid
-            0 = -a * k + 1/t * sumatory{x_i}[ x_i ]
-            a * k = 1/t * sumatory{x_i}[ x_i ]
-            a * k * t = 1/k * sumatory{x_i}[ x_i ]
-            t = 1/a * 1/k * sumatory{x_i}[ x_i ]
-            t = 1/a * mean{x_i}
+            The maximum likelyhood estimation is defined as: 
+            $$
+            L(\alpha, \theta) = \prod_{i=1}^n f(x_{i}; \alpha, \theta)
+            $$
+            $$
+            \ell(\alpha, \theta) 
+            = \ln(L(\alpha, \theta))
+            = \sum_{i=1}^n -\alpha \ln(\theta) - \ln\Gamma(\alpha) + (\alpha - 1) \ln(x_{i}) - \frac{x_{i}}{\theta}
+            $$
+            $$
+            = n \cdot (-\alpha \ln(\theta) - \ln\Gamma(\alpha)) + \sum_{i=1}^n  (\alpha - 1) \ln(x_{i}) - \frac{x_{i}}{\theta}
+            $$
+            By using $n \cdot \overline {x} = \sum_{i} x_{i}$ , we can simplify further: 
+            $$
+            = 
+            n \cdot 
+            \left(
+            - \alpha \ln(\theta) 
+            - \ln\Gamma(\alpha)) 
+            + (\alpha - 1) \overline{\ln(x)} 
+            - \frac{\overline{x}}{\theta}
+            \right)
+            $$
+            Differentiating respect to $\theta$ and equating to $0$ (the $n$ can be 
+            discarded as $n \neq 0$): 
+            $$
+            0 = \frac{ \partial  }{ \partial \theta }  \ell(\alpha, \theta) = 
+            \frac{ \partial  }{ \partial \theta }  
+            - \alpha \ln(\theta) 
+            - \ln\Gamma(\alpha)) 
+            + (\alpha - 1) \overline{\ln(x)} 
+            - \frac{\overline{x}}{\theta}
+            $$
+            $$
+            0 = 
+            - \frac{\alpha}{\theta} 
+            + \frac{\overline{x}}{\theta^{2}} 
+            = 
+            \frac{1}{\theta} \cdot 
+            \left(
+                - \alpha 
+                + \frac{\overline{x}}{\theta}
+            \right) 
+            $$
+            Since $\frac{1}{\theta} \neq 0$, the other term must equal $0$ . 
 
-            We have the following 2 equations:
+            $$
+            0 = 
+            - \alpha 
+            + \frac{\overline{x}}{\theta}
+            $$
+            Now solving for $\theta$ : 
+            $$
+            \theta
+            = 
+            \frac{\overline{x}}{ \alpha }
+            $$
+            Now we have a very simple closed form solution for $\theta$ given 
+            $\alpha$ . Plugging this result back into the log likelyhood function: 
 
-            a * t = 1/k * sumatory{x_i}[ x_i ]
-            Digamma(a) = -ln(t) + 1/k * sumatory{x_i} ln(x_i)
+            $$
+            \ell(\alpha) 
+            = 
+            n \cdot 
+            \left(
+                - (\alpha - 1) \overline{\ln(x)} 
+                - \alpha
+                + \alpha \ln(\frac{\overline{x}}{ \alpha }) 
+                - \ln\Gamma(\alpha)) 
+            \right)
+            $$
 
-            We can compute `sumatory{x_i}[ x_i ]` and  `sumatory{x_i} ln(x_i)`.
+            According to wikipedia, solving for $\alpha$ when equating to $0$ 
+            has no closed form solution, but is a well behaved function. Differentiating 
+            respect to $\alpha$ and equating to $0$ : 
+            $$
+            0 = \frac{ \partial  }{ \partial \alpha }  \ell(\alpha) = 
+            n \cdot 
+            \left(
+                \frac{ \partial  }{ \partial \alpha }
+                
+                (\alpha - 1) \overline{\ln(x)} 
+                - \alpha
+                - \alpha \ln(\overline{x}) 
+                + \alpha \ln( \alpha ) 
+                - \ln\Gamma(\alpha)) 
+            \right)
+            $$
+            $$
+            0 = 
+            \overline{\ln(x)} 
+            - 1
+            - \ln(\overline{x}) 
+            + \ln( \alpha ) + 1 
+            - \psi_{0}(\alpha)) 
+            $$
+            $$
+            \ln( \alpha ) 
+            - \psi_{0}(\alpha)
+            = 
+            \ln(\overline{x}) 
+            -\overline{\ln(x)} 
+            $$
+            We can use this result to use Newton's method to find a numerical 
+            value for $\alpha$ . Let $s = \ln(\overline{x}) -\overline{\ln(x)}$. 
+            Then we can define the function $g(x) = \ln( \alpha ) - \psi_{0}(\alpha) - s$ . 
+            Therefore the Newton method update step is: 
+            $$
+            \alpha_{k+1} = \alpha_{k} - \frac{g(x)}{g^\prime (x)} = \alpha_{k} - \frac{\ln( \alpha ) - \psi_{0}(\alpha) - s}{\frac{1}{\alpha} - \psi_{1}(\alpha)}
+            $$
 
-            t = 1/a * mean{x_i}
-            Digamma(a) = -ln(1/a * mean{x_i}) + 1/k * sumatory{x_i} ln(x_i)
-            Digamma(a) = -ln(1/a) - ln(mean{x_i}) + 1/k * sumatory{x_i} ln(x_i)
-            Digamma(a) = ln(a) - ln( mean{x_i} ) + mean{x_i}[ ln(x_i) ]
-            Digamma(a) - ln(a) = mean{x_i}[ ln(x_i) ] - ln( mean{x_i} )
-
-            We are stuck here, however we can try to find a numerical solution.
-            If we create a statistic `s` and a function `f` such that:
-
-            s = -( mean{x_i}[ ln(x_i) ] - ln( mean{x_i} ) )
-            s = ln( mean{x_i} ) - mean{x_i}[ ln(x_i) ]
-            f(a) = Digamma(a) - ln(a) + s
-
-            Since `s` is considered contatn, the solution is just `a = f^-1(0)`.
-
-            We will use Newton's method for that. Computing f'(a):
-
-            d/da Digamma(a) = d/da Gamma'(a)/Gamma(a)
-             = (Gamma''(a)*Gamma(a) - Gamma'(a)*Gamma'(a)) / Gamma(a)^2
-             = (Gamma''(a)*Gamma(a) - Gamma'(a)^2) / Gamma(a)^2
-             = (Gamma''(a)*Gamma(a) - (Digamma(x)*Gamma(a))^2) / Gamma(a)^2
-             = (Gamma''(a)*Gamma(a) - Digamma(x)^2 * Gamma(a)^2) / Gamma(a)^2
-             = Gamma''(a) / Gamma(a) - Digamma(x)^2
-             = (polygamma_1(x) + Digamma(x)) * Gamma(a) / Gamma(a) - Digamma(x)^2
-             = polygamma_1(x) + Digamma(x)^2 - Digamma(x)^2
-             = polygamma_1(x)
-             = trigamma(x)
-
-            d/da f(a) = d/da Digamma(a) - ln(a) + s
-            d/da f(a) = polygamma_1(a) - 1/a
-
-            To compute the polygamma_1 function we will just take the derivative definition.
-            Even if it contains some error, it should be accurate enough. Also, h can be decreased.
-            Otherwise, a possible improvement for this function is to use an actual
-            implemetation for oplygamma_1.
-
-            d/da f(a) = trigamma(a) - 1/a
-
-            Using Newton's method:
-
-            a_i+1 = a_i - f(a_i)/f'(a_i)
-            a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)/(trigamma(a_i) - 1/a_i)
-            a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s) / ((Digamma(a_i + h) - Digamma(a_i))/h - 1/a_i)
-            a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s) / (Digamma(a_i + h) - Digamma(a_i) - h/a_i)/h
-            a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)*h / (Digamma(a_i + h) - Digamma(a_i) - h/a_i)
-
-            For the initial value of a_0:
-
-            Accordint to [wikipedia](https://en.wikipedia.org/wiki/Gamma_distribution#Maximum_likelihood_estimation),
-            the following formula gives an acceptable estimate:
-
-            a_0 = (3 - s + sqrt((s - 3)^2 + 24 * s)) / 12*s
-            Note that s is always positive, therefore a_0 exists as long
-            as samples are positive.
+            For the initial value of $a_0$, accordint to [wikipedia](https://en.wikipedia.org/wiki/Gamma_distribution#Maximum_likelihood_estimation), 
+            the following formula gives an acceptable estimate: 
+            $$
+            a_0 = \frac{3 - s + \sqrt{ (s - 3)^2 + 24s }}{12s} 
+            $$
+            Where $s = \ln(\overline{x}) - \overline{\ln(x)}$ . 
+            
+            Note that $s$ is always positive, therefore $a_0$ exists as long as samples are positive.
 
         */
 
@@ -1019,7 +835,7 @@ impl Parametric for Gamma {
         };
         // If None, it means that the data did not come from a Gamma distribution
 
-        //s = ln( mean{x_i} ) - mean{x_i}[ ln(x_i) ]
+        // s = ln( mean{x_i} ) - mean{x_i}[ ln(x_i) ]
         let s: f64 = mean.ln() * mean_log;
         assert!(0.0 <= s);
 
@@ -1037,7 +853,12 @@ impl Parametric for Gamma {
         };
 
         let mut difference: f64 = f64::MAX;
-        while convergence_epsilon < difference {
+
+        // max iterations
+        let mut i: i32 = 0; 
+        const MAX_ITTERATIONS_NEWTON_GAMMA: i32 = 200; // arbitrary
+
+        while convergence_epsilon < difference && i < MAX_ITTERATIONS_NEWTON_GAMMA {
             //a_i+1 = a_i - (Digamma(a_i) - ln(a_i) + s)*h / (Digamma(a_i + h) - Digamma(a_i) - h/a_i)
 
             let digamma: f64 = euclid::digamma(a);
@@ -1048,6 +869,16 @@ impl Parametric for Gamma {
 
             difference = num / den;
             a = a - difference;
+            i = i + 1; 
+            if !a.is_finite() {
+                // we are not in normal numbers, newton's method has not converged. 
+                i = MAX_ITTERATIONS_NEWTON_GAMMA; 
+            }
+        }
+
+        if i == MAX_ITTERATIONS_NEWTON_GAMMA {
+            // convergence has not been achieved. 
+            return Vec::new();
         }
 
         // a has converged

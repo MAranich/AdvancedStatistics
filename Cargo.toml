@@ -24,6 +24,8 @@ thiserror = "^2.0"
 # We need serde for compatability
 # serde = "^1.0"
 
+# https://github.com/cool-japan/scirs
+
 [dev-dependencies]
 # pretty_assertions = "1"
 assert_approx_eq = "1.1.0"

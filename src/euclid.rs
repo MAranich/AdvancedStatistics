@@ -19,6 +19,18 @@ pub const INV_SQRT_2_PI: f64 = 0.39894228040143267793994605993438186847585863116
 /// Constant value for `ln(pi)`
 pub const LN_PI: f64 = 1.1447298858494001741434273513530587116472948129153;
 
+/// Constant value for `ln(2.0) = 0.6931471805599453`
+pub const LN_2: f64 = f64::from_bits(4604418534313441775);
+
+
+/// Constant value for the [Euler–Mascheroni constant](https://en.wikipedia.org/wiki/Euler%27s_constant)
+pub const EULER_MASCHERONI: f64 = 0.577215664901532860606512090082402431042159;
+
+/// Constant value for `exp(-masch) = 0.5614594835668851`
+/// 
+/// Where masch is the [EULER_MASCHERONI] constant. 
+pub const EXP_NEG_MASCH: f64 = f64::from_bits(4603232396987227326);
+
 /// Constant value for `ln(2 * sqrt(e / pi))`
 pub const LN_2_SQRT_E_OVER_PI: f64 = 0.6207822376352452223455184457816472122518527279025978;
 
